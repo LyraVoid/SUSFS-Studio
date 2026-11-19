@@ -2,6 +2,64 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import fixtures from "../../contracts/diagnostic-v1.json" with { type: "json" };
 
+test("a late host response cannot overwrite a newer refresh", async ({
+  page,
+}) => {
+  await page.addInitScript(
+    ({ hello, active, failed }) => {
+      let delayNext = false;
+      let failNext = false;
+      window.addEventListener("delay-next-status", () => {
+        delayNext = true;
+      });
+      window.addEventListener("fail-next-status", () => {
+        failNext = true;
+      });
+      window.studioDiagnostics = {
+        hello: () => JSON.stringify(hello),
+        status: () => {
+          if (delayNext) {
+            delayNext = false;
+            return new Promise<string>((resolve) => {
+              window.addEventListener(
+                "release-old-status",
+                () => resolve(JSON.stringify(active)),
+                { once: true },
+              );
+            });
+          }
+          if (failNext) {
+            failNext = false;
+            return JSON.stringify(failed);
+          }
+          return JSON.stringify(active);
+        },
+      };
+    },
+    { hello: fixtures.hello, active: fixtures.active, failed: fixtures.failed },
+  );
+  await page.goto("/");
+  await expect(page.getByRole("status")).toContainText("v2.3.0");
+  await page.getByRole("button", { name: /状态/ }).click();
+  const refresh = page.getByRole("button", { name: "刷新诊断" });
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("delay-next-status")),
+  );
+  await refresh.click();
+  await expect(page.getByRole("dialog")).toContainText("正在刷新");
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("fail-next-status")),
+  );
+  await refresh.click();
+  await expect(page.getByRole("dialog")).toContainText("无法读取诊断结果");
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("release-old-status")),
+  );
+  await expect(page.getByRole("dialog")).toContainText("无法读取诊断结果");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("status")).not.toContainText("LKM");
+});
+
 test("a host without a diagnostic bridge does not display demo data", async ({
   page,
 }) => {
