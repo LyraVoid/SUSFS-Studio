@@ -36,9 +36,10 @@ After installing dependencies with the repository lockfile, run the following co
 pnpm --dir web check
 pnpm --dir web exec playwright install chromium
 pnpm --dir web test:e2e
+pnpm --dir web test:static
 pnpm --dir web build
 ```
 
-`check` runs formatting and lint checks, TypeScript checks, and unit tests. The browser suite covers navigation, demo scenarios, archive previews, preference persistence, the responsive breakpoint, and selected accessibility checks. Set `CHROMIUM_PATH` to use an existing Chromium executable.
+`check` runs formatting and lint checks, TypeScript checks, and unit tests. The browser suite covers navigation, demo scenarios, archive previews, preference persistence, the responsive breakpoint, and selected accessibility checks. `test:static` builds the WebUI in development mode and checks that its CSP blocks embedded frames. Set `CHROMIUM_PATH` to use an existing Chromium executable.
 
-The static build writes to `web/dist/`. Serve that directory over HTTP and verify that a direct URL such as `index.html#/rules/disguise` loads under a nested path. Vite emits relative asset URLs and a Content Security Policy that disables runtime network connections for the static build. The output is the browser preview and still uses simulated data.
+The static build writes to `web/dist/`. Serve that directory over HTTP and verify that a direct URL such as `index.html#/rules/disguise` loads under a nested path. Vite emits relative asset URLs and a Content Security Policy that disables network connections and embedded frames. The policy does not prevent top-level navigation or restrict a host's JavaScript bridge; the host must enforce trusted page origins and navigation separately. The output uses simulated data unless a diagnostic bridge is provided.

@@ -15,7 +15,7 @@ export default defineConfig({
           attrs: {
             "http-equiv": "Content-Security-Policy",
             content:
-              "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'",
+              "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'",
           },
         },
       ],

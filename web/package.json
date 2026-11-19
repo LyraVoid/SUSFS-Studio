@@ -11,7 +11,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "check": "biome check . && tsc --noEmit && vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test tests/studio.spec.ts",
+    "test:static": "vite build --mode development && playwright test tests/static-policy.spec.ts"
   },
   "dependencies": {
     "@mantine/core": "8.3.14",

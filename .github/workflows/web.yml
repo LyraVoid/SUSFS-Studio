@@ -27,3 +27,4 @@ jobs:
       - run: pnpm --dir web check
       - run: pnpm --dir web exec playwright install --with-deps chromium
       - run: pnpm --dir web test:e2e
+      - run: pnpm --dir web test:static
