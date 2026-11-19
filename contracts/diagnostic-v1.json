@@ -1,0 +1,20 @@
+{
+  "hello": { "protocol": 1, "requestId": "hello", "ok": true, "data": "studioctl" },
+  "active": {
+    "protocol": 1,
+    "requestId": "status",
+    "ok": true,
+    "data": {
+      "kind": "active",
+      "provider": {
+        "implementation": "lkm",
+        "kernelType": "GKI",
+        "version": "v2.3.0",
+        "capabilities": { "paths": "available", "map": "unavailable", "kstat": "unavailable", "redirect": "unavailable" }
+      }
+    }
+  },
+  "missing": { "protocol": 1, "requestId": "status", "ok": true, "data": { "kind": "missing" } },
+  "unknownProtocol": { "protocol": 1, "requestId": "status", "ok": true, "data": { "kind": "unknownProtocol" } },
+  "failed": { "protocol": 1, "requestId": "status", "ok": true, "data": { "kind": "failed" } }
+}

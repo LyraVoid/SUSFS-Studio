@@ -10,6 +10,15 @@ struct Envelope<T: Serialize> {
     data: T,
 }
 
+fn response<T: Serialize>(request_id: &'static str, data: T) -> Envelope<T> {
+    Envelope {
+        protocol: 1,
+        request_id,
+        ok: true,
+        data,
+    }
+}
+
 #[derive(Serialize)]
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -163,18 +172,8 @@ fn main() {
         std::process::exit(2);
     }
     let output = match action.as_deref() {
-        Some("hello") => serde_json::to_string(&Envelope {
-            protocol: 1,
-            request_id: "hello",
-            ok: true,
-            data: "studioctl",
-        }),
-        _ => serde_json::to_string(&Envelope {
-            protocol: 1,
-            request_id: "status",
-            ok: true,
-            data: status(),
-        }),
+        Some("hello") => serde_json::to_string(&response("hello", "studioctl")),
+        _ => serde_json::to_string(&response("status", status())),
     };
     match output {
         Ok(json) => println!("{json}"),
@@ -190,6 +189,31 @@ mod tests {
             error: 0,
             text: Some(text.to_owned()),
             absent: false,
+        }
+    }
+    #[test]
+    fn matches_shared_response_fixtures() {
+        let fixtures: serde_json::Value =
+            serde_json::from_str(include_str!("../../contracts/diagnostic-v1.json")).unwrap();
+        assert_eq!(
+            serde_json::to_value(response("hello", "studioctl")).unwrap(),
+            fixtures["hello"]
+        );
+        let active = classify(
+            reply("v2.3.0"),
+            reply("CONFIG_KSU_SUSFS_SUS_PATH\nSUSFS_LKM_MODULES"),
+            reply("GKI-LKM"),
+        );
+        for (name, status) in [
+            ("active", active),
+            ("missing", Status::Missing),
+            ("unknownProtocol", Status::UnknownProtocol),
+            ("failed", Status::Failed),
+        ] {
+            assert_eq!(
+                serde_json::to_value(response("status", status)).unwrap(),
+                fixtures[name]
+            );
         }
     }
     #[test]

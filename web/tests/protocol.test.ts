@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
+import fixtures from "../../contracts/diagnostic-v1.json";
 import { parseStatusResponse } from "../src/transport/protocol";
 
 describe("status response boundary", () => {
+  it.each([
+    fixtures.active,
+    fixtures.missing,
+    fixtures.unknownProtocol,
+    fixtures.failed,
+  ])("decodes shared status fixture %#", (fixture) => {
+    expect(parseStatusResponse(JSON.stringify(fixture), "status")).toEqual(
+      fixture.data,
+    );
+  });
   const valid = {
     protocol: 1,
     requestId: "r1",
