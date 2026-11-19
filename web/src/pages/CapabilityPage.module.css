@@ -1,0 +1,19 @@
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s8);
+}
+.subnav a {
+  display: grid;
+  place-items: center;
+  min-height: var(--hit);
+  padding-inline: var(--s16);
+  background: var(--surface-container);
+  border-radius: var(--r-full);
+  color: var(--on-container);
+  text-decoration: none;
+}
+.subnav a[aria-current] {
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+}

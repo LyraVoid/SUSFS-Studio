@@ -1,0 +1,32 @@
+.header {
+  margin: 0 var(--s4) var(--s12);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s4) var(--s12);
+  flex-wrap: wrap;
+}
+.header h1 {
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  font-weight: 500;
+}
+.header span {
+  color: var(--dashboard-muted);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+.dashboard {
+  display: grid;
+  gap: var(--s24);
+}
+.overview {
+  display: grid;
+  gap: var(--s16);
+  align-content: start;
+}
+@media (min-width: 1100px) {
+  .dashboard {
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "files": {
+    "includes": ["**", "!**/dist", "!**/test-results", "!**/playwright-report"]
+  },
+  "formatter": { "indentStyle": "space" },
+  "linter": { "enabled": true, "rules": { "recommended": true } }
+}

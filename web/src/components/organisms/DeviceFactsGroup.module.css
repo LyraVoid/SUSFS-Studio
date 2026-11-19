@@ -1,0 +1,14 @@
+.title {
+  padding-inline: var(--s16);
+  color: var(--activation-accent);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.125rem;
+  margin-bottom: var(--s12);
+}
+.rows {
+  display: grid;
+  gap: 2px;
+  border-radius: var(--r16);
+  overflow: hidden;
+}

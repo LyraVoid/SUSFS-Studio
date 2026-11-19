@@ -1,0 +1,58 @@
+.panel {
+  background: var(--surface-container);
+  color: var(--on-container);
+  border-radius: var(--r16);
+  padding: var(--s16);
+  display: grid;
+  gap: var(--s12);
+}
+.panel h2 {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.muted {
+  color: var(--on-muted);
+}
+.facts {
+  display: grid;
+  gap: var(--s4);
+}
+.facts > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--s4) var(--s16);
+  padding-block: var(--s4);
+}
+.facts dd {
+  color: var(--on-muted);
+}
+.facts dd[data-availability="available"] {
+  color: var(--success);
+}
+.facts dd[data-availability="unavailable"] {
+  color: var(--warning);
+}
+.dialog.dialog {
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+  border-radius: var(--r28);
+}
+.dialogHeader.dialogHeader {
+  background: inherit;
+  color: inherit;
+}
+.file.file {
+  background: var(--surface);
+  color: var(--on-surface);
+  border-color: var(--outline);
+}
+.preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 45dvh;
+  overflow: auto;
+  background: var(--surface-container);
+  padding: var(--s12);
+  border-radius: var(--r10);
+}

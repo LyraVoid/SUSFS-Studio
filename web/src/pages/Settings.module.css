@@ -1,0 +1,30 @@
+.choice {
+  position: relative;
+  border-radius: inherit;
+}
+.choice > div {
+  border-radius: inherit;
+}
+.choice select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.choice:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  z-index: 1;
+}
+.track.track {
+  border: 2px solid var(--outline);
+  background: var(--surface-container-highest);
+  color: var(--on-muted);
+}
+.thumb.thumb {
+  background: var(--outline);
+  color: var(--surface);
+  border: 0;
+}
