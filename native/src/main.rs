@@ -2,6 +2,8 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 
 mod archive;
+#[cfg(test)]
+mod store;
 use std::io::Read;
 
 #[derive(Serialize)]
