@@ -29,3 +29,17 @@ cargo clippy --manifest-path native/Cargo.toml --locked --all-targets -- -D warn
 ```
 
 The debug executable is written to `native/target/aarch64-linux-android/debug/studioctl`. Validate the host transport and device ABI separately before distributing it.
+
+## Package the development artifacts
+
+Build the WebUI and the Android executable first. Run the packager from the repository root with Python 3.9 or later.
+
+```bash
+pnpm --dir web exec vite build --mode development
+python3 scripts/package.py \
+  --web web/dist \
+  --cli native/target/aarch64-linux-android/debug/studioctl \
+  --output .local/susfs-studio-dev-arm64.zip
+```
+
+The ZIP contains module metadata, `webroot/`, and `bin/studioctl`. The packager validates the executable's ELF architecture and Android interpreter, checks the relative WebUI entry assets, and prints the archive's SHA-256 digest. Use a new output path for each build. Android host bridge injection and module installation still require integration testing.
