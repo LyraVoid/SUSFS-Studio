@@ -98,6 +98,7 @@ fn device() -> Option<Device> {
 struct Reply {
     error: i32,
     text: Option<String>,
+    modified: bool,
     absent: bool,
 }
 
@@ -132,6 +133,7 @@ fn query<const N: usize>(command: u32) -> Reply {
     Reply {
         error: payload.error,
         text,
+        modified: payload.text.iter().any(|byte| *byte != 0),
         absent,
     }
 }
@@ -141,11 +143,15 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
     let replies = [&version, &features, &variant];
     if replies
         .iter()
-        .all(|reply| reply.error == 126 && reply.absent)
+        .all(|reply| reply.error == 126 && !reply.modified && reply.absent)
     {
         return Status::Missing;
     }
-    if replies.iter().all(|reply| reply.error == 126) && replies.iter().any(|reply| !reply.absent) {
+    if replies
+        .iter()
+        .all(|reply| reply.error == 126 && !reply.modified)
+        && replies.iter().any(|reply| !reply.absent)
+    {
         return Status::Failed;
     }
     let (Some(version_text), Some(feature_text), Some(variant_text)) =
@@ -249,6 +255,7 @@ mod tests {
         Reply {
             error: 0,
             text: Some(text.to_owned()),
+            modified: !text.is_empty(),
             absent: false,
         }
     }
@@ -309,6 +316,7 @@ mod tests {
         let untouched = || Reply {
             error: 126,
             text: Some(String::new()),
+            modified: false,
             absent: true,
         };
         assert!(matches!(
@@ -324,6 +332,7 @@ mod tests {
                 Reply {
                     error: 126,
                     text: None,
+                    modified: false,
                     absent: false
                 },
                 untouched(),
@@ -337,8 +346,22 @@ mod tests {
                 Reply {
                     error: 126,
                     text: None,
+                    modified: false,
                     absent: false
                 },
+                untouched()
+            ),
+            Status::UnknownProtocol
+        ));
+        assert!(matches!(
+            classify(
+                Reply {
+                    error: 126,
+                    text: Some("v2.3.0".into()),
+                    modified: true,
+                    absent: true
+                },
+                untouched(),
                 untouched()
             ),
             Status::UnknownProtocol

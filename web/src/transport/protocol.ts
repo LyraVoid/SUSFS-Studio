@@ -59,8 +59,10 @@ export function parseStatusResponse(text: string, requestId: string): Status {
       provider.implementation !== "unknown") ||
     (provider.kernelType !== "GKI" && provider.kernelType !== "unknown") ||
     typeof provider.version !== "string" ||
-    provider.version.length === 0 ||
+    !provider.version.trim() ||
     provider.version.length > 128 ||
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: provider labels must be printable.
+    /[\u0000-\u001f\u007f]/u.test(provider.version) ||
     !record(provider.capabilities)
   )
     return { kind: "failed" };

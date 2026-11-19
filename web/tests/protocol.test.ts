@@ -72,4 +72,22 @@ describe("status response boundary", () => {
       ),
     ).toEqual({ kind: "failed" });
   });
+  it.each([
+    " ",
+    "v2.3.0\n",
+    "\u0000",
+  ])("rejects an invalid provider version %j", (version) => {
+    expect(
+      parseStatusResponse(
+        JSON.stringify({
+          ...valid,
+          data: {
+            ...valid.data,
+            provider: { ...valid.data.provider, version },
+          },
+        }),
+        "r1",
+      ),
+    ).toEqual({ kind: "failed" });
+  });
 });
