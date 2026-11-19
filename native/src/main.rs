@@ -1,8 +1,8 @@
 use serde::Serialize;
 use std::collections::BTreeMap;
 
-#[cfg(test)]
 mod archive;
+use std::io::Read;
 
 #[derive(Serialize)]
 struct Envelope<T: Serialize> {
@@ -232,11 +232,33 @@ fn status() -> Status {
 
 fn main() {
     let action = std::env::args().nth(1);
-    if std::env::args().len() != 2 || !matches!(action.as_deref(), Some("hello" | "status")) {
+    if std::env::args().len() != 2
+        || !matches!(action.as_deref(), Some("hello" | "status" | "preview"))
+    {
         std::process::exit(2);
     }
     let output = match action.as_deref() {
         Some("hello") => serde_json::to_string(&response("hello", "studioctl")),
+        Some("preview") => {
+            let mut input = Vec::new();
+            let read = std::io::stdin()
+                .lock()
+                .take(128 * 1024 + 1)
+                .read_to_end(&mut input);
+            let result = if read.is_err() || input.len() > 128 * 1024 {
+                "invalid"
+            } else {
+                match std::str::from_utf8(&input)
+                    .ok()
+                    .map(archive::validate_envelope)
+                {
+                    Some(archive::Envelope::Valid) => "valid",
+                    Some(archive::Envelope::Unknown) => "unknown",
+                    _ => "invalid",
+                }
+            };
+            serde_json::to_string(&response("preview", result))
+        }
         _ => serde_json::to_string(&response(
             "status",
             StatusData {

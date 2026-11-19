@@ -4,7 +4,7 @@
 
 ## Commands
 
-Run `studioctl hello` to check that the executable starts and reports protocol version 1. Run `studioctl status` as root to query the device interface. Both commands emit one JSON object on standard output. Other arguments are rejected.
+Run `studioctl hello` to check that the executable starts and reports protocol version 1. Run `studioctl status` as root to query the device interface. Run `studioctl preview` with an archive on standard input to classify its envelope without writing it. Commands emit one JSON object on standard output. Other arguments are rejected.
 
 Version 1 responses contain `protocol`, `requestId`, `ok`, and `data`. The command name is the response's `requestId`. `hello` returns `"studioctl"` as its data. A `status` response uses `data.kind` for the diagnostic result, including when the query itself fails. Rust serialization and WebUI status parsing share the [version 1 fixtures](../contracts/diagnostic-v1.json).
 
