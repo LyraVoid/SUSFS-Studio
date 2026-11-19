@@ -86,7 +86,7 @@ export const zh = {
   archiveSchemaNote: "版本标签仅供参考；尚未验证格式兼容性或规则内容。",
   archiveFormatValid:
     "Studio 归档结构及部分字段通过检查；规则完整性和设备兼容性尚未验证。",
-  archiveFormatInvalid: "Studio 归档结构无效；原文仍保留供查看。",
+  archiveFormatInvalid: "归档内容无效或存在重复字段；原文仍保留供查看。",
   archiveAmbiguous: "检测到重复字段；对比使用解析后的值，原文未改变。",
   archiveRuleCount: "规则条目：{count}",
   archiveCompare: "选择另一份归档进行对比",
@@ -208,7 +208,7 @@ export const en = {
   archiveFormatValid:
     "Studio archive structure and selected fields are valid; rule completeness and device compatibility have not been validated.",
   archiveFormatInvalid:
-    "Studio archive structure is invalid; the original text remains available.",
+    "The archive is invalid or contains duplicate keys; the original text remains available.",
   archiveAmbiguous:
     "Duplicate keys were found; comparison uses the parsed value and the original text is unchanged.",
   archiveRuleCount: "Rule entries: {count}",

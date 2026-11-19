@@ -91,7 +91,7 @@ export async function previewArchive(file: Blob) {
       } else formatStatus = "invalid";
     }
     if (ambiguous) {
-      if (format === "susfs-studio") formatStatus = "invalid";
+      formatStatus = "invalid";
       ruleCount = undefined;
     }
     return {

@@ -8,5 +8,8 @@
   { "name": "valid path and maximum inode", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\",\"path\":\"/x\",\"inode\":\"18446744073709551615\"}],\"maps\":[],\"kstats\":[],\"redirects\":[]}}", "expected": "valid" },
   { "name": "relative path", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\",\"path\":\"x\"}],\"maps\":[],\"kstats\":[],\"redirects\":[]}}", "expected": "invalid" },
   { "name": "inode overflow", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"b\",\"inode\":\"18446744073709551616\"}],\"redirects\":[]}}", "expected": "invalid" },
-  { "name": "inode number", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"b\",\"inode\":5}],\"redirects\":[]}}", "expected": "invalid" }
+  { "name": "inode number", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"b\",\"inode\":5}],\"redirects\":[]}}", "expected": "invalid" },
+  { "name": "unknown format with duplicate key", "text": "{\"format\":\"other\",\"schema\":2,\"x\":1,\"x\":1}", "expected": "invalid" },
+  { "name": "unknown schema with duplicate key", "text": "{\"format\":\"susfs-studio\",\"schema\":2,\"x\":1,\"x\":2}", "expected": "invalid" },
+  { "name": "unknown large integer", "text": "{\"format\":\"susfs-studio\",\"schema\":2,\"future\":1844674407370955161600000}", "expected": "unknown" }
 ]
