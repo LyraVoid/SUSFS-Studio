@@ -12,6 +12,18 @@ pub struct Store {
     dir: File,
 }
 
+#[derive(Debug)]
+pub enum SaveError {
+    BeforeCommit(io::Error),
+    ResultUnknown(io::Error),
+}
+
+impl From<io::Error> for SaveError {
+    fn from(error: io::Error) -> Self {
+        Self::BeforeCommit(error)
+    }
+}
+
 fn open_at(dir: &File, name: &str, flags: i32, mode: u32) -> io::Result<File> {
     let name = CString::new(name).map_err(|_| io::ErrorKind::InvalidInput)?;
     let fd = unsafe {
@@ -86,25 +98,28 @@ impl Store {
         self.read_unlocked()
     }
 
-    pub fn save(&self, expected: Option<&[u8]>, input: &[u8]) -> io::Result<()> {
+    pub fn save(&self, expected: Option<&[u8]>, input: &[u8]) -> Result<(), SaveError> {
+        self.save_with_sync(expected, input, File::sync_all)
+    }
+
+    fn save_with_sync(
+        &self,
+        expected: Option<&[u8]>,
+        input: &[u8],
+        sync_directory: impl FnOnce(&File) -> io::Result<()>,
+    ) -> Result<(), SaveError> {
         if input.len() as u64 > MAX
             || !matches!(
                 std::str::from_utf8(input).ok().map(validate_envelope),
                 Some(Envelope::Valid)
             )
         {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "invalid archive",
-            ));
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid archive").into());
         }
         let _lock = self.lock()?;
         let current = self.read_unlocked()?;
         if current.as_deref() != expected {
-            return Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
-                "revision conflict",
-            ));
+            return Err(io::Error::new(io::ErrorKind::AlreadyExists, "revision conflict").into());
         }
         if current.as_ref().is_some_and(|bytes| {
             !matches!(
@@ -112,10 +127,9 @@ impl Store {
                 Some(Envelope::Valid)
             )
         }) {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "saved archive is not valid",
-            ));
+            return Err(
+                io::Error::new(io::ErrorKind::InvalidData, "saved archive is not valid").into(),
+            );
         }
         let mut nonce = [0_u8; 16];
         File::open("/dev/urandom")?.read_exact(&mut nonce)?;
@@ -126,7 +140,7 @@ impl Store {
             libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL,
             0o600,
         )?;
-        let write_result = (|| {
+        let write_result: Result<(), SaveError> = (|| {
             file.write_all(input)?;
             file.sync_all()?;
             let old = CString::new(name.as_str()).unwrap();
@@ -140,11 +154,11 @@ impl Store {
                 )
             } != 0
             {
-                return Err(io::Error::last_os_error());
+                return Err(io::Error::last_os_error().into());
             }
-            self.dir.sync_all()
+            sync_directory(&self.dir).map_err(SaveError::ResultUnknown)
         })();
-        if write_result.is_err() {
+        if matches!(write_result, Err(SaveError::BeforeCommit(_))) {
             let name = CString::new(name).unwrap();
             unsafe {
                 libc::unlinkat(self.dir.as_raw_fd(), name.as_ptr(), 0);
@@ -158,6 +172,22 @@ impl Store {
 mod tests {
     use super::*;
     use std::os::unix::fs::symlink;
+
+    #[test]
+    fn failed_directory_sync_reports_unknown_after_replacement() {
+        let dir = std::env::temp_dir().join(format!("studio-store-sync-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let store = Store::open(&dir).unwrap();
+        let input = include_bytes!("../../contracts/archive-v1.json");
+        let result = store.save_with_sync(None, input, |_| Err(io::Error::other("sync failed")));
+        assert!(matches!(result, Err(SaveError::ResultUnknown(_))));
+        assert_eq!(store.read().unwrap().as_deref(), Some(input.as_slice()));
+        drop(store);
+        std::fs::remove_file(dir.join("archive.json")).unwrap();
+        std::fs::remove_file(dir.join(".lock")).unwrap();
+        std::fs::remove_dir(dir).unwrap();
+    }
 
     #[test]
     fn stale_temp_file_does_not_block_save_or_get_removed() {
@@ -188,7 +218,10 @@ mod tests {
         store.save(None, first).unwrap();
         assert_eq!(store.read().unwrap().as_deref(), Some(first.as_slice()));
         assert_eq!(
-            store.save(None, first).unwrap_err().kind(),
+            match store.save(None, first).unwrap_err() {
+                SaveError::BeforeCommit(error) => error.kind(),
+                SaveError::ResultUnknown(error) => panic!("unexpected result: {error}"),
+            },
             io::ErrorKind::AlreadyExists
         );
         assert!(store.save(Some(first), b"{}").is_err());
