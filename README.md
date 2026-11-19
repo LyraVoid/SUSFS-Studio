@@ -18,4 +18,5 @@ Open [SUSFS Studio](http://127.0.0.1:5176/#/).
 - [User guide](docs/user-guide.md) covers diagnostic states, local archive previews, and browser preferences.
 - [WebUI maintenance guide](docs/webui-maintenance.md) covers routing, source ownership, and verification.
 - [Diagnostic CLI](docs/diagnostic-cli.md) describes the experimental read-only Android executable and its build commands.
+- [Host integration](docs/host-integration.md) records the verified bridge boundary and remaining host requirements.
 - [Design specification](DESIGN.md) defines tokens and visual requirements.

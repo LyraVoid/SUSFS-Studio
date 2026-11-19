@@ -21,6 +21,7 @@ SUSFS Studio is an offline WebUI for device diagnostics and configuration archiv
 - [docs/user-guide.md](docs/user-guide.md) explains diagnostic states, archive previews, and browser preferences.
 - [docs/webui-maintenance.md](docs/webui-maintenance.md) documents routes, source ownership, and validation.
 - [docs/diagnostic-cli.md](docs/diagnostic-cli.md) documents the experimental read-only diagnostic executable.
+- [docs/host-integration.md](docs/host-integration.md) records the verified Android host boundary and bridge requirements.
 
 ## Validation
 
