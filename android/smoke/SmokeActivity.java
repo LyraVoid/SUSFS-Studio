@@ -70,7 +70,9 @@ public final class SmokeActivity extends Activity {
             }
         });
         String scenario = getIntent().getStringExtra("scenario");
-        if (!"demo".equals(scenario)) {
+        if ("unavailable".equals(scenario)) {
+            web.addJavascriptInterface(new Object(), "ksu");
+        } else if (!"demo".equals(scenario)) {
             try (InputStream stream = getAssets().open("diagnostic-v1.json");
                     Scanner scanner = new Scanner(stream, "UTF-8").useDelimiter("\\A")) {
                 JSONObject fixtures = new JSONObject(scanner.hasNext() ? scanner.next() : "");

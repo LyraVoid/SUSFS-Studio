@@ -32,6 +32,8 @@ Launch the installed smoke activity with ADB. Omit the `scenario` extra for the 
 adb shell am start -S -W -n dev.susfs.studio.smoke/.SmokeActivity --es scenario mismatch
 ```
 
+Run `bash scripts/test-webview-smoke.sh` with an unlocked ADB device, Python 3, and the same build prerequisites to exercise the fixtures automatically. Set `ANDROID_SERIAL` when more than one device is connected. The script rebuilds the WebUI and checks the Chinese UI labels for active status, demo mode, protocol mismatch, query failure, and a host marker without a diagnostic bridge. It refuses to replace an installed smoke app and removes its temporary app and UI dump on exit.
+
 ## Build and verify
 
 From the repository root, with an Android NDK, the Rust Android target, and `cargo-ndk` installed:
