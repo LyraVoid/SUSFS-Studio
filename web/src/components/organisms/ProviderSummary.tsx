@@ -9,12 +9,14 @@ import styles from "./Panels.module.css";
 export function ProviderSummary({
   status,
   demo,
+  bridgeUnavailable,
   stale,
   refresh,
   t,
 }: {
   status: Status;
   demo: boolean;
+  bridgeUnavailable: boolean;
   stale: boolean;
   refresh: () => void;
   t: Translate;
@@ -26,7 +28,13 @@ export function ProviderSummary({
       <FactRow
         icon="status"
         label={t("status")}
-        detail={t(stale ? "refreshing" : `${status.kind}Detail`)}
+        detail={t(
+          bridgeUnavailable
+            ? "bridgeUnavailable"
+            : stale
+              ? "refreshing"
+              : `${status.kind}Detail`,
+        )}
         onClick={open}
       />
       <Modal
@@ -38,7 +46,13 @@ export function ProviderSummary({
         <Stack>
           <p>
             {t(demo ? "demo" : "hostDiagnostics")} ·{" "}
-            {t(stale ? "refreshing" : `${status.kind}Detail`)}
+            {t(
+              bridgeUnavailable
+                ? "bridgeUnavailable"
+                : stale
+                  ? "refreshing"
+                  : `${status.kind}Detail`,
+            )}
           </p>
           <dl className={styles.facts}>
             <div>

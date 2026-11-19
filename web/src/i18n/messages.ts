@@ -29,6 +29,7 @@ export const zh = {
   absent: "未获取",
   demo: "演示数据",
   hostDiagnostics: "宿主诊断",
+  bridgeUnavailable: "宿主未提供安全诊断接口",
   hostCapabilities: "能力来自接口报告，实际效果需独立验证。",
   reportedAvailable: "接口报告可用",
   notReported: "接口未报告支持",
@@ -124,6 +125,7 @@ export const en = {
   absent: "Unavailable",
   demo: "Demo data",
   hostDiagnostics: "Host diagnostics",
+  bridgeUnavailable: "The host does not provide a safe diagnostic interface",
   hostCapabilities:
     "Capabilities are reported by the interface. Effects require separate verification.",
   reportedAvailable: "Reported available",

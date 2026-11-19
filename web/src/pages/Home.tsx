@@ -8,12 +8,14 @@ import styles from "./Home.module.css";
 export function Home({
   status,
   demo,
+  bridgeUnavailable,
   stale,
   refresh,
   t,
 }: {
   status: Status;
   demo: boolean;
+  bridgeUnavailable: boolean;
   stale: boolean;
   refresh: () => void;
   t: Translate;
@@ -30,6 +32,7 @@ export function Home({
           <ProviderSummary
             status={status}
             demo={demo}
+            bridgeUnavailable={bridgeUnavailable}
             stale={stale}
             refresh={refresh}
             t={t}

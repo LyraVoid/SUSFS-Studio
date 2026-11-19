@@ -11,6 +11,7 @@ test("a host without a diagnostic bridge does not display demo data", async ({
   await page.goto("/");
   await expect(page.getByRole("status")).toContainText("连接失败");
   await expect(page.getByRole("status")).not.toContainText("LKM");
+  await expect(page.getByText("宿主未提供安全诊断接口")).toBeVisible();
   await expect(page.getByText("演示数据", { exact: true })).toHaveCount(0);
   await page.getByRole("link", { name: "设置" }).click();
   await expect(page.getByLabel("演示场景")).toHaveCount(0);

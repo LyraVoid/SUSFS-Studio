@@ -16,6 +16,8 @@ Follow the [browser preview instructions](../README.md#browser-preview) to open 
 | Unknown protocol | The response protocol could not be confirmed. |
 | Connection failed | The diagnostic result could not be read. |
 
+If the host does not provide the dedicated diagnostic bridge, the status card explains that the host diagnostic interface is unavailable. The page does not substitute demo data in that case.
+
 An active result displays a badge when the implementation is known. **Built-In** means the implementation is compiled into the kernel. **LKM** means it is provided as a loadable kernel module. **GKI** describes the kernel type and appears separately in diagnostic details.
 
 Use **Settings → Demo scenario** to switch between simulated outcomes. The default is GKI-LKM with SUSFS 2.3. The built-in sample uses SUSFS 2.4. Rules and Extensions show capability labels derived from the selected sample. An unconfirmed capability is displayed separately from an unavailable capability.

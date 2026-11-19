@@ -54,6 +54,7 @@ function App() {
         <Home
           status={status}
           demo={demo}
+          bridgeUnavailable={source.kind === "unavailable"}
           stale={stale}
           refresh={() => setRequest((id) => id + 1)}
           t={t}
