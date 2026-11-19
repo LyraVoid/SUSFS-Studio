@@ -117,7 +117,9 @@ impl Store {
                 "saved archive is not valid",
             ));
         }
-        let name = format!(".archive.{}.tmp", std::process::id());
+        let mut nonce = [0_u8; 16];
+        File::open("/dev/urandom")?.read_exact(&mut nonce)?;
+        let name = format!(".archive.{:032x}.tmp", u128::from_ne_bytes(nonce));
         let mut file = open_at(
             &self.dir,
             &name,
@@ -156,6 +158,25 @@ impl Store {
 mod tests {
     use super::*;
     use std::os::unix::fs::symlink;
+
+    #[test]
+    fn stale_temp_file_does_not_block_save_or_get_removed() {
+        let dir = std::env::temp_dir().join(format!("studio-store-stale-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let stale = dir.join(".archive.stale.tmp");
+        std::fs::write(&stale, b"prior transaction").unwrap();
+        let store = Store::open(&dir).unwrap();
+        store
+            .save(None, include_bytes!("../../contracts/archive-v1.json"))
+            .unwrap();
+        assert_eq!(std::fs::read(&stale).unwrap(), b"prior transaction");
+        drop(store);
+        std::fs::remove_file(stale).unwrap();
+        std::fs::remove_file(dir.join("archive.json")).unwrap();
+        std::fs::remove_file(dir.join(".lock")).unwrap();
+        std::fs::remove_dir(dir).unwrap();
+    }
 
     #[test]
     fn preserves_data_and_rejects_conflict_and_symlink() {
