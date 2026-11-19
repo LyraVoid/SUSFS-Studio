@@ -9,7 +9,25 @@ export interface DiagnosticBridge {
 declare global {
   interface Window {
     studioDiagnostics?: DiagnosticBridge;
+    ksu?: unknown;
   }
+}
+
+export type DiagnosticSource =
+  | { kind: "demo" }
+  | { kind: "host"; bridge: DiagnosticBridge }
+  | { kind: "unavailable" };
+
+export function diagnosticSource(host: Window): DiagnosticSource {
+  if ("studioDiagnostics" in host) {
+    const bridge = host.studioDiagnostics;
+    return bridge &&
+      typeof bridge.hello === "function" &&
+      typeof bridge.status === "function"
+      ? { kind: "host", bridge }
+      : { kind: "unavailable" };
+  }
+  return "ksu" in host ? { kind: "unavailable" } : { kind: "demo" };
 }
 
 export async function readHostStatus(

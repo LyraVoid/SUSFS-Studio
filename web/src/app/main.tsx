@@ -10,6 +10,7 @@ import { CapabilityPage } from "../pages/CapabilityPage";
 import { Home } from "../pages/Home";
 import { Settings } from "../pages/Settings";
 import { colorSchemeManager, colorVariables, theme } from "../theme/theme";
+import { diagnosticSource } from "../transport/host";
 import type { Scenario } from "../transport/mock";
 import { resolveRoute } from "./routes";
 
@@ -27,8 +28,8 @@ function getLocale(): Locale {
 }
 
 function App() {
-  const [bridge] = useState(() => window.studioDiagnostics);
-  const demo = bridge === undefined;
+  const [source] = useState(() => diagnosticSource(window));
+  const demo = source.kind === "demo";
   const [locale, setLocale] = useState(getLocale);
   const [selection, setSelection] = useState<{ scenario: Scenario }>({
     scenario: "lkm23",
@@ -37,7 +38,7 @@ function App() {
   const route = resolveRoute(
     useSyncExternalStore(subscribe, () => window.location.hash),
   );
-  const { status, stale } = useStatus(selection, request, bridge);
+  const { status, stale } = useStatus(selection, request, source);
   const t = translator(locale);
   useEffect(() => {
     document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";

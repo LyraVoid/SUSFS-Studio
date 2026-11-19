@@ -2,6 +2,20 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import fixtures from "../../contracts/diagnostic-v1.json" with { type: "json" };
 
+test("a host without a diagnostic bridge does not display demo data", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.ksu = {};
+  });
+  await page.goto("/");
+  await expect(page.getByRole("status")).toContainText("连接失败");
+  await expect(page.getByRole("status")).not.toContainText("LKM");
+  await expect(page.getByText("演示数据", { exact: true })).toHaveCount(0);
+  await page.getByRole("link", { name: "设置" }).click();
+  await expect(page.getByLabel("演示场景")).toHaveCount(0);
+});
+
 test("an injected host shows its own result and refresh failures", async ({
   page,
 }) => {

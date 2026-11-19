@@ -16,7 +16,7 @@ The executable makes no configuration changes. It does not open a network listen
 
 A host may inject `window.studioDiagnostics` before the WebUI starts. Its argument-free `hello()` and `status()` methods return a JSON string or a promise resolving to one. Expose the bridge only to the bundled WebUI and bind each method to its fixed diagnostic command. The host owns execution and should resolve only after the command succeeds. The WebUI checks the handshake before reading status and applies a shared five-second deadline to asynchronous calls. The host should execute commands off the WebView UI thread and impose its own execution deadline.
 
-When the bridge is absent, the browser uses demo data. When it is present, errors are shown as host diagnostic failures. This repository provides the WebUI adapter. Android bridge injection and packaging require a host implementation.
+In a standalone browser with no host interface, the WebUI uses demo data. If a general host interface is present but the diagnostic bridge is missing or malformed, the WebUI reports a connection failure. This repository provides the WebUI adapter. Android bridge injection and packaging require a host implementation.
 
 ## Test the WebUI in Android WebView
 

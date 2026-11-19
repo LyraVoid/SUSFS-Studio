@@ -1,6 +1,16 @@
 import { expect, it, vi } from "vitest";
 import fixtures from "../../contracts/diagnostic-v1.json";
-import { readHostStatus } from "../src/transport/host";
+import { diagnosticSource, readHostStatus } from "../src/transport/host";
+
+it("treats an invalid injected bridge as an unavailable host", () => {
+  expect(diagnosticSource({ studioDiagnostics: undefined } as Window)).toEqual({
+    kind: "unavailable",
+  });
+  expect(diagnosticSource({ ksu: {} } as Window)).toEqual({
+    kind: "unavailable",
+  });
+  expect(diagnosticSource({} as Window)).toEqual({ kind: "demo" });
+});
 
 it("reads status after a valid handshake", async () => {
   const hello = vi.fn(() => JSON.stringify(fixtures.hello));
