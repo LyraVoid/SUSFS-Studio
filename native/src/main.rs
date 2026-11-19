@@ -1,6 +1,9 @@
 use serde::Serialize;
 use std::collections::BTreeMap;
 
+#[cfg(test)]
+mod archive;
+
 #[derive(Serialize)]
 struct Envelope<T: Serialize> {
     protocol: u32,

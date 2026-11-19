@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import envelopeCases from "../../contracts/archive-envelope-cases.json";
 import archiveFixture from "../../contracts/archive-v1.json";
 import { resolveRoute } from "../src/app/routes";
 import {
@@ -9,6 +10,14 @@ import {
 import { en, zh } from "../src/i18n/messages";
 
 describe("archive preview", () => {
+  it.each(envelopeCases)("matches shared envelope case $name", async ({
+    text,
+    expected,
+  }) => {
+    expect(await previewArchive(new Blob([text]))).toMatchObject({
+      formatStatus: expected,
+    });
+  });
   it("preserves raw JSON, including exact integers", async () => {
     const text = '{"value":18446744073709551615}';
     expect(await previewArchive(new Blob([text]))).toMatchObject({
@@ -118,6 +127,23 @@ describe("archive preview", () => {
       ambiguous: true,
       formatStatus: "invalid",
     });
+  });
+  it("detects identical and escaped duplicate keys without confusing nested objects", async () => {
+    for (const text of [
+      '{"schema":1,"schema":1}',
+      '{"a":1,"\\u0061":1}',
+      '{"x":{"a":1,"a":1}}',
+    ]) {
+      expect(await previewArchive(new Blob([text]))).toMatchObject({
+        text,
+        ambiguous: true,
+      });
+    }
+    expect(
+      await previewArchive(
+        new Blob(['{"x":{"a":1},"y":{"a":1},"text":"{\\"x\\":1}"}']),
+      ),
+    ).toMatchObject({ ambiguous: false });
   });
   it("rejects malformed, non-object, invalid UTF-8 and oversized inputs", async () => {
     for (const invalid of ["{", "[]", "null", new Uint8Array([255])]) {

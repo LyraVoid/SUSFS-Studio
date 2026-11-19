@@ -1,0 +1,8 @@
+[
+  { "name": "valid", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\"}],\"maps\":[],\"kstats\":[],\"redirects\":[]}}", "expected": "valid" },
+  { "name": "unknown version", "text": "{\"format\":\"susfs-studio\",\"schema\":2}", "expected": "unknown" },
+  { "name": "duplicate ids", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\"}],\"maps\":[{\"id\":\"a\"}],\"kstats\":[],\"redirects\":[]}}", "expected": "invalid" },
+  { "name": "duplicate key", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[],\"redirects\":[]}}", "expected": "invalid" },
+  { "name": "missing group", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[]}}", "expected": "invalid" },
+  { "name": "fractional schema", "text": "{\"format\":\"susfs-studio\",\"schema\":1.0}", "expected": "unknown" }
+]

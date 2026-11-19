@@ -1,4 +1,5 @@
 import { LosslessNumber, parse } from "lossless-json";
+import { hasDuplicateKeys } from "./duplicateKeys";
 
 export const archiveLimit = 128 * 1024;
 const depthLimit = 64;
@@ -34,6 +35,7 @@ export async function previewArchive(file: Blob) {
         return newValue;
       },
     });
+    ambiguous ||= hasDuplicateKeys(text);
     if (!object(value)) return { error: "archiveInvalid" } as const;
     const schema =
       value.schema instanceof LosslessNumber &&
