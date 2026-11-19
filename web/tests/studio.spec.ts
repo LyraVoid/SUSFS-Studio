@@ -60,7 +60,7 @@ test("a late host response cannot overwrite a newer refresh", async ({
   await expect(page.getByRole("status")).not.toContainText("LKM");
 });
 
-test("a host without a diagnostic bridge does not display demo data", async ({
+test("a host without a command bridge does not display demo data", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -73,6 +73,37 @@ test("a host without a diagnostic bridge does not display demo data", async ({
   await expect(page.getByText("演示数据", { exact: true })).toHaveCount(0);
   await page.getByRole("link", { name: "设置" }).click();
   await expect(page.getByLabel("演示场景")).toHaveCount(0);
+});
+
+test("a command host executes only fixed diagnostic calls", async ({
+  page,
+}) => {
+  await page.addInitScript(
+    ({ hello, active }) => {
+      window.ksu = {
+        exec: (command: string, options: string, callback: string) => {
+          if (options !== "{}") throw new Error("invalid options");
+          const response = command.endsWith(" hello")
+            ? hello
+            : command.endsWith(" status")
+              ? active
+              : undefined;
+          if (!response) throw new Error("unexpected command");
+          (
+            window as unknown as Record<
+              string,
+              (code: number, output: string) => void
+            >
+          )[callback]?.(0, JSON.stringify(response));
+        },
+      };
+    },
+    { hello: fixtures.hello, active: fixtures.active },
+  );
+  await page.goto("/");
+  await expect(page.getByText("宿主诊断", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("v2.3.0");
+  await expect(page.getByRole("status")).toContainText("LKM");
 });
 
 test("an injected host shows its own result and refresh failures", async ({

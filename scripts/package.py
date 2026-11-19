@@ -79,6 +79,7 @@ def package(web: Path, cli: Path, output: Path) -> None:
 
     entries = {
         "module.prop": read_regular(ROOT / "module/module.prop"),
+        "customize.sh": read_regular(ROOT / "module/customize.sh"),
         "bin/studioctl": binary,
         **{f"webroot/{name}": data for name, data in paths.items()},
     }

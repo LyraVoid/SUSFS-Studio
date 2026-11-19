@@ -22,7 +22,7 @@ The executable makes no configuration changes. It does not open a network listen
 
 A host may inject `window.studioDiagnostics` before the WebUI starts. Its argument-free `hello()` and `status()` methods return a JSON string or a promise resolving to one. Expose the bridge only to the bundled WebUI and bind each method to its fixed diagnostic command. The host owns execution and should resolve only after the command succeeds. The WebUI checks the handshake before reading status and applies a shared five-second deadline to asynchronous calls. The host should execute commands off the WebView UI thread and impose its own execution deadline.
 
-In a standalone browser with no host interface, the WebUI uses demo data. If a general host interface is present but the diagnostic bridge is missing or malformed, the WebUI reports a connection failure. This repository provides the WebUI adapter. Android bridge injection and packaging require a host implementation.
+In a standalone browser with no host interface, the WebUI uses demo data. A host exposing the compatible `ksu.exec` callback API is used for fixed read-only commands. An unsupported or malformed host interface reports a connection failure. Host-side navigation and bridge security vary; see [host integration](host-integration.md) for the boundary and validation status.
 
 ## Test the WebUI in Android WebView
 
@@ -66,4 +66,4 @@ python3 scripts/package.py \
   --output .local/susfs-studio-dev-arm64.zip
 ```
 
-The ZIP contains module metadata, `webroot/`, and `bin/studioctl`. The packager validates the executable's ELF architecture and Android interpreter, checks the relative WebUI entry assets, and prints the archive's SHA-256 digest. Use a new output path for each build. Android host bridge injection and module installation still require integration testing.
+The ZIP contains module metadata, an install script, `webroot/`, and `bin/studioctl`. The install script accepts arm64 and applies executable permissions to the CLI. The packager validates the executable's ELF architecture and Android interpreter, checks the relative WebUI entry assets, and prints the archive's SHA-256 digest. Use a new output path for each build. See [host integration](host-integration.md) for the tested host and remaining security limitations.

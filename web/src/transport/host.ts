@@ -1,3 +1,4 @@
+import { commandBridge } from "./commandBridge";
 import type { Status } from "./mock";
 import { parseStatusResponse } from "./protocol";
 
@@ -27,7 +28,27 @@ export function diagnosticSource(host: Window): DiagnosticSource {
       ? { kind: "host", bridge }
       : { kind: "unavailable" };
   }
-  return "ksu" in host ? { kind: "unavailable" } : { kind: "demo" };
+  if ("ksu" in host) {
+    const bridge = host.ksu;
+    if (
+      typeof bridge === "object" &&
+      bridge !== null &&
+      "exec" in bridge &&
+      typeof bridge.exec === "function"
+    ) {
+      return {
+        kind: "host",
+        bridge: commandBridge(
+          host,
+          bridge as {
+            exec(command: string, options: string, callback: string): void;
+          },
+        ),
+      };
+    }
+    return { kind: "unavailable" };
+  }
+  return { kind: "demo" };
 }
 
 export async function readHostStatus(
