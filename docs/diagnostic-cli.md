@@ -10,6 +10,8 @@ Version 1 responses contain `protocol`, `requestId`, `ok`, and `data`. The comma
 
 The status result distinguishes a complete recognized response (`active`), an absent response (`missing`), a malformed or unrecognized response (`unknownProtocol`), and an indeterminate or unauthorized query (`failed`). An active response includes the version, implementation, kernel type, and capability indications. Capability indications report interface features, not verified effects or permission to change device state.
 
+The implementation is reported as LKM only when both the variant and feature marker agree. Conflicting evidence leaves the implementation unknown. An implementation badge must not be inferred from the kernel type alone.
+
 The executable makes no configuration changes. It does not open a network listener, apply rules, or manage startup tasks.
 
 ## WebUI host contract

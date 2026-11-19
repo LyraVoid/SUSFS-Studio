@@ -113,10 +113,10 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
     {
         return Status::UnknownProtocol;
     }
-    let implementation = if tokens.contains(&"SUSFS_LKM_MODULES") {
-        "lkm"
-    } else {
-        "builtin"
+    let implementation = match (variant_text.as_str(), tokens.contains(&"SUSFS_LKM_MODULES")) {
+        ("GKI-LKM", true) => "lkm",
+        ("GKI-LKM", false) | (_, true) => "unknown",
+        (_, false) => "builtin",
     };
     let mut capabilities = BTreeMap::new();
     for (key, token) in [
@@ -225,6 +225,17 @@ mod tests {
         );
         assert!(
             matches!(status, Status::Active { provider } if provider.implementation == "lkm" && provider.kernel_type == "GKI" && provider.capabilities["paths"] == "available")
+        );
+    }
+    #[test]
+    fn inconsistent_lkm_variant_has_unknown_implementation() {
+        let status = classify(
+            reply("v2.3.0"),
+            reply("CONFIG_KSU_SUSFS_SUS_PATH"),
+            reply("GKI-LKM"),
+        );
+        assert!(
+            matches!(status, Status::Active { provider } if provider.implementation == "unknown")
         );
     }
     #[test]
