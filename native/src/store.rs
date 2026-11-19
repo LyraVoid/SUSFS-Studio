@@ -67,7 +67,12 @@ impl Store {
     }
 
     fn lock(&self) -> io::Result<File> {
-        let lock = open_at(&self.dir, ".lock", libc::O_RDWR | libc::O_CREAT, 0o600)?;
+        let lock = open_at(
+            &self.dir,
+            ".lock",
+            libc::O_RDWR | libc::O_CREAT | libc::O_NONBLOCK,
+            0o600,
+        )?;
         trusted(&lock, false)?;
         if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
             return Err(io::Error::last_os_error());
@@ -76,7 +81,12 @@ impl Store {
     }
 
     fn read_unlocked(&self) -> io::Result<Option<Vec<u8>>> {
-        let file = match open_at(&self.dir, "archive.json", libc::O_RDONLY, 0) {
+        let file = match open_at(
+            &self.dir,
+            "archive.json",
+            libc::O_RDONLY | libc::O_NONBLOCK,
+            0,
+        ) {
             Ok(file) => file,
             Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
             Err(error) => return Err(error),
@@ -261,6 +271,51 @@ mod tests {
         assert_eq!(store.read().unwrap().as_deref(), Some(first.as_slice()));
         drop(store);
         std::fs::remove_file(dir.join("archive.json")).unwrap();
+        std::fs::remove_file(dir.join(".lock")).unwrap();
+        std::fs::remove_dir(dir).unwrap();
+    }
+
+    #[test]
+    fn corrupt_archive_is_never_overwritten() {
+        let dir = std::env::temp_dir().join(format!("studio-store-corrupt-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let corrupt = b"{broken";
+        std::fs::write(dir.join("archive.json"), corrupt).unwrap();
+        std::fs::set_permissions(
+            dir.join("archive.json"),
+            std::fs::Permissions::from_mode(0o600),
+        )
+        .unwrap();
+        let store = Store::open(&dir).unwrap();
+        assert!(
+            store
+                .save(
+                    Some(corrupt),
+                    include_bytes!("../../contracts/archive-v1.json")
+                )
+                .is_err()
+        );
+        assert_eq!(std::fs::read(dir.join("archive.json")).unwrap(), corrupt);
+        drop(store);
+        std::fs::remove_file(dir.join("archive.json")).unwrap();
+        std::fs::remove_file(dir.join(".lock")).unwrap();
+        std::fs::remove_dir(dir).unwrap();
+    }
+
+    #[test]
+    fn rejects_fifo_without_waiting_for_a_writer() {
+        use std::os::unix::ffi::OsStrExt;
+        let dir = std::env::temp_dir().join(format!("studio-store-fifo-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let path = dir.join("archive.json");
+        let name = CString::new(path.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+        let store = Store::open(&dir).unwrap();
+        assert!(store.read().is_err());
+        drop(store);
+        std::fs::remove_file(path).unwrap();
         std::fs::remove_file(dir.join(".lock")).unwrap();
         std::fs::remove_dir(dir).unwrap();
     }
