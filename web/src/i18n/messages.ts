@@ -84,7 +84,8 @@ export const zh = {
   archiveSchema: "声明的 Schema",
   archiveSchemaUnknown: "未声明或格式未知",
   archiveSchemaNote: "版本标签仅供参考；尚未验证格式兼容性或规则内容。",
-  archiveFormatValid: "Studio 归档结构通过检查；规则字段和设备兼容性尚未验证。",
+  archiveFormatValid:
+    "Studio 归档结构及部分字段通过检查；规则完整性和设备兼容性尚未验证。",
   archiveFormatInvalid: "Studio 归档结构无效；原文仍保留供查看。",
   archiveAmbiguous: "检测到重复字段；对比使用解析后的值，原文未改变。",
   archiveRuleCount: "规则条目：{count}",
@@ -205,7 +206,7 @@ export const en = {
   archiveSchemaNote:
     "The version label is informational; format compatibility and rule contents have not been validated.",
   archiveFormatValid:
-    "Studio archive structure is valid; rule fields and device compatibility have not been validated.",
+    "Studio archive structure and selected fields are valid; rule completeness and device compatibility have not been validated.",
   archiveFormatInvalid:
     "Studio archive structure is invalid; the original text remains available.",
   archiveAmbiguous:

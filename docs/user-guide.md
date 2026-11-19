@@ -29,7 +29,7 @@ Use **Settings → Demo scenario** to switch between simulated outcomes. The def
 3. Review the original JSON text, declared numeric schema, and structural validation result. Structural validation does not confirm device compatibility.
 4. Optionally select a second archive. The dialog lists added, removed, and changed JSON Pointer paths. Arrays are compared by position and numeric formatting differences count as changes. Both original texts remain unchanged. Clear the selection or close the dialog to discard the preview.
 
-Previewing validates file size, encoding, JSON syntax, and the [Studio version-1 envelope](archive-format.md). It does not validate individual rule fields, normalize data, or persist archive contents. Unknown fields and exact numeric tokens remain in the original text. Device save, export, and restore controls require host integration. Automatic collection is also disabled in the preview.
+Previewing validates file size, encoding, JSON syntax, and the [Studio version-1 envelope and selected fields](archive-format.md). It does not validate whether rules are complete or applicable, normalize data, or persist archive contents. Unknown fields and exact numeric tokens remain in the original text. Device save, export, and restore controls require host integration. Automatic collection is also disabled in the preview.
 
 ## Change appearance
 

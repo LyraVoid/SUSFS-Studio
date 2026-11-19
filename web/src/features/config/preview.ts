@@ -56,12 +56,28 @@ export async function previewArchive(file: Blob) {
         const entries = ["paths", "maps", "kstats", "redirects"].flatMap(
           (key) => rules[key] as Json[],
         );
-        const valid = entries.every(
-          (entry) =>
-            object(entry) &&
-            typeof (entry as JsonObject).id === "string" &&
-            ((entry as JsonObject).id as string).trim().length > 0,
-        );
+        const valid = entries.every((entry) => {
+          if (!object(entry)) return false;
+          const rule = entry as JsonObject;
+          if (typeof rule.id !== "string" || !rule.id.trim()) return false;
+          if (
+            rule.path !== undefined &&
+            (typeof rule.path !== "string" ||
+              !rule.path.startsWith("/") ||
+              rule.path.includes("\0") ||
+              new TextEncoder().encode(rule.path).length >= 256)
+          )
+            return false;
+          if (
+            rule.inode !== undefined &&
+            (typeof rule.inode !== "string" ||
+              !/^(0|[1-9]\d*)$/.test(rule.inode) ||
+              rule.inode.length > 20 ||
+              BigInt(rule.inode) > 18446744073709551615n)
+          )
+            return false;
+          return true;
+        });
         formatStatus =
           valid &&
           new Set(

@@ -100,6 +100,23 @@ pub fn validate_envelope(text: &str) -> Envelope {
             if id.trim().is_empty() || !ids.insert(id) {
                 return Envelope::Invalid;
             }
+            if let Some(path) = entry.get("path") {
+                match path {
+                    Value::String(path)
+                        if path.starts_with('/') && !path.contains('\0') && path.len() < 256 => {}
+                    _ => return Envelope::Invalid,
+                }
+            }
+            if let Some(inode) = entry.get("inode") {
+                match inode {
+                    Value::String(inode)
+                        if !inode.is_empty()
+                            && inode.bytes().all(|b| b.is_ascii_digit())
+                            && (inode == "0" || !inode.starts_with('0'))
+                            && inode.parse::<u64>().is_ok() => {}
+                    _ => return Envelope::Invalid,
+                }
+            }
         }
     }
     Envelope::Valid

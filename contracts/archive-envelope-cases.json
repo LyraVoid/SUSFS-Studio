@@ -4,5 +4,9 @@
   { "name": "duplicate ids", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\"}],\"maps\":[{\"id\":\"a\"}],\"kstats\":[],\"redirects\":[]}}", "expected": "invalid" },
   { "name": "duplicate key", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[],\"redirects\":[]}}", "expected": "invalid" },
   { "name": "missing group", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[]}}", "expected": "invalid" },
-  { "name": "fractional schema", "text": "{\"format\":\"susfs-studio\",\"schema\":1.0}", "expected": "unknown" }
+  { "name": "fractional schema", "text": "{\"format\":\"susfs-studio\",\"schema\":1.0}", "expected": "unknown" },
+  { "name": "valid path and maximum inode", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\",\"path\":\"/x\",\"inode\":\"18446744073709551615\"}],\"maps\":[],\"kstats\":[],\"redirects\":[]}}", "expected": "valid" },
+  { "name": "relative path", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\",\"path\":\"x\"}],\"maps\":[],\"kstats\":[],\"redirects\":[]}}", "expected": "invalid" },
+  { "name": "inode overflow", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"b\",\"inode\":\"18446744073709551616\"}],\"redirects\":[]}}", "expected": "invalid" },
+  { "name": "inode number", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"b\",\"inode\":5}],\"redirects\":[]}}", "expected": "invalid" }
 ]
