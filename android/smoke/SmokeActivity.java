@@ -20,6 +20,9 @@ import org.json.JSONObject;
 
 public final class SmokeActivity extends Activity {
     private static final String HOST = "appassets.androidplatform.net";
+    private static final String HOME = "https://" + HOST + "/index.html#/";
+    private static final String OTHER_ORIGIN = "https://studio-navigation.invalid/index.html";
+    private static final String UNKNOWN_PATH = "https://" + HOST + "/missing.html";
     private WebView web;
 
     @Override
@@ -31,19 +34,40 @@ public final class SmokeActivity extends Activity {
         web.getSettings().setAllowFileAccess(false);
         web.getSettings().setAllowContentAccess(false);
         web.getSettings().setBlockNetworkLoads(false);
+        String scenario = getIntent().getStringExtra("scenario");
         web.setOnApplyWindowInsetsListener((view, insets) -> {
             view.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
                 insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
             return insets;
         });
         web.setWebViewClient(new WebViewClient() {
+            private boolean navigationStarted;
+
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, android.webkit.WebResourceError error) {
                 android.util.Log.w("StudioSmoke", "WebView load error " + error.getErrorCode());
             }
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if ("navigation".equals(scenario) && request.isForMainFrame() && HOME.equals(view.getUrl())) {
+                    String destination = request.getUrl().toString();
+                    if (OTHER_ORIGIN.equals(destination)) {
+                        view.post(() -> view.evaluateJavascript("location.href = '" + UNKNOWN_PATH + "'", null));
+                    } else if (UNKNOWN_PATH.equals(destination)) {
+                        view.post(() -> view.evaluateJavascript(
+                            "if (location.href === " + JSONObject.quote(HOME)
+                                + ") document.body.append('Navigation checks passed')", null));
+                    }
+                }
                 return true;
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                if ("navigation".equals(scenario) && HOME.equals(url) && !navigationStarted) {
+                    navigationStarted = true;
+                    view.evaluateJavascript("location.href = '" + OTHER_ORIGIN + "'", null);
+                }
             }
 
             @Override
@@ -69,7 +93,6 @@ public final class SmokeActivity extends Activity {
                     new ByteArrayInputStream(new byte[0]));
             }
         });
-        String scenario = getIntent().getStringExtra("scenario");
         if ("unavailable".equals(scenario)) {
             web.addJavascriptInterface(new Object(), "ksu");
         } else if (!"demo".equals(scenario)) {
@@ -85,7 +108,7 @@ public final class SmokeActivity extends Activity {
             }
         }
         setContentView(web);
-        web.loadUrl("https://" + HOST + "/index.html#/");
+        web.loadUrl(HOME);
     }
 
     @Override
