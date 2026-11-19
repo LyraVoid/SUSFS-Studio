@@ -7,7 +7,10 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 export function parseStatusResponse(text: string, requestId: string): Status {
-  if (new TextEncoder().encode(text).length > maxResponseBytes)
+  if (
+    text.length > maxResponseBytes ||
+    new TextEncoder().encode(text).length > maxResponseBytes
+  )
     return { kind: "failed" };
   let response: unknown;
   try {

@@ -43,6 +43,9 @@ describe("status response boundary", () => {
     expect(parseStatusResponse(" ".repeat(512 * 1024 + 1), "r1")).toEqual({
       kind: "failed",
     });
+    expect(parseStatusResponse("界".repeat(180000), "r1")).toEqual({
+      kind: "failed",
+    });
     expect(
       parseStatusResponse(
         JSON.stringify({
