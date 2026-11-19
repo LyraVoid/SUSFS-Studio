@@ -188,4 +188,26 @@ mod tests {
         std::fs::remove_file(dir.join(".lock")).unwrap();
         std::fs::remove_dir(dir).unwrap();
     }
+
+    #[test]
+    fn rejects_unsafe_permissions_and_hard_links() {
+        let dir =
+            std::env::temp_dir().join(format!("studio-store-permissions-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(Store::open(&dir).is_err());
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let store = Store::open(&dir).unwrap();
+        let first = include_bytes!("../../contracts/archive-v1.json");
+        store.save(None, first).unwrap();
+        std::fs::hard_link(dir.join("archive.json"), dir.join("hardlink")).unwrap();
+        assert!(store.read().is_err());
+        assert!(store.save(Some(first), first).is_err());
+        std::fs::remove_file(dir.join("hardlink")).unwrap();
+        assert_eq!(store.read().unwrap().as_deref(), Some(first.as_slice()));
+        drop(store);
+        std::fs::remove_file(dir.join("archive.json")).unwrap();
+        std::fs::remove_file(dir.join(".lock")).unwrap();
+        std::fs::remove_dir(dir).unwrap();
+    }
 }
