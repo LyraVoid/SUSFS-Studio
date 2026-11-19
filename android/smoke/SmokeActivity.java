@@ -35,11 +35,6 @@ public final class SmokeActivity extends Activity {
         web.getSettings().setAllowContentAccess(false);
         web.getSettings().setBlockNetworkLoads(false);
         String scenario = getIntent().getStringExtra("scenario");
-        web.setOnApplyWindowInsetsListener((view, insets) -> {
-            view.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
-                insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
-            return insets;
-        });
         web.setWebViewClient(new WebViewClient() {
             private boolean navigationStarted;
 
@@ -104,12 +99,35 @@ public final class SmokeActivity extends Activity {
                 JSONObject hello = fixtures.getJSONObject("hello");
                 if ("mismatch".equals(scenario)) hello.put("protocol", 2);
                 String status = fixtures.getJSONObject("failed".equals(scenario) ? "failed" : "active").toString();
-                web.addJavascriptInterface(new Fixtures(hello.toString(), status), "studioDiagnostics");
+                if ("snapshot".equals(scenario)) {
+                    try (InputStream snapshot = getAssets().open("device-status.json");
+                            Scanner reader = new Scanner(snapshot, "UTF-8").useDelimiter("\\A")) {
+                        status = reader.hasNext() ? reader.next() : "";
+                    } catch (IOException error) {
+                        status = "";
+                    }
+                }
+                web.addJavascriptInterface(new Fixtures(hello.toString(), status, "snapshot".equals(scenario)), "studioDiagnostics");
             } catch (IOException | JSONException error) {
                 throw new IllegalStateException("Missing diagnostic fixtures", error);
             }
         }
-        setContentView(web);
+        android.view.View content = web;
+        if ("snapshot".equals(scenario)) {
+            android.widget.LinearLayout panel = new android.widget.LinearLayout(this);
+            panel.setOrientation(android.widget.LinearLayout.VERTICAL);
+            android.widget.TextView notice = new android.widget.TextView(this);
+            notice.setText(getString(R.string.snapshot_notice));
+            panel.addView(notice);
+            panel.addView(web, new android.widget.LinearLayout.LayoutParams(-1, 0, 1));
+            content = panel;
+        }
+        content.setOnApplyWindowInsetsListener((view, insets) -> {
+            view.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
+                insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
+            return insets;
+        });
+        setContentView(content);
         web.loadUrl(HOME);
     }
 
@@ -121,6 +139,9 @@ public final class SmokeActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (web.getParent() instanceof android.view.ViewGroup) {
+            ((android.view.ViewGroup) web.getParent()).removeView(web);
+        }
         setContentView(new android.widget.FrameLayout(this));
         web.destroy();
         super.onDestroy();
@@ -129,13 +150,18 @@ public final class SmokeActivity extends Activity {
     public static final class Fixtures {
         private final String hello;
         private final String status;
+        private final boolean snapshot;
 
-        Fixtures(String hello, String status) {
+        Fixtures(String hello, String status, boolean snapshot) {
             this.hello = hello;
             this.status = status;
+            this.snapshot = snapshot;
         }
 
         @JavascriptInterface public String hello() { return hello; }
-        @JavascriptInterface public String status() { return status; }
+        @JavascriptInterface public String status() {
+            if (snapshot) android.util.Log.i("StudioSmoke", "Captured status replayed");
+            return status;
+        }
     }
 }

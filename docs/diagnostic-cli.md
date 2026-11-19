@@ -22,7 +22,7 @@ In a standalone browser with no host interface, the WebUI uses demo data. If a g
 
 ## Test the WebUI in Android WebView
 
-The smoke APK bundles the built WebUI and the shared protocol fixtures. It serves bundled assets under a local HTTPS origin, blocks page-initiated navigation outside the loaded document, and disables file and content access. Its bridge methods return fixtures. Android host integration with `studioctl` is verified separately.
+The smoke APK bundles the built WebUI, the shared protocol fixtures, and the debug CLI. It serves bundled assets under a local HTTPS origin, blocks page-initiated navigation outside the loaded document, and disables file and content access. The fixture scenarios return canned responses through the same bridge interface used by the native and capture scenarios.
 
 Build the WebUI first. Run `bash scripts/build-webview-smoke.sh` with JDK 17 or later, Android SDK Platform 36, Build Tools 36.0.0, the Android arm64 Rust build prerequisites below, and a standard Android debug keystore. The script builds and bundles the debug CLI and prints the APK path under `.local/`. Set `STUDIO_DEBUG_KEYSTORE` to use a debug keystore at a different path.
 
@@ -35,6 +35,8 @@ adb shell am start -S -W -n dev.susfs.studio.smoke/.SmokeActivity --es scenario 
 Run `bash scripts/test-webview-smoke.sh` with an unlocked arm64 ADB device, Python 3, and the same build prerequisites. Set `ANDROID_SERIAL` when more than one device is connected. The script rebuilds the WebUI and checks the Chinese UI labels for active status, demo mode, protocol mismatch, query failure, and a host marker without a diagnostic bridge. It also checks that the smoke host rejects page-initiated top-level navigation to another HTTPS origin and to an unknown path on the local origin. It refuses to replace an installed smoke app and removes its temporary app and UI dump on exit.
 
 The `native` scenario runs the bundled CLI under the smoke application's ordinary Android UID. The bridge invokes the fixed `hello` and `status` subcommands with a two-second process timeout and a 4 KiB response limit. The regression checks that both commands complete and that the WebUI displays the expected diagnostic failure from the unprivileged status query. This scenario covers process execution and the WebView response path. Successful device status reads require a privileged host integration.
+
+Pass a captured `studioctl status` response as the only argument to the smoke script to check a successful device response in WebView. Use an active protocol-1 response of at most 4 KiB and keep the capture and APK in `.local/`. The APK displays a capture notice. The regression checks the displayed version and any reported implementation badge, then confirms that the refresh button replays the same capture. Live reads still require the dedicated host bridge.
 
 ## Build and verify
 

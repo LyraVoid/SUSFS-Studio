@@ -1,0 +1,3 @@
+<resources>
+    <string name="snapshot_notice">Captured device status · refresh replays the same capture</string>
+</resources>

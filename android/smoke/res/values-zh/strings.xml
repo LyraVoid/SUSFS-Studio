@@ -1,0 +1,3 @@
+<resources>
+    <string name="snapshot_notice">设备状态快照 · 刷新会重读同一份快照</string>
+</resources>
