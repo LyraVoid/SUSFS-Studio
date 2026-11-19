@@ -57,6 +57,7 @@ function ChoiceRow<T extends Message>({
 }
 
 export function Settings({
+  demo,
   scenario,
   setScenario,
   locale,
@@ -64,6 +65,7 @@ export function Settings({
   status,
   t,
 }: {
+  demo: boolean;
   scenario: Scenario;
   setScenario: (value: Scenario) => void;
   locale: Locale;
@@ -95,16 +97,18 @@ export function Settings({
           t={t}
         />
       </SettingsList>
-      <SettingsList label={t("demo")}>
-        <ChoiceRow
-          icon="status"
-          label="scenario"
-          value={scenario}
-          options={scenarios}
-          change={setScenario}
-          t={t}
-        />
-      </SettingsList>
+      {demo && (
+        <SettingsList label={t("demo")}>
+          <ChoiceRow
+            icon="status"
+            label="scenario"
+            value={scenario}
+            options={scenarios}
+            change={setScenario}
+            t={t}
+          />
+        </SettingsList>
+      )}
       <SettingsList label={t("diagnostics")}>
         <SettingsRow
           icon="status"

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { type DiagnosticBridge, readHostStatus } from "../../transport/host";
 import {
   MockTransport,
   type Scenario,
@@ -8,7 +9,11 @@ import {
 const transport = new MockTransport();
 const pending: Status = { kind: "loading" };
 
-export function useStatus(selection: { scenario: Scenario }, request: number) {
+export function useStatus(
+  selection: { scenario: Scenario },
+  request: number,
+  bridge?: DiagnosticBridge,
+) {
   const [snapshot, setSnapshot] = useState<{
     selection: typeof selection;
     request: number;
@@ -16,9 +21,14 @@ export function useStatus(selection: { scenario: Scenario }, request: number) {
   }>();
   useEffect(() => {
     const { scenario } = selection;
-    if (scenario === "loading") return;
+    if (!bridge && scenario === "loading") return;
     let current = true;
-    void transport.status(scenario).then(
+    const read = bridge
+      ? readHostStatus(bridge)
+      : scenario === "loading"
+        ? Promise.resolve(pending)
+        : transport.status(scenario);
+    void read.then(
       (status) => {
         if (current) setSnapshot({ selection, request, status });
       },
@@ -30,7 +40,7 @@ export function useStatus(selection: { scenario: Scenario }, request: number) {
     return () => {
       current = false;
     };
-  }, [selection, request]);
+  }, [selection, request, bridge]);
   const sameScenario = snapshot?.selection === selection;
   return {
     status: sameScenario ? snapshot.status : pending,

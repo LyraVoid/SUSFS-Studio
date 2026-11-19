@@ -16,13 +16,14 @@ export function parseStatusResponse(text: string, requestId: string): Status {
     return { kind: "failed" };
   }
   if (!record(response)) return { kind: "failed" };
-  if (response.protocol !== 1) return { kind: "unknownProtocol" };
   if (
     response.requestId !== requestId ||
     response.ok !== true ||
-    !record(response.data)
+    !Number.isInteger(response.protocol)
   )
     return { kind: "failed" };
+  if (response.protocol !== 1) return { kind: "unknownProtocol" };
+  if (!record(response.data)) return { kind: "failed" };
   const data = response.data;
   if (
     data.kind === "missing" ||

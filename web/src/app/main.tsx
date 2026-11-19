@@ -27,6 +27,8 @@ function getLocale(): Locale {
 }
 
 function App() {
+  const [bridge] = useState(() => window.studioDiagnostics);
+  const demo = bridge === undefined;
   const [locale, setLocale] = useState(getLocale);
   const [selection, setSelection] = useState<{ scenario: Scenario }>({
     scenario: "lkm23",
@@ -35,7 +37,7 @@ function App() {
   const route = resolveRoute(
     useSyncExternalStore(subscribe, () => window.location.hash),
   );
-  const { status, stale } = useStatus(selection, request);
+  const { status, stale } = useStatus(selection, request, bridge);
   const t = translator(locale);
   useEffect(() => {
     document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
@@ -50,12 +52,14 @@ function App() {
       {route === "/" ? (
         <Home
           status={status}
+          demo={demo}
           stale={stale}
           refresh={() => setRequest((id) => id + 1)}
           t={t}
         />
       ) : route === "/settings" ? (
         <Settings
+          demo={demo}
           scenario={selection.scenario}
           setScenario={(scenario) =>
             setSelection((previous) =>
@@ -68,7 +72,7 @@ function App() {
           t={t}
         />
       ) : route ? (
-        <CapabilityPage route={route} status={status} t={t} />
+        <CapabilityPage route={route} status={status} demo={demo} t={t} />
       ) : (
         <>
           <h1>{t("unknownPage")}</h1>

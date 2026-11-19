@@ -8,11 +8,13 @@ import styles from "./Panels.module.css";
 
 export function ProviderSummary({
   status,
+  demo,
   stale,
   refresh,
   t,
 }: {
   status: Status;
+  demo: boolean;
   stale: boolean;
   refresh: () => void;
   t: Translate;
@@ -35,7 +37,8 @@ export function ProviderSummary({
       >
         <Stack>
           <p>
-            {t("demo")} · {t(stale ? "refreshing" : `${status.kind}Detail`)}
+            {t(demo ? "demo" : "hostDiagnostics")} ·{" "}
+            {t(stale ? "refreshing" : `${status.kind}Detail`)}
           </p>
           <dl className={styles.facts}>
             <div>
@@ -68,9 +71,12 @@ export function ProviderSummary({
             </div>
           </dl>
           <h2>{t("compatibility")}</h2>
-          <p className={styles.muted}>{t("fixtureOnly")}</p>
+          <p className={styles.muted}>
+            {t(demo ? "fixtureOnly" : "hostCapabilities")}
+          </p>
           <Capabilities
             status={status}
+            demo={demo}
             fields={["paths", "map", "kstat", "redirect", "extensions"]}
             t={t}
           />

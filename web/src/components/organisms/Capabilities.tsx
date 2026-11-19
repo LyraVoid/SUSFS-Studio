@@ -12,10 +12,12 @@ export const capabilityLabels = {
 
 export function Capabilities({
   status,
+  demo,
   fields,
   t,
 }: {
   status: Status;
+  demo: boolean;
   fields: Capability[];
   t: Translate;
 }) {
@@ -29,7 +31,15 @@ export function Capabilities({
         return (
           <div key={field}>
             <dt>{t(capabilityLabels[field])}</dt>
-            <dd data-availability={value}>{t(value)}</dd>
+            <dd data-availability={value}>
+              {t(
+                !demo && value !== "unknown"
+                  ? value === "available"
+                    ? "reportedAvailable"
+                    : "notReported"
+                  : value,
+              )}
+            </dd>
           </div>
         );
       })}

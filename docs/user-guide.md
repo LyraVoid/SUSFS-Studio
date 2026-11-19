@@ -1,6 +1,6 @@
 # SUSFS Studio User Guide
 
-Follow the [browser preview instructions](../README.md#browser-preview) to open SUSFS Studio. The **Demo data** label identifies simulated results throughout the interface. These results do not establish compatibility with a device, kernel, or Android host.
+Follow the [browser preview instructions](../README.md#browser-preview) to open SUSFS Studio. **Demo data** identifies simulated results. **Host diagnostics** identifies a session using a host bridge. Demo scenarios are available in the standalone browser preview.
 
 ## Read the diagnostic overview
 
@@ -10,7 +10,7 @@ Follow the [browser preview instructions](../README.md#browser-preview) to open 
 
 | Home state | Meaning |
 | --- | --- |
-| Active | The current sample reports a confirmed interface response. The SUSFS version is shown below the label. |
+| Active | The current diagnostic result reports a confirmed interface response. The SUSFS version is shown below the label. |
 | Reading | A query is pending. The Reading demo scenario intentionally stays in this state. |
 | Not detected | The diagnostic result reports no SUSFS interface. |
 | Unknown protocol | The response protocol could not be confirmed. |

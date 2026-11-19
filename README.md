@@ -1,6 +1,6 @@
 # SUSFS Studio
 
-SUSFS Studio is an offline WebUI for device diagnostics and configuration archive previews. The current browser preview uses simulated diagnostic data and supports local JSON previews. Android host integration and on-device diagnostics are pending.
+SUSFS Studio is an offline WebUI for device diagnostics and configuration archive previews. The standalone browser preview uses simulated diagnostic data and supports local JSON previews. The WebUI includes a read-only diagnostic adapter for hosts that provide the bridge. Android host integration still requires verification.
 
 ## Browser preview
 

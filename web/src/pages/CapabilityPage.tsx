@@ -15,10 +15,12 @@ const rules: Record<RuleRoute, { label: Message; fields: Capability[] }> = {
 export function CapabilityPage({
   route,
   status,
+  demo,
   t,
 }: {
   route: RuleRoute | "/extensions";
   status: Status;
+  demo: boolean;
   t: Translate;
 }) {
   const rule = route === "/extensions" ? undefined : rules[route];
@@ -26,7 +28,7 @@ export function CapabilityPage({
     <>
       <header className={page.header}>
         <h1>{t(rule?.label ?? "extensions")}</h1>
-        <p className={styles.muted}>{t("demo")}</p>
+        <p className={styles.muted}>{t(demo ? "demo" : "hostDiagnostics")}</p>
       </header>
       {rule && (
         <nav className={pageStyles.subnav} aria-label={t("ruleNavigation")}>
@@ -45,17 +47,22 @@ export function CapabilityPage({
         <h2>{t("compatibility")}</h2>
         <Capabilities
           status={status}
+          demo={demo}
           fields={rule?.fields ?? ["extensions"]}
           t={t}
         />
-        <p className={styles.muted}>{t("fixtureOnly")}</p>
+        <p className={styles.muted}>
+          {t(demo ? "fixtureOnly" : "hostCapabilities")}
+        </p>
         {route === "/rules/disguise" && (
           <p className={styles.muted}>{t("stage")}</p>
         )}
       </section>
       <section className={styles.panel}>
-        <h2>{rule ? t("rulesEmpty") : t("diagnostics")}</h2>
-        {rule && <p>{t("ruleCount", { count: 0 })}</p>}
+        <h2>
+          {t(rule ? (demo ? "rulesEmpty" : "rulesUnobserved") : "diagnostics")}
+        </h2>
+        {rule && demo && <p>{t("ruleCount", { count: 0 })}</p>}
         <p className={styles.muted}>{t(rule ? "ruleNote" : "extensionNote")}</p>
       </section>
     </>

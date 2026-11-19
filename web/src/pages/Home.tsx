@@ -7,11 +7,13 @@ import styles from "./Home.module.css";
 
 export function Home({
   status,
+  demo,
   stale,
   refresh,
   t,
 }: {
   status: Status;
+  demo: boolean;
   stale: boolean;
   refresh: () => void;
   t: Translate;
@@ -20,13 +22,14 @@ export function Home({
     <>
       <header className={styles.header}>
         <h1>{t("app")}</h1>
-        <span>{t("demo")}</span>
+        <span>{t(demo ? "demo" : "hostDiagnostics")}</span>
       </header>
       <div className={styles.dashboard}>
         <div className={styles.overview}>
           <ActivationCard status={status} t={t} />
           <ProviderSummary
             status={status}
+            demo={demo}
             stale={stale}
             refresh={refresh}
             t={t}

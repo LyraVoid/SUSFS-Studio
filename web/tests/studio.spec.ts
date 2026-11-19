@@ -1,5 +1,51 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import fixtures from "../../contracts/diagnostic-v1.json" with { type: "json" };
+
+test("an injected host shows its own result and refresh failures", async ({
+  page,
+}) => {
+  await page.addInitScript(
+    ({ hello, active, failed }) => {
+      let result = active;
+      window.studioDiagnostics = {
+        hello: () => JSON.stringify(hello),
+        status: () => JSON.stringify(result),
+      };
+      window.addEventListener("message", (event) => {
+        if (
+          event.source === window &&
+          event.data === "test-diagnostic-failure"
+        ) {
+          result = failed;
+        }
+      });
+    },
+    {
+      hello: fixtures.hello,
+      active: fixtures.active as unknown,
+      failed: fixtures.failed as unknown,
+    },
+  );
+  await page.goto("/");
+  await expect(page.getByText("宿主诊断", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("v2.3.0");
+  await expect(page.getByText("演示数据", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: /状态/ }).click();
+  await expect(page.getByRole("dialog")).toContainText("接口报告可用");
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: window,
+        data: "test-diagnostic-failure",
+      }),
+    ),
+  );
+  await page.getByRole("button", { name: "刷新诊断" }).click();
+  await expect(page.getByRole("dialog")).toContainText("无法读取诊断结果");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("status")).not.toContainText("LKM");
+});
 
 test("six pages, diagnostic dialog and capability labels", async ({ page }) => {
   await page.goto("/");

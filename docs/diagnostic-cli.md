@@ -1,6 +1,6 @@
 # Diagnostic CLI
 
-`studioctl` is an experimental read-only diagnostic command for Android arm64. It is not yet connected to the WebUI or packaged for an Android host. Results require validation on each device and provider combination.
+`studioctl` is an experimental read-only diagnostic command for Android arm64. Results require validation on each device and provider combination.
 
 ## Commands
 
@@ -10,7 +10,13 @@ Version 1 responses contain `protocol`, `requestId`, `ok`, and `data`. The comma
 
 The status result distinguishes a complete recognized response (`active`), an absent response (`missing`), a malformed or unrecognized response (`unknownProtocol`), and an indeterminate or unauthorized query (`failed`). An active response includes the version, implementation, kernel type, and capability indications. Capability indications report interface features, not verified effects or permission to change device state.
 
-The executable makes no configuration changes. It does not open a network listener, apply rules, or manage startup tasks. The WebUI still uses simulated data.
+The executable makes no configuration changes. It does not open a network listener, apply rules, or manage startup tasks.
+
+## WebUI host contract
+
+A host may inject `window.studioDiagnostics` before the WebUI starts. Its argument-free `hello()` and `status()` methods return a JSON string or a promise resolving to one. Expose the bridge only to the bundled WebUI and bind each method to its fixed diagnostic command. The host owns execution and should resolve only after the command succeeds. The WebUI checks the handshake before reading status and applies a shared five-second deadline to asynchronous calls. The host should execute commands off the WebView UI thread and impose its own execution deadline.
+
+When the bridge is absent, the browser uses demo data. When it is present, errors are shown as host diagnostic failures. This repository provides the WebUI adapter. Android bridge injection and packaging require a host implementation.
 
 ## Build and verify
 
