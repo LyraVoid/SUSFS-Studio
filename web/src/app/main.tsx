@@ -71,6 +71,7 @@ function App() {
           locale={locale}
           setLocale={setLocale}
           status={status}
+          archive={source.kind === "host" ? source.archive : undefined}
           t={t}
         />
       ) : route ? (

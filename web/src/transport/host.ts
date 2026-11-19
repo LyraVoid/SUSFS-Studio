@@ -1,3 +1,4 @@
+import { type ArchiveBridge, createArchiveBridge } from "./archiveBridge";
 import { commandBridge } from "./commandBridge";
 import type { Status } from "./mock";
 import { parseStatusResponse } from "./protocol";
@@ -16,7 +17,7 @@ declare global {
 
 export type DiagnosticSource =
   | { kind: "demo" }
-  | { kind: "host"; bridge: DiagnosticBridge }
+  | { kind: "host"; bridge: DiagnosticBridge; archive?: ArchiveBridge }
   | { kind: "unavailable" };
 
 export function diagnosticSource(host: Window): DiagnosticSource {
@@ -40,9 +41,11 @@ export function diagnosticSource(host: Window): DiagnosticSource {
         kind: "host",
         bridge: commandBridge(
           host,
-          bridge as {
-            exec(command: string, options: string, callback: string): void;
-          },
+          bridge as Parameters<typeof commandBridge>[1],
+        ),
+        archive: createArchiveBridge(
+          host,
+          bridge as Parameters<typeof createArchiveBridge>[1],
         ),
       };
     }

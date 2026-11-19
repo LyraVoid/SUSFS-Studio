@@ -22,7 +22,7 @@ The [navigation shell](../web/src/layouts/Shell.tsx) restores the main content s
 | Concern | Implementation |
 | --- | --- |
 | Diagnostic data and scenario fixtures | [`transport/mock.ts`](../web/src/transport/mock.ts) defines the result variants and simulated capabilities. [`useStatus.ts`](../web/src/features/status/useStatus.ts) coordinates requests and discards results from superseded requests. |
-| Archive preview | [`preview.ts`](../web/src/features/config/preview.ts) validates local input. [`ArchivePanel.tsx`](../web/src/components/organisms/ArchivePanel.tsx) renders the decoded text and clears preview state when the dialog closes. |
+| Archive preview and device flow | [`preview.ts`](../web/src/features/config/preview.ts) validates local input. [`archiveBridge.ts`](../web/src/transport/archiveBridge.ts) owns fixed command calls, token validation, and file-stream writes. [`ArchivePanel.tsx`](../web/src/components/organisms/ArchivePanel.tsx) renders comparison, explicit confirmation, receipts, refresh, export, and retained drafts on failure. |
 | Theme | [`theme.ts`](../web/src/theme/theme.ts) generates the light and dark tonal palettes. [`tokens.css`](../web/src/theme/tokens.css) defines shared tokens and the home palette. |
 | Localization | [`messages.ts`](../web/src/i18n/messages.ts) holds English and Simplified Chinese strings. Keep message keys and placeholders aligned. |
 
@@ -40,6 +40,6 @@ pnpm --dir web test:static
 pnpm --dir web build
 ```
 
-`check` runs formatting and lint checks, TypeScript checks, and unit tests. The browser suite covers navigation, demo scenarios, archive previews, preference persistence, the responsive breakpoint, and selected accessibility checks. `test:static` builds the WebUI in development mode and checks that its CSP blocks embedded frames. Set `CHROMIUM_PATH` to use an existing Chromium executable.
+`check` runs formatting and lint checks, TypeScript checks, and unit tests. The browser suite covers navigation, demo scenarios, archive preview, fixed command/token boundaries, save, receipt refresh, export, failure-state draft retention, preference persistence, the responsive breakpoint, and selected accessibility checks. `test:static` builds the WebUI in development mode and checks that its CSP blocks embedded frames. Set `CHROMIUM_PATH` to use an existing Chromium executable.
 
 The static build writes to `web/dist/`. Serve that directory over HTTP and verify that a direct URL such as `index.html#/rules/disguise` loads under a nested path. Vite emits relative asset URLs and a Content Security Policy that disables network connections and embedded frames. The policy does not prevent top-level navigation or restrict a host's JavaScript bridge; the host must enforce trusted page origins and navigation separately. The output uses simulated data unless a diagnostic bridge is provided.

@@ -79,6 +79,46 @@ export const zh = {
   hostPending: "等待 Android 宿主和启动阶段验证。",
   archive: "配置归档",
   archiveNote: "归档与设备状态独立。预览只在当前浏览器会话读取 JSON。",
+  archiveHostNote: "可在预览后保存到 Studio 私有目录，不会应用 SUSFS 规则。",
+  archivePreviewOnly: "演示模式只做浏览器预览，不写入设备。",
+  archiveSaveDetail: "预览差异并明确确认后，保存 Studio 归档和回执。",
+  archiveStreamUnavailable: "当前宿主缺少受限文件流，设备保存保持禁用。",
+  archiveHostUnavailable: "需要已验证的宿主命令与文件通道。",
+  archiveExportDetail: "从设备私有归档重新读取原始内容并下载。",
+  archiveRestorePending:
+    "本轮未开放恢复；恢复会创建新修订，且不会恢复内核运行状态。",
+  archiveDeviceState: "设备归档",
+  archiveSaved: "已保存 Studio 归档",
+  archiveNoSaved: "设备上尚无 Studio 归档",
+  archiveUnavailable: "无法读取设备归档",
+  archiveReceipt: "回执：修订 {revision}，{bytes} 字节",
+  archiveReceiptMissing:
+    "归档内容可读，但持久化回执缺失。先刷新核对，不要自动重试保存。",
+  archiveSource: "来源文件",
+  archiveUnknownFields: "以下未知字段会按原始文本保留：{fields}",
+  archiveExpectedEffect: "预计副作用",
+  archiveSaveEffect:
+    "只写入 Studio 私有归档与回执；不调用 SUSFS 写操作，也不改变设备运行状态。",
+  archiveDeviceDiff: "与设备已保存归档的差异",
+  archiveReviewSave: "检查并确认保存",
+  archiveSavedReceipt: "保存完成：修订 {revision}，{bytes} 字节",
+  archiveConfirmSave: "确认保存到设备",
+  archiveConfirmWarning:
+    "请核对来源、Schema、差异和警告。保存会原子替换 Studio 的上一份归档。",
+  archiveConfirmDiff: "以下差异将写入 Studio 归档：",
+  archiveBack: "返回检查",
+  archiveConfirmSaveAction: "确认保存",
+  archiveRefresh: "刷新设备归档",
+  archiveCommandFailed: "设备通道返回失败；草稿已保留。",
+  archiveBusy: "另一个写入正在进行；草稿已保留，请稍后刷新。",
+  archiveConflict: "设备归档已有较新修订；草稿已保留，请先刷新并重新核对差异。",
+  archiveResultUnknown:
+    "保存结果未知。草稿已保留；先刷新设备归档核对，不要直接重试。",
+  archiveStoreCorrupt: "设备归档损坏或不可校验；原件不会被覆盖。",
+  archiveStoreUntrusted: "私有目录或文件未通过所有权与权限检查，保存已拒绝。",
+  archiveDraftMissing: "暂存草稿不存在或已消费；请重新确认保存。",
+  archiveWriteFailed: "写入 native 创建的临时文件失败；设备归档未提交。",
+  archiveTimeout: "设备操作超时；请刷新核对当前归档。",
   preview: "离线预览",
   previewPending: "当前仅预览本地 JSON 原文，解析后不保存。",
   archiveSchema: "声明的 Schema",
@@ -198,6 +238,62 @@ export const en = {
   archive: "Configuration archive",
   archiveNote:
     "Archives are separate from device status. Preview reads JSON in this browser session.",
+  archiveHostNote:
+    "Preview and save to Studio's private archive without applying SUSFS rules.",
+  archivePreviewOnly:
+    "Demo mode previews in the browser only and does not write to a device.",
+  archiveSaveDetail:
+    "Review the differences and explicitly confirm a Studio archive and receipt.",
+  archiveStreamUnavailable:
+    "This host has no verified constrained file stream; device save is disabled.",
+  archiveHostUnavailable:
+    "A verified host command and file channel are required.",
+  archiveExportDetail:
+    "Read the original bytes from the private device archive and download them.",
+  archiveRestorePending:
+    "Restore is not enabled in this round. A restore would create a new revision and would not restore kernel runtime state.",
+  archiveDeviceState: "Device archive",
+  archiveSaved: "Studio archive saved",
+  archiveNoSaved: "No Studio archive is saved on this device",
+  archiveUnavailable: "The device archive could not be read",
+  archiveReceipt: "Receipt: revision {revision}, {bytes} bytes",
+  archiveReceiptMissing:
+    "The archive is readable, but its persisted receipt is missing. Refresh and verify before doing anything else; do not retry automatically.",
+  archiveSource: "Source file",
+  archiveUnknownFields:
+    "These unknown fields remain in the original text: {fields}",
+  archiveExpectedEffect: "Expected effect",
+  archiveSaveEffect:
+    "Writes only the Studio private archive and receipt. It does not call SUSFS write operations or change device runtime state.",
+  archiveDeviceDiff: "Differences from the saved device archive",
+  archiveReviewSave: "Review and confirm save",
+  archiveSavedReceipt: "Save complete: revision {revision}, {bytes} bytes",
+  archiveConfirmSave: "Confirm device save",
+  archiveConfirmWarning:
+    "Verify the source, schema, differences, and warnings. Saving atomically replaces Studio's previous archive.",
+  archiveConfirmDiff:
+    "These differences will be written to the Studio archive:",
+  archiveBack: "Back to review",
+  archiveConfirmSaveAction: "Confirm save",
+  archiveRefresh: "Refresh device archive",
+  archiveCommandFailed:
+    "The device channel failed. Your draft remains available.",
+  archiveBusy:
+    "Another write is in progress. The draft remains available; refresh before retrying.",
+  archiveConflict:
+    "A newer device revision exists. The draft remains available; refresh and review the differences before saving.",
+  archiveResultUnknown:
+    "The save result is unknown. The draft remains available; refresh the device archive and verify before any retry.",
+  archiveStoreCorrupt:
+    "The device archive is corrupt or cannot be validated. The original will not be overwritten.",
+  archiveStoreUntrusted:
+    "The private directory or file failed ownership and permission checks; the save was rejected.",
+  archiveDraftMissing:
+    "The staged draft is missing or was already consumed. Review and confirm the save again.",
+  archiveWriteFailed:
+    "Writing the native-created temporary file failed. The device archive was not committed.",
+  archiveTimeout:
+    "The device operation timed out. Refresh and verify the current archive.",
   preview: "Offline preview",
   previewPending:
     "This previews local JSON only. The parsed result is not saved.",

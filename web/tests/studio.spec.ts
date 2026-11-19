@@ -235,6 +235,211 @@ test("archive preview stays local and retains no draft on close", async ({
   await expect(page.getByRole("dialog").locator("pre")).toHaveCount(0);
 });
 
+test("archive save, receipt refresh and export form one confirmed loop", async ({
+  page,
+}) => {
+  const archive = JSON.stringify({
+    format: "susfs-studio",
+    schema: 1,
+    rules: {
+      paths: [
+        {
+          id: "safe-test",
+          path: "/data/local/tmp/studio-test",
+          looping: false,
+        },
+      ],
+      maps: [],
+      kstats: [],
+      redirects: [],
+    },
+    futureField: { retained: true },
+  });
+  await page.addInitScript(
+    ({ hello, active, archive }) => {
+      let saved = "";
+      let upload = "";
+      const revision = "a".repeat(64);
+      const token = "0123456789abcdef0123456789abcdef";
+      const receipt = {
+        revision,
+        savedAt: "1760000000000",
+        bytes: archive.length,
+      };
+      const reply = (requestId: string, data: unknown) =>
+        JSON.stringify({ protocol: 1, requestId, ok: true, data });
+      window.ksu = {
+        exec: (command: string, options: string, callback: string) => {
+          if (options !== "{}") throw new Error("invalid options");
+          let output: string | undefined;
+          if (command.endsWith(" hello")) output = JSON.stringify(hello);
+          else if (command.endsWith(" status")) output = JSON.stringify(active);
+          else if (command.endsWith(" stage"))
+            output = reply("stage", {
+              token,
+              uploadPath: `/data/adb/susfs-studio/.staging/${token}.input`,
+              baseline: saved || undefined,
+              revision: saved ? revision : undefined,
+            });
+          else if (command.endsWith(` save ${token}`)) {
+            saved = upload;
+            output = reply("save", receipt);
+          } else if (command.endsWith(" read")) {
+            output = reply(
+              "read",
+              saved
+                ? {
+                    kind: "saved",
+                    text: saved,
+                    revision,
+                    receipt,
+                    receiptStatus: "available",
+                  }
+                : { kind: "empty", receiptStatus: "missing" },
+            );
+          }
+          if (!output) throw new Error(`unexpected command: ${command}`);
+          (
+            window as unknown as Record<
+              string,
+              (code: number, stdout: string) => void
+            >
+          )[callback]?.(0, output);
+        },
+        io: () => ({
+          version: () => 1,
+          FileOutputStream: () => ({
+            open: () => "stream",
+            write: (_id: string, base64: string) => {
+              upload = new TextDecoder().decode(
+                Uint8Array.from(atob(base64), (char) => char.charCodeAt(0)),
+              );
+              return true;
+            },
+            close: () => true,
+          }),
+        }),
+      };
+    },
+    { hello: fixtures.hello, active: fixtures.active, archive },
+  );
+  await page.goto("/#/settings");
+  const save = page.getByRole("button", { name: "设备保存" });
+  await expect(save).toBeEnabled();
+  await save.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("尚无 Studio 归档");
+  await dialog
+    .locator("input[type=file]")
+    .first()
+    .setInputFiles({
+      name: "device-loop.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(archive),
+    });
+  await expect(dialog).toContainText("新增字段: /format");
+  await expect(dialog).toContainText("不调用 SUSFS 写操作");
+  await dialog.getByRole("button", { name: "检查并确认保存" }).click();
+  await expect(dialog).toContainText("确认保存到设备");
+  await expect(dialog).toContainText("device-loop.json");
+  await dialog.getByRole("button", { name: "确认保存" }).click();
+  await expect(dialog.getByRole("status")).toContainText("保存完成");
+  await expect(dialog).toContainText("已保存 Studio 归档");
+  const download = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "设备导出" }).click();
+  await expect((await download).suggestedFilename()).toMatch(
+    /^susfs-studio-aaaaaaaaaaaa\.json$/,
+  );
+  await page.keyboard.press("Escape");
+  await save.click();
+  await expect(page.getByRole("dialog")).toContainText("已保存 Studio 归档");
+  await expect(page.getByRole("dialog")).toContainText(
+    "回执：修订 aaaaaaaaaaaa",
+  );
+});
+
+test("an uncertain archive save keeps the draft and requires verification", async ({
+  page,
+}) => {
+  const archive = JSON.stringify({
+    format: "susfs-studio",
+    schema: 1,
+    rules: { paths: [], maps: [], kstats: [], redirects: [] },
+  });
+  await page.addInitScript(
+    ({ hello, active }) => {
+      const token = "fedcba9876543210fedcba9876543210";
+      const reply = (requestId: string, data: unknown, ok = true) =>
+        JSON.stringify({
+          protocol: 1,
+          requestId,
+          ok,
+          ...(ok ? { data } : { error: data }),
+        });
+      window.ksu = {
+        exec: (command: string, _options: string, callback: string) => {
+          const output = command.endsWith(" hello")
+            ? JSON.stringify(hello)
+            : command.endsWith(" status")
+              ? JSON.stringify(active)
+              : command.endsWith(" stage")
+                ? reply("stage", {
+                    token,
+                    uploadPath: `/data/adb/susfs-studio/.staging/${token}.input`,
+                    baseline: null,
+                    revision: null,
+                  })
+                : command.endsWith(` save ${token}`)
+                  ? reply(
+                      "save",
+                      { code: "RESULT_UNKNOWN", retryable: false },
+                      false,
+                    )
+                  : reply("read", {
+                      kind: "empty",
+                      receiptStatus: "missing",
+                    });
+          (
+            window as unknown as Record<
+              string,
+              (code: number, stdout: string) => void
+            >
+          )[callback]?.(0, output);
+        },
+        io: () => ({
+          version: () => 1,
+          FileOutputStream: () => ({
+            open: () => "stream",
+            write: () => true,
+            close: () => true,
+          }),
+        }),
+      };
+    },
+    { hello: fixtures.hello, active: fixtures.active },
+  );
+  await page.goto("/#/settings");
+  await page.getByRole("button", { name: "设备保存" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .locator("input[type=file]")
+    .first()
+    .setInputFiles({
+      name: "uncertain.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(archive),
+    });
+  await dialog.getByRole("button", { name: "检查并确认保存" }).click();
+  await dialog.getByRole("button", { name: "确认保存" }).click();
+  await expect(dialog).toContainText("保存结果未知");
+  await expect(dialog).toContainText("uncertain.json");
+  await expect(dialog.getByRole("button", { name: "确认保存" })).toBeDisabled();
+  await dialog.getByRole("button", { name: "刷新设备归档" }).click();
+  await expect(dialog.getByRole("button", { name: "确认保存" })).toBeDisabled();
+  await dialog.getByRole("button", { name: "返回检查" }).click();
+  await expect(dialog).toContainText("uncertain.json");
+});
+
 test("mobile and desktop breakpoint, persisted preferences and axe", async ({
   page,
 }) => {

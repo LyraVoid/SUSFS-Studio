@@ -1,10 +1,13 @@
 use serde::Serialize;
 use std::collections::BTreeMap;
+use std::io::Read;
+#[cfg(target_os = "android")]
+use std::os::unix::fs::MetadataExt;
+#[cfg(target_os = "android")]
+use std::path::Path;
 
 mod archive;
-#[cfg(test)]
 mod store;
-use std::io::Read;
 
 #[derive(Serialize)]
 struct Envelope<T: Serialize> {
@@ -21,6 +24,81 @@ fn response<T: Serialize>(request_id: &'static str, data: T) -> Envelope<T> {
         request_id,
         ok: true,
         data,
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Failure {
+    protocol: u32,
+    request_id: &'static str,
+    ok: bool,
+    error: ErrorBody,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ErrorBody {
+    code: &'static str,
+    retryable: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StageData {
+    token: String,
+    upload_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    baseline: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    revision: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReadData {
+    kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    revision: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    receipt: Option<store::Receipt>,
+    receipt_status: &'static str,
+}
+
+fn failure(request_id: &'static str, error: store::SaveError) -> Failure {
+    let (code, retryable) = match error {
+        store::SaveError::ResultUnknown(_) => ("RESULT_UNKNOWN", false),
+        store::SaveError::BeforeCommit(error) => io_error(&error),
+    };
+    Failure {
+        protocol: 1,
+        request_id,
+        ok: false,
+        error: ErrorBody { code, retryable },
+    }
+}
+
+fn io_failure(request_id: &'static str, error: std::io::Error) -> Failure {
+    let (code, retryable) = io_error(&error);
+    Failure {
+        protocol: 1,
+        request_id,
+        ok: false,
+        error: ErrorBody { code, retryable },
+    }
+}
+
+fn io_error(error: &std::io::Error) -> (&'static str, bool) {
+    match error.kind() {
+        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::ResourceBusy => ("BUSY", true),
+        std::io::ErrorKind::AlreadyExists => ("REVISION_CONFLICT", true),
+        std::io::ErrorKind::InvalidData => ("STORE_CORRUPT", false),
+        std::io::ErrorKind::InvalidInput => ("BAD_REQUEST", false),
+        std::io::ErrorKind::NotFound => ("DRAFT_MISSING", true),
+        std::io::ErrorKind::PermissionDenied => ("STORE_UNTRUSTED", false),
+        _ => ("IO_ERROR", false),
     }
 }
 
@@ -232,22 +310,90 @@ fn status() -> Status {
     }
 }
 
-fn main() {
-    let action = std::env::args().nth(1);
-    if std::env::args().len() != 2
-        || !matches!(action.as_deref(), Some("hello" | "status" | "preview"))
+fn archive_store() -> std::io::Result<store::Store> {
+    #[cfg(target_os = "android")]
     {
+        use std::fs::OpenOptions;
+        use std::os::unix::fs::OpenOptionsExt;
+
+        let parent = OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open("/data/adb")?;
+        let metadata = parent.metadata()?;
+        if !metadata.is_dir() || metadata.uid() != 0 || metadata.mode() & 0o077 != 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "untrusted Android ADB directory",
+            ));
+        }
+        if unsafe { libc::geteuid() } != 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "archive storage requires root",
+            ));
+        }
+        store::Store::open_or_create(Path::new("/data/adb/susfs-studio"))
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "archive storage is only available on Android",
+        ))
+    }
+}
+
+fn read_archive() -> Result<ReadData, store::SaveError> {
+    let stored = archive_store()?.read()?;
+    Ok(match stored {
+        None => ReadData {
+            kind: "empty",
+            text: None,
+            revision: None,
+            receipt: None,
+            receipt_status: "missing",
+        },
+        Some(stored) => ReadData {
+            kind: "saved",
+            text: std::str::from_utf8(&stored.bytes)
+                .map_err(|error| {
+                    store::SaveError::BeforeCommit(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        error,
+                    ))
+                })?
+                .to_owned()
+                .into(),
+            revision: Some(stored.revision),
+            receipt_status: if stored.receipt.is_some() {
+                "available"
+            } else {
+                "missing"
+            },
+            receipt: stored.receipt,
+        },
+    })
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let action = args.first().map(String::as_str);
+    if !matches!(
+        (action, args.len()),
+        (Some("hello" | "status" | "preview" | "stage" | "read"), 1) | (Some("save"), 2)
+    ) {
         std::process::exit(2);
     }
-    let output = match action.as_deref() {
+    let output = match action {
         Some("hello") => serde_json::to_string(&response("hello", "studioctl")),
         Some("preview") => {
             let mut input = Vec::new();
             let read = std::io::stdin()
                 .lock()
-                .take(128 * 1024 + 1)
+                .take(archive::MAX_ARCHIVE as u64 + 1)
                 .read_to_end(&mut input);
-            let result = if read.is_err() || input.len() > 128 * 1024 {
+            let result = if read.is_err() || input.len() > archive::MAX_ARCHIVE {
                 "invalid"
             } else {
                 match std::str::from_utf8(&input)
@@ -261,6 +407,27 @@ fn main() {
             };
             serde_json::to_string(&response("preview", result))
         }
+        Some("stage") => match archive_store().and_then(|store| store.prepare()) {
+            Ok(prepared) => serde_json::to_string(&response(
+                "stage",
+                StageData {
+                    token: prepared.token,
+                    upload_path: prepared.upload_path,
+                    baseline: prepared.baseline,
+                    revision: prepared.revision,
+                },
+            )),
+            Err(error) => serde_json::to_string(&io_failure("stage", error)),
+        },
+        Some("save") => match archive_store().map(|store| store.save_staged(&args[1])) {
+            Ok(Ok(receipt)) => serde_json::to_string(&response("save", receipt)),
+            Ok(Err(error)) => serde_json::to_string(&failure("save", error)),
+            Err(error) => serde_json::to_string(&io_failure("save", error)),
+        },
+        Some("read") => match read_archive() {
+            Ok(data) => serde_json::to_string(&response("read", data)),
+            Err(error) => serde_json::to_string(&failure("read", error)),
+        },
         _ => serde_json::to_string(&response(
             "status",
             StatusData {

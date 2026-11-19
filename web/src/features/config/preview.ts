@@ -2,8 +2,10 @@ import { LosslessNumber, parse } from "lossless-json";
 import { scanArchive } from "./duplicateKeys";
 
 export const archiveLimit = 128 * 1024;
+const ruleLimit = 128;
 const depthLimit = 64;
 const changeLimit = 500;
+const encoder = new TextEncoder();
 type Json =
   | null
   | boolean
@@ -12,6 +14,29 @@ type Json =
   | Json[]
   | { [key: string]: Json };
 type JsonObject = { [key: string]: Json };
+type FormatStatus = "valid" | "invalid" | "unknown";
+
+const ruleGroups = ["paths", "maps", "kstats", "redirects"] as const;
+const ruleKeys = {
+  paths: new Set(["id", "path", "looping"]),
+  maps: new Set(["id", "path"]),
+  kstats: new Set(["id", "path", "mode", "static"]),
+  redirects: new Set(["id", "path", "destination", "uidScheme"]),
+};
+const staticKinds: ReadonlyMap<string, readonly [string, bigint]> = new Map([
+  ["inode", ["u64", 18446744073709551615n]],
+  ["device", ["u64", 18446744073709551615n]],
+  ["links", ["u64", 4294967295n]],
+  ["size", ["nonnegative", 9223372036854775807n]],
+  ["blocks", ["nonnegative", 9223372036854775807n]],
+  ["blockSize", ["nonnegative", 9223372036854775807n]],
+  ["atimeSeconds", ["signed", 9223372036854775807n]],
+  ["mtimeSeconds", ["signed", 9223372036854775807n]],
+  ["ctimeSeconds", ["signed", 9223372036854775807n]],
+  ["atimeNanoseconds", ["nanoseconds", 999999999n]],
+  ["mtimeNanoseconds", ["nanoseconds", 999999999n]],
+  ["ctimeNanoseconds", ["nanoseconds", 999999999n]],
+] as const);
 
 function object(value: unknown): value is JsonObject {
   return (
@@ -22,12 +47,126 @@ function object(value: unknown): value is JsonObject {
   );
 }
 
+function number(value: unknown): value is LosslessNumber {
+  return value instanceof LosslessNumber;
+}
+
+function id(value: unknown) {
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    encoder.encode(value).length <= 128 &&
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: IDs are single-line metadata.
+    !/[\u0000-\u001f\u007f]/u.test(value)
+  );
+}
+
+function path(value: unknown) {
+  return (
+    typeof value === "string" &&
+    value.startsWith("/") &&
+    value !== "/" &&
+    encoder.encode(value).length < 256 &&
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: SUSFS paths cannot contain shell controls.
+    !/[\s\u0000-\u001f\u007f]/u.test(value) &&
+    !value.includes("//") &&
+    !value.split("/").some((part) => part === "." || part === "..")
+  );
+}
+
+function timedNumber(value: unknown, spec: readonly [string, bigint]) {
+  if (typeof value !== "string" || !/^(0|-?[1-9]\d*)$/.test(value))
+    return false;
+  const parsed = BigInt(value);
+  if (spec[0] === "signed")
+    return parsed >= -9223372036854775808n && parsed <= spec[1];
+  return parsed >= 0n && parsed <= spec[1];
+}
+
+function staticKstat(value: unknown) {
+  if (!object(value)) return false;
+  let known = 0;
+  for (const [key, field] of Object.entries(value)) {
+    const spec = staticKinds.get(key);
+    if (!spec) continue;
+    known++;
+    if (!timedNumber(field, spec)) return false;
+  }
+  return known > 0;
+}
+
+function validRule(
+  group: (typeof ruleGroups)[number],
+  value: Json,
+  unknowns: Set<string>,
+) {
+  if (!object(value) || !id(value.id) || !path(value.path)) return false;
+  for (const key of Object.keys(value))
+    if (!ruleKeys[group].has(key)) unknowns.add(`${group}.${key}`);
+  if (group === "paths") return typeof value.looping === "boolean";
+  if (group === "maps") return true;
+  if (group === "kstats") {
+    if (value.mode === "normal" || value.mode === "fullClone")
+      return value.static === undefined;
+    return value.mode === "static" && staticKstat(value.static);
+  }
+  return (
+    path(value.destination) &&
+    value.destination !== value.path &&
+    number(value.uidScheme) &&
+    /^[0-4]$/.test(value.uidScheme.value)
+  );
+}
+
+function inspectVersionOne(value: JsonObject): {
+  status: FormatStatus;
+  count?: number;
+  unknown: string[];
+} {
+  const rules = value.rules;
+  if (!object(rules)) return { status: "invalid", unknown: [] };
+  const entries = ruleGroups.flatMap((group) =>
+    Array.isArray(rules[group])
+      ? (rules[group] as Json[]).map((entry) => ({ entry, group }))
+      : [],
+  );
+  if (
+    ruleGroups.some((group) => !Array.isArray(rules[group])) ||
+    entries.length > ruleLimit
+  )
+    return { status: "invalid", unknown: [] };
+  const ids = new Set<string>();
+  const identities = new Set<string>();
+  const unknown = new Set<string>();
+  for (const { entry, group } of entries) {
+    if (!validRule(group, entry, unknown))
+      return { status: "invalid", unknown: [] };
+    const rule = entry as JsonObject;
+    if (ids.has(rule.id as string)) return { status: "invalid", unknown: [] };
+    const identity = `${group}\0${rule.path as string}`;
+    if (identities.has(identity)) return { status: "invalid", unknown: [] };
+    ids.add(rule.id as string);
+    identities.add(identity);
+  }
+  return {
+    status: "valid",
+    count: entries.length,
+    unknown: Array.from(unknown).sort(),
+  };
+}
+
 export async function previewArchive(file: Blob) {
   if (file.size > archiveLimit) return { error: "archiveTooLarge" } as const;
   try {
-    const text = new TextDecoder("utf-8", { fatal: true }).decode(
-      await file.arrayBuffer(),
-    );
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (
+      bytes.length >= 3 &&
+      bytes[0] === 0xef &&
+      bytes[1] === 0xbb &&
+      bytes[2] === 0xbf
+    )
+      return { error: "archiveInvalid" } as const;
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     const scan = scanArchive(text);
     if (scan.tooDeep) return { error: "archiveInvalid" } as const;
     let ambiguous = scan.duplicate;
@@ -39,57 +178,20 @@ export async function previewArchive(file: Blob) {
     });
     if (!object(value)) return { error: "archiveInvalid" } as const;
     const schema =
-      value.schema instanceof LosslessNumber &&
-      /^(0|[1-9]\d*)$/.test(value.schema.value)
+      number(value.schema) && /^(0|[1-9]\d*)$/.test(value.schema.value)
         ? value.schema.value
         : undefined;
-    const format = value.format;
-    let formatStatus: "valid" | "invalid" | "unknown" = "unknown";
+    const keys = Object.keys(value).sort();
+    let formatStatus: FormatStatus = "unknown";
     let ruleCount: number | undefined;
-    if (format === "susfs-studio" && schema === "1") {
-      if (
-        object(value.rules) &&
-        ["paths", "maps", "kstats", "redirects"].every((key) =>
-          Array.isArray((value.rules as JsonObject)[key]),
-        )
-      ) {
-        const rules = value.rules as JsonObject;
-        const entries = ["paths", "maps", "kstats", "redirects"].flatMap(
-          (key) => rules[key] as Json[],
-        );
-        const valid = entries.every((entry) => {
-          if (!object(entry)) return false;
-          const rule = entry as JsonObject;
-          if (typeof rule.id !== "string" || !rule.id.trim()) return false;
-          if (
-            rule.path !== undefined &&
-            (typeof rule.path !== "string" ||
-              !rule.path.startsWith("/") ||
-              rule.path.includes("\0") ||
-              new TextEncoder().encode(rule.path).length >= 256)
-          )
-            return false;
-          if (
-            rule.inode !== undefined &&
-            (typeof rule.inode !== "string" ||
-              !/^(0|[1-9]\d*)$/.test(rule.inode) ||
-              rule.inode.length > 20 ||
-              BigInt(rule.inode) > 18446744073709551615n)
-          )
-            return false;
-          return true;
-        });
-        formatStatus =
-          valid &&
-          new Set(
-            entries.map((entry) =>
-              object(entry) ? (entry as JsonObject).id : undefined,
-            ),
-          ).size === entries.length
-            ? "valid"
-            : "invalid";
-        if (formatStatus === "valid") ruleCount = entries.length;
-      } else formatStatus = "invalid";
+    let unknownFields = keys.filter(
+      (key) => !["format", "schema", "rules"].includes(key),
+    );
+    if (value.format === "susfs-studio" && schema === "1") {
+      const inspection = inspectVersionOne(value);
+      formatStatus = inspection.status;
+      ruleCount = inspection.count;
+      unknownFields = unknownFields.concat(inspection.unknown).sort();
     }
     if (ambiguous) {
       formatStatus = "invalid";
@@ -97,12 +199,14 @@ export async function previewArchive(file: Blob) {
     }
     return {
       text,
+      bytes,
       schema,
-      keys: Object.keys(value).sort(),
+      keys,
       value,
       ambiguous,
       formatStatus,
       ruleCount,
+      unknownFields: Array.from(new Set(unknownFields)),
     } as const;
   } catch {
     return { error: "archiveInvalid" } as const;

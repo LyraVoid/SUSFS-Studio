@@ -63,12 +63,12 @@ describe("archive preview", () => {
     );
     expect(valid).toMatchObject({
       formatStatus: "valid",
-      ruleCount: 2,
+      ruleCount: 4,
       schema: "1",
     });
     const rules = {
-      paths: [{ id: "x" }],
-      maps: [{ id: "x" }],
+      paths: [{ id: "x", path: "/data/a", looping: false }],
+      maps: [{ id: "x", path: "/data/b" }],
       kstats: [],
       redirects: [],
     };
@@ -86,6 +86,125 @@ describe("archive preview", () => {
         ]),
       ),
     ).toMatchObject({ formatStatus: "unknown" });
+  });
+  it("separates format validity from field completeness and device applicability", async () => {
+    const text = JSON.stringify({
+      format: "susfs-studio",
+      schema: 1,
+      rules: {
+        paths: [{ id: "x", path: "/data/a", looping: "sometimes" }],
+        maps: [],
+        kstats: [],
+        redirects: [],
+      },
+    });
+    expect(await previewArchive(new Blob([text]))).toMatchObject({
+      formatStatus: "invalid",
+    });
+    for (const path of [
+      "/",
+      "/data/../a",
+      "/data//a",
+      "/data/a b",
+      `/data/${"界".repeat(84)}`,
+    ]) {
+      expect(
+        await previewArchive(
+          new Blob([
+            JSON.stringify({
+              format: "susfs-studio",
+              schema: 1,
+              rules: {
+                paths: [],
+                maps: [{ id: "x", path }],
+                kstats: [],
+                redirects: [],
+              },
+            }),
+          ]),
+        ),
+      ).toMatchObject({ formatStatus: "invalid" });
+    }
+  });
+  it("validates exact static kstat values, duplicate identities and redirect schemes", async () => {
+    for (const rule of [
+      {
+        id: "x",
+        path: "/data/a",
+        mode: "static",
+        static: { inode: "18446744073709551616" },
+      },
+      {
+        id: "x",
+        path: "/data/a",
+        mode: "normal",
+        static: { inode: "1" },
+      },
+      { id: "x", path: "/data/a", mode: "unknown" },
+    ]) {
+      expect(
+        await previewArchive(
+          new Blob([
+            JSON.stringify({
+              format: "susfs-studio",
+              schema: 1,
+              rules: {
+                paths: [],
+                maps: [],
+                kstats: [rule],
+                redirects: [],
+              },
+            }),
+          ]),
+        ),
+      ).toMatchObject({ formatStatus: "invalid" });
+    }
+    const duplicate = await previewArchive(
+      new Blob([
+        JSON.stringify({
+          format: "susfs-studio",
+          schema: 1,
+          rules: {
+            paths: [
+              { id: "a", path: "/data/a", looping: false },
+              { id: "b", path: "/data/a", looping: true },
+            ],
+            maps: [],
+            kstats: [],
+            redirects: [],
+          },
+        }),
+      ]),
+    );
+    expect(duplicate).toMatchObject({ formatStatus: "invalid" });
+  });
+  it("retains unknown fields while requiring the v1 rule fields", async () => {
+    const preview = await previewArchive(
+      new Blob([
+        JSON.stringify({
+          format: "susfs-studio",
+          schema: 1,
+          future: "kept",
+          rules: {
+            paths: [
+              {
+                id: "a",
+                path: "/data/a",
+                looping: false,
+                futureRule: "kept",
+              },
+            ],
+            maps: [],
+            kstats: [],
+            redirects: [],
+          },
+        }),
+      ]),
+    );
+    expect(preview).toMatchObject({
+      formatStatus: "valid",
+      unknownFields: ["future", "paths.futureRule"],
+    });
   });
   it("reports bounded comparisons without losing original archives", async () => {
     const base = await previewArchive(new Blob(["{}"]));

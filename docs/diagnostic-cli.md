@@ -6,6 +6,16 @@
 
 Run `studioctl hello` to check that the executable starts and reports protocol version 1. Run `studioctl status` as root to query the device interface. Run `studioctl preview` with an archive on standard input to classify its envelope without writing it. Commands emit one JSON object on standard output. Other arguments are rejected.
 
+The device archive commands are:
+
+| Command | Effect |
+| --- | --- |
+| `studioctl stage` | Captures the current archive baseline and creates one empty, `0600`, token-named input below the private staging directory. It returns the token, upload path, baseline text, and revision. |
+| `studioctl save <token>` | Validates and consumes the staged bytes, checks the baseline under the write lock, then atomically stores the archive and receipt. The token is a fixed 32-character lowercase hexadecimal value. |
+| `studioctl read` | Validates and returns the saved archive text, SHA-256 revision, and matching receipt when available. |
+
+The host adapter constructs `stage` and `read` as fixed commands. For `save`, it accepts only a token returned by that adapter's own successful `stage` call and embeds only the validated hexadecimal token. Selected file names, JSON, and form values are never incorporated into a root shell command.
+
 Version 1 responses contain `protocol`, `requestId`, `ok`, and `data`. The command name is the response's `requestId`. `hello` returns `"studioctl"` as its data. A `status` response uses `data.kind` for the diagnostic result, including when the query itself fails. Rust serialization and WebUI status parsing share the [version 1 fixtures](../contracts/diagnostic-v1.json).
 
 The status result distinguishes a complete recognized response (`active`), an absent response (`missing`), a malformed or unrecognized response (`unknownProtocol`), and an indeterminate or unauthorized query (`failed`). An active response includes the version, implementation, kernel type, and capability indications. Capability indications report interface features, not verified effects or permission to change device state.
@@ -16,13 +26,13 @@ On Android, `status` can include `data.device` with the model, Android release a
 
 After a matching protocol-1 response has been received, invalid provider data is reported as a diagnostic failure. Validated device facts remain visible, but no activation state or provider badge is inferred from the malformed provider data. Device fields from a mismatched request or unsupported protocol are not used.
 
-The executable makes no configuration changes. It does not open a network listener, apply rules, or manage startup tasks.
+Archive operations belong only to Studio. They do not call SUSFS write operations, alter the provider, or manage startup tasks. The executable does not open a network listener.
 
 ## WebUI host contract
 
 A host may inject `window.studioDiagnostics` before the WebUI starts. Its argument-free `hello()` and `status()` methods return a JSON string or a promise resolving to one. Expose the bridge only to the bundled WebUI and bind each method to its fixed diagnostic command. The host owns execution and should resolve only after the command succeeds. The WebUI checks the handshake before reading status and applies a shared five-second deadline to asynchronous calls. The host should execute commands off the WebView UI thread and impose its own execution deadline.
 
-In a standalone browser with no host interface, the WebUI uses demo data. A host exposing the compatible `ksu.exec` callback API is used for fixed read-only commands. An unsupported or malformed host interface reports a connection failure. Host-side navigation and bridge security vary; see [host integration](host-integration.md) for the boundary and validation status.
+In a standalone browser with no host interface, the WebUI uses demo data. A host exposing the compatible `ksu.exec` callback API is used for fixed commands. Archive save is enabled only when the same host exposes the verified `ksu.io()` version-1 file stream API. Export still requires only the fixed `read` command and the host's download path. An unsupported or malformed host interface reports a connection failure. Host-side navigation and bridge security vary; see [host integration](host-integration.md) for the boundary and validation status.
 
 ## Test the WebUI in Android WebView
 
@@ -38,7 +48,7 @@ adb shell am start -S -W -n dev.susfs.studio.smoke/.SmokeActivity --es scenario 
 
 Run `bash scripts/test-webview-smoke.sh` with an unlocked arm64 ADB device, Python 3, and the same build prerequisites. Set `ANDROID_SERIAL` when more than one device is connected. The script rebuilds the WebUI and checks the Chinese UI labels for active status, demo mode, protocol mismatch, query failure, and a host marker without a diagnostic bridge. It also checks that the smoke host rejects page-initiated top-level navigation to another HTTPS origin and to an unknown path on the local origin. It refuses to replace an installed smoke app and removes its temporary app and UI dump on exit.
 
-The `native` scenario runs the bundled CLI under the smoke application's ordinary Android UID. The bridge invokes the fixed `hello` and `status` subcommands with a two-second process timeout and a 4 KiB response limit. The regression checks that both commands complete and that the WebUI displays the expected diagnostic failure from the unprivileged status query. This scenario covers process execution and the WebView response path. Successful device status reads require a privileged host integration.
+The `native` scenario runs the bundled CLI under the smoke application's ordinary Android UID. The bridge invokes the fixed `hello` and `status` subcommands with a two-second process timeout and a 4 KiB response limit. The regression checks that both commands complete and that the WebUI displays the expected diagnostic failure from the unprivileged status query. This scenario covers process execution and the WebView response path. Successful device status and archive storage require a privileged host integration.
 
 Pass a captured `studioctl status` response as the only argument to the smoke script to check a successful device response in WebView. Use an active protocol-1 response of at most 4 KiB and keep the capture and APK in `.local/`. The APK displays a capture notice. The regression checks the displayed version and any reported implementation badge, then confirms that the refresh button replays the same capture. Live reads still require the dedicated host bridge.
 

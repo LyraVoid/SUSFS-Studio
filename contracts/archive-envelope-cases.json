@@ -1,15 +1,122 @@
 [
-  { "name": "valid", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\"}],\"maps\":[],\"kstats\":[],\"redirects\":[]}}", "expected": "valid" },
-  { "name": "unknown version", "text": "{\"format\":\"susfs-studio\",\"schema\":2}", "expected": "unknown" },
-  { "name": "duplicate ids", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\"}],\"maps\":[{\"id\":\"a\"}],\"kstats\":[],\"redirects\":[]}}", "expected": "invalid" },
-  { "name": "duplicate key", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[],\"redirects\":[]}}", "expected": "invalid" },
-  { "name": "missing group", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[]}}", "expected": "invalid" },
-  { "name": "fractional schema", "text": "{\"format\":\"susfs-studio\",\"schema\":1.0}", "expected": "unknown" },
-  { "name": "valid path and maximum inode", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\",\"path\":\"/x\",\"inode\":\"18446744073709551615\"}],\"maps\":[],\"kstats\":[],\"redirects\":[]}}", "expected": "valid" },
-  { "name": "relative path", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\",\"path\":\"x\"}],\"maps\":[],\"kstats\":[],\"redirects\":[]}}", "expected": "invalid" },
-  { "name": "inode overflow", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"b\",\"inode\":\"18446744073709551616\"}],\"redirects\":[]}}", "expected": "invalid" },
-  { "name": "inode number", "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"b\",\"inode\":5}],\"redirects\":[]}}", "expected": "invalid" },
-  { "name": "unknown format with duplicate key", "text": "{\"format\":\"other\",\"schema\":2,\"x\":1,\"x\":1}", "expected": "invalid" },
-  { "name": "unknown schema with duplicate key", "text": "{\"format\":\"susfs-studio\",\"schema\":2,\"x\":1,\"x\":2}", "expected": "invalid" },
-  { "name": "unknown large integer", "text": "{\"format\":\"susfs-studio\",\"schema\":2,\"future\":1844674407370955161600000}", "expected": "unknown" }
+  {
+    "name": "valid",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\",\"path\":\"/data/a\",\"looping\":true}],\"maps\":[{\"id\":\"b\",\"path\":\"/data/b\"}],\"kstats\":[{\"id\":\"c\",\"path\":\"/data/c\",\"mode\":\"fullClone\"}],\"redirects\":[{\"id\":\"d\",\"path\":\"/data/d\",\"destination\":\"/data/e\",\"uidScheme\":4}]}}",
+    "expected": "valid"
+  },
+  {
+    "name": "unknown version",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":2}",
+    "expected": "unknown"
+  },
+  {
+    "name": "fractional schema",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1.0}",
+    "expected": "unknown"
+  },
+  {
+    "name": "duplicate id",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\",\"path\":\"/data/a\",\"looping\":false}],\"maps\":[{\"id\":\"a\",\"path\":\"/data/b\"}],\"kstats\":[],\"redirects\":[]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "duplicate rule identity",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\",\"path\":\"/data/a\",\"looping\":false},{\"id\":\"b\",\"path\":\"/data/a\",\"looping\":true}],\"maps\":[],\"kstats\":[],\"redirects\":[]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "duplicate key",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[],\"redirects\":[]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "escaped duplicate key",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[],\"redirects\":[]},\"x\":1,\"\\u0078\":2}",
+    "expected": "invalid"
+  },
+  {
+    "name": "missing group",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "missing path looping",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\",\"path\":\"/data/a\"}],\"maps\":[],\"kstats\":[],\"redirects\":[]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "relative path",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\",\"path\":\"data/a\",\"looping\":false}],\"maps\":[],\"kstats\":[],\"redirects\":[]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "dot segment",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[{\"id\":\"a\",\"path\":\"/data/../a\"}],\"kstats\":[],\"redirects\":[]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "maximum inode",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"a\",\"path\":\"/data/a\",\"mode\":\"static\",\"static\":{\"inode\":\"18446744073709551615\"}}],\"redirects\":[]}}",
+    "expected": "valid"
+  },
+  {
+    "name": "inode overflow",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"a\",\"path\":\"/data/a\",\"mode\":\"static\",\"static\":{\"inode\":\"18446744073709551616\"}}],\"redirects\":[]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "inode number",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"a\",\"path\":\"/data/a\",\"mode\":\"static\",\"static\":{\"inode\":5}}],\"redirects\":[]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "leading zero integer",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"a\",\"path\":\"/data/a\",\"mode\":\"static\",\"static\":{\"links\":\"01\"}}],\"redirects\":[]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "static kstat requires known field",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"a\",\"path\":\"/data/a\",\"mode\":\"static\",\"static\":{\"future\":\"1\"}}],\"redirects\":[]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "static kstat only on static mode",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[{\"id\":\"a\",\"path\":\"/data/a\",\"mode\":\"normal\",\"static\":{\"inode\":\"1\"}}],\"redirects\":[]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "redirect requires destination",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[],\"redirects\":[{\"id\":\"a\",\"path\":\"/data/a\",\"uidScheme\":2}]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "redirect uid scheme range",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[],\"redirects\":[{\"id\":\"a\",\"path\":\"/data/a\",\"destination\":\"/data/b\",\"uidScheme\":5}]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "redirect path cannot equal destination",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[],\"redirects\":[{\"id\":\"a\",\"path\":\"/data/a\",\"destination\":\"/data/a\",\"uidScheme\":2}]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "unknown fields retained",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[{\"id\":\"a\",\"path\":\"/data/a\",\"looping\":false,\"future\":{\"n\":18446744073709551615}}],\"maps\":[],\"kstats\":[],\"redirects\":[]},\"future\":18446744073709551615}",
+    "expected": "valid"
+  },
+  {
+    "name": "unknown format with duplicate key",
+    "text": "{\"format\":\"other\",\"schema\":2,\"x\":1,\"x\":2}",
+    "expected": "invalid"
+  },
+  {
+    "name": "unknown schema with duplicate key",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":2,\"x\":1,\"x\":2}",
+    "expected": "invalid"
+  },
+  {
+    "name": "unknown large integer",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":2,\"future\":1844674407370955161600000}",
+    "expected": "unknown"
+  }
 ]

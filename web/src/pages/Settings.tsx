@@ -7,6 +7,7 @@ import {
 } from "../components/molecules/SettingsList";
 import { ArchivePanel } from "../components/organisms/ArchivePanel";
 import type { Locale, Message, Translate } from "../i18n/messages";
+import type { ArchiveBridge } from "../transport/archiveBridge";
 import { type Scenario, type Status, scenarios } from "../transport/mock";
 import page from "./PageHeader.module.css";
 import styles from "./Settings.module.css";
@@ -63,6 +64,7 @@ export function Settings({
   locale,
   setLocale,
   status,
+  archive,
   t,
 }: {
   demo: boolean;
@@ -71,6 +73,7 @@ export function Settings({
   locale: Locale;
   setLocale: (value: Locale) => void;
   status: Status;
+  archive?: ArchiveBridge;
   t: Translate;
 }) {
   const { colorScheme, setColorScheme } = useMantineColorScheme();
@@ -136,7 +139,7 @@ export function Settings({
           detail={status.device?.kernel ?? t("absent")}
         />
       </SettingsList>
-      <ArchivePanel t={t} />
+      <ArchivePanel archive={archive} t={t} />
     </>
   );
 }

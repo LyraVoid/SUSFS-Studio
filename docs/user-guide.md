@@ -26,10 +26,27 @@ Use **Settings → Demo scenario** to switch between simulated outcomes. The def
 
 1. Open **Settings → Offline preview**.
 2. Select a UTF-8 JSON file up to 128 KiB. The top-level JSON value must be an object.
-3. Review the original JSON text, declared numeric schema, and structural validation result. Structural validation does not confirm device compatibility.
-4. Optionally select a second archive. The dialog lists added, removed, and changed JSON Pointer paths. Arrays are compared by position and numeric formatting differences count as changes. Both original texts remain unchanged. Clear the selection or close the dialog to discard the preview.
+3. Review the source file, declared numeric schema, rule count, unknown-field warning, original JSON text, and structural validation result.
+4. Compare the selection with the archive already saved on the device. Optionally select a second archive for a separate comparison. The dialog lists added, removed, and changed JSON Pointer paths. Arrays are compared by position and numeric formatting differences count as changes. Both original texts remain unchanged.
 
-Previewing validates file size, encoding, JSON syntax, and the [Studio version-1 envelope and selected fields](archive-format.md). It does not validate whether rules are complete or applicable, normalize data, or persist archive contents. Unknown fields and exact numeric tokens remain in the original text. Device save, export, and restore controls require host integration. Automatic collection is also disabled in the preview.
+Previewing validates file size, encoding, JSON syntax, the complete [Studio version-1 rule structure](archive-format.md), duplicate keys, path boundaries, redirect constraints, and exact static kstat strings. It does not apply rules or prove device compatibility. Unknown fields and exact numeric tokens remain in the original text.
+
+## Save and export a device archive
+
+When the host provides both the fixed command bridge and a verified version-1 file stream, **Save to device** is enabled.
+
+1. Select and validate an archive.
+2. Review the source, schema, differences from the current device archive, warnings, and expected effect.
+3. Select **Review and confirm save**. The confirmation step repeats the source, schema, difference, and side-effect summary.
+4. Select **Confirm save**. The result shows the new SHA-256 revision and byte count. The archive is stored only in `/data/adb/susfs-studio/`; it does not apply SUSFS rules or change device runtime state.
+
+The selected file name is never sent to a shell. Native creates the staging file and returns a one-time token-bound path. An invalid, oversized, duplicate-key, or structurally invalid archive is refused.
+
+If another writer changed the device archive after review, the save reports a revision conflict and keeps the browser draft. If the process times out or reports that the result is unknown, refresh the device archive before another attempt. Do not retry directly. A missing receipt after a readable archive is reported separately.
+
+**Export from device** rereads the saved archive and downloads its original JSON text, including unknown fields and exact number tokens. Restore is not enabled in this version. A future restore would create a new archive revision and would still not restore kernel runtime state.
+
+In standalone browser mode, preview works locally. Device save and export require a host. If a host has command execution but no verified file stream, save remains disabled with the reason shown in Settings. Automatic collection is also disabled.
 
 ## Change appearance
 

@@ -2,10 +2,32 @@
   "format": "susfs-studio",
   "schema": 1,
   "rules": {
-    "paths": [{ "id": "path-example", "path": "/example" }],
-    "maps": [],
-    "kstats": [{ "id": "stat-example", "inode": "18446744073709551615" }],
-    "redirects": []
+    "paths": [{ "id": "path-example", "path": "/example", "looping": false }],
+    "maps": [{ "id": "map-example", "path": "/data/local/tmp/example" }],
+    "kstats": [
+      {
+        "id": "stat-example",
+        "path": "/system/bin/example",
+        "mode": "static",
+        "static": {
+          "inode": "18446744073709551615",
+          "device": "1",
+          "links": "1",
+          "size": "4096",
+          "atimeSeconds": "-1",
+          "atimeNanoseconds": "0",
+          "futureStatField": true
+        }
+      }
+    ],
+    "redirects": [
+      {
+        "id": "redirect-example",
+        "path": "/system/bin/example",
+        "destination": "/system/bin/example.redirect",
+        "uidScheme": 2
+      }
+    ]
   },
   "futureField": { "example": true }
 }

@@ -13,6 +13,9 @@
 .muted {
   color: var(--on-muted);
 }
+.change {
+  overflow-wrap: anywhere;
+}
 .facts {
   display: grid;
   gap: var(--s4);
