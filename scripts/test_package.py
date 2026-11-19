@@ -44,6 +44,12 @@ class PackageTest(unittest.TestCase):
             index.write_text('<script src="https://example.invalid/app.js"></script>')
             with self.assertRaisesRegex(ValueError, "relative assets"):
                 package(web, cli, root / "remote.zip")
+            index.write_text('<script src="./assets/index.js"></script>')
+            (web / "assets/index.js").unlink()
+            (web / "assets").rmdir()
+            (web / "assets").symlink_to(root, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, "real assets directory"):
+                package(web, cli, root / "symlink.zip")
             cli.write_bytes(b"wrong architecture")
             with self.assertRaisesRegex(ValueError, "AArch64"):
                 package(web, cli, root / "invalid.zip")

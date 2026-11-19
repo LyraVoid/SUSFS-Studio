@@ -59,7 +59,9 @@ def package(web: Path, cli: Path, output: Path) -> None:
     paths = {}
     for path in web.rglob("*"):
         name = path.relative_to(web).as_posix()
-        if name == "assets" and path.is_dir() and not path.is_symlink():
+        if name == "assets":
+            if path.is_symlink() or not path.is_dir():
+                raise ValueError("Expected a real assets directory")
             continue
         if name != "index.html" and not re.fullmatch(r"assets/[\w-]+\.(js|css)", name, re.ASCII):
             raise ValueError(f"Unexpected WebUI entry: {name}")
