@@ -14,6 +14,8 @@ The implementation is reported as LKM only when both the variant and feature mar
 
 On Android, `status` can include `data.device` with the model, Android release and API level, and kernel release. Each field is optional. The WebUI shows the available fields independently of the provider state.
 
+After a matching protocol-1 response has been received, invalid provider data is reported as a diagnostic failure. Validated device facts remain visible, but no activation state or provider badge is inferred from the malformed provider data. Device fields from a mismatched request or unsupported protocol are not used.
+
 The executable makes no configuration changes. It does not open a network listener, apply rules, or manage startup tasks.
 
 ## WebUI host contract

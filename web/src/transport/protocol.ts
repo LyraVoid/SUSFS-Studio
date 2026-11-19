@@ -51,7 +51,7 @@ export function parseStatusResponse(text: string, requestId: string): Status {
   )
     return { kind: data.kind, ...facts };
   if (data.kind !== "active" || !record(data.provider))
-    return { kind: "failed" };
+    return { kind: "failed", ...facts };
   const provider = data.provider;
   if (
     (provider.implementation !== "builtin" &&
@@ -65,7 +65,7 @@ export function parseStatusResponse(text: string, requestId: string): Status {
     /[\u0000-\u001f\u007f]/u.test(provider.version) ||
     !record(provider.capabilities)
   )
-    return { kind: "failed" };
+    return { kind: "failed", ...facts };
   const capabilities: Partial<
     Record<
       "paths" | "map" | "kstat" | "redirect" | "extensions",
@@ -86,7 +86,7 @@ export function parseStatusResponse(text: string, requestId: string): Status {
       value !== "unavailable" &&
       value !== "unknown"
     )
-      return { kind: "failed" };
+      return { kind: "failed", ...facts };
     if (value !== undefined) capabilities[key] = value;
   }
   return {

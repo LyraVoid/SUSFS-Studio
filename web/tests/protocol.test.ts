@@ -45,6 +45,31 @@ describe("status response boundary", () => {
       device: { model: "Demo phone" },
     });
   });
+  it("retains validated device facts when provider data is malformed", () => {
+    const device = { model: "Demo phone", kernel: "6.6.118-demo" };
+    for (const provider of [
+      null,
+      { ...valid.data.provider, version: "" },
+      { ...valid.data.provider, capabilities: { paths: true } },
+    ]) {
+      const data = { kind: "active", device, provider };
+      expect(
+        parseStatusResponse(JSON.stringify({ ...valid, data }), "r1"),
+      ).toEqual({ kind: "failed", device });
+    }
+  });
+  it("does not trust device facts from an unrelated or unsupported response", () => {
+    const response = {
+      ...valid,
+      data: { ...valid.data, device: { model: "Demo phone" } },
+    };
+    expect(parseStatusResponse(JSON.stringify(response), "other")).toEqual({
+      kind: "failed",
+    });
+    expect(
+      parseStatusResponse(JSON.stringify({ ...response, protocol: 2 }), "r1"),
+    ).toEqual({ kind: "unknownProtocol" });
+  });
   it("separates unknown protocol from invalid or unrelated replies", () => {
     expect(
       parseStatusResponse(JSON.stringify({ ...valid, protocol: 2 }), "r1"),
