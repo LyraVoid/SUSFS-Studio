@@ -1,12 +1,39 @@
 import { describe, expect, it } from "vitest";
 import { resolveRoute } from "../src/app/routes";
-import { archiveLimit, previewArchive } from "../src/features/config/preview";
+import {
+  archiveLimit,
+  compareArchiveKeys,
+  previewArchive,
+} from "../src/features/config/preview";
 import { en, zh } from "../src/i18n/messages";
 
 describe("archive preview", () => {
   it("preserves raw JSON, including exact integers", async () => {
     const text = '{"value":18446744073709551615}';
-    expect(await previewArchive(new Blob([text]))).toEqual({ text });
+    expect(await previewArchive(new Blob([text]))).toEqual({
+      text,
+      schema: undefined,
+      keys: ["value"],
+    });
+  });
+  it("identifies schema labels without claiming support or rewriting unknown fields", async () => {
+    const text = '{"schema":2,"unknown":{"n":18446744073709551615}}';
+    expect(await previewArchive(new Blob([text]))).toEqual({
+      text,
+      schema: "2",
+      keys: ["schema", "unknown"],
+    });
+    expect(await previewArchive(new Blob(['{"schema":"2"}']))).toEqual({
+      text: '{"schema":"2"}',
+      schema: undefined,
+      keys: ["schema"],
+    });
+  });
+  it("compares only top-level field names", () => {
+    expect(compareArchiveKeys(["a", "b"], ["b", "c"])).toEqual({
+      added: ["c"],
+      removed: ["a"],
+    });
   });
   it("rejects malformed, non-object, invalid UTF-8 and oversized inputs", async () => {
     for (const invalid of ["{", "[]", "null", new Uint8Array([255])]) {

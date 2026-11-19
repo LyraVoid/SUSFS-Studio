@@ -215,6 +215,20 @@ test("archive preview stays local and retains no draft on close", async ({
   await expect(page.getByRole("dialog").locator("pre")).toHaveText(
     '{"schema": 2}',
   );
+  await expect(page.getByRole("dialog")).toContainText("声明的 Schema: 2");
+  await page
+    .locator("input[type=file]")
+    .nth(1)
+    .setInputFiles({
+      name: "compare.json",
+      mimeType: "application/json",
+      buffer: Buffer.from('{"schema":3,"extra":18446744073709551615}'),
+    });
+  await expect(page.getByRole("dialog")).toContainText("新增字段: extra");
+  await expect(page.getByRole("dialog")).toContainText("移除字段: 无");
+  await expect(page.getByRole("dialog").locator("pre").first()).toHaveText(
+    '{"schema":3,"extra":18446744073709551615}',
+  );
   await page.keyboard.press("Escape");
   await expect(preview).toBeFocused();
   await preview.click();

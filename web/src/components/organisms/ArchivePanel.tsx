@@ -1,6 +1,9 @@
 import { FileInput, Modal, Stack } from "@mantine/core";
 import { useRef, useState } from "react";
-import { previewArchive } from "../../features/config/preview";
+import {
+  compareArchiveKeys,
+  previewArchive,
+} from "../../features/config/preview";
 import type { Translate } from "../../i18n/messages";
 import { Icon } from "../atoms/Icon";
 import { SettingsList, SettingsRow } from "../molecules/SettingsList";
@@ -11,6 +14,9 @@ export function ArchivePanel({ t }: { t: Translate }) {
   const [result, setResult] =
     useState<Awaited<ReturnType<typeof previewArchive>>>();
   const request = useRef(0);
+  const compareRequest = useRef(0);
+  const [comparison, setComparison] =
+    useState<Awaited<ReturnType<typeof previewArchive>>>();
   return (
     <>
       <SettingsList label={t("archive")}>
@@ -35,7 +41,9 @@ export function ArchivePanel({ t }: { t: Translate }) {
         opened={opened}
         onClose={() => {
           request.current++;
+          compareRequest.current++;
           setResult(undefined);
+          setComparison(undefined);
           setOpened(false);
         }}
         title={t("preview")}
@@ -53,6 +61,8 @@ export function ArchivePanel({ t }: { t: Translate }) {
             clearButtonProps={{ "aria-label": t("clearFile") }}
             onChange={async (file) => {
               const id = ++request.current;
+              compareRequest.current++;
+              setComparison(undefined);
               setResult(undefined);
               if (!file) return;
               const preview = await previewArchive(file);
@@ -61,7 +71,64 @@ export function ArchivePanel({ t }: { t: Translate }) {
           />
           {result?.error && <p role="alert">{t(result.error)}</p>}
           {result?.text !== undefined && (
-            <pre className={styles.preview}>{result.text}</pre>
+            <>
+              <p>
+                <strong>{t("archiveSchema")}:</strong>{" "}
+                {result.schema ?? t("archiveSchemaUnknown")}
+              </p>
+              <p className={styles.muted}>{t("archiveSchemaNote")}</p>
+              <FileInput
+                size="md"
+                classNames={{ input: styles.file }}
+                label={t("archiveCompare")}
+                accept=".json,application/json"
+                clearable
+                clearButtonProps={{ "aria-label": t("clearFile") }}
+                onChange={async (file) => {
+                  const id = ++compareRequest.current;
+                  setComparison(undefined);
+                  if (!file) return;
+                  const preview = await previewArchive(file);
+                  if (id === compareRequest.current) setComparison(preview);
+                }}
+              />
+              {comparison?.error && <p role="alert">{t(comparison.error)}</p>}
+              {comparison?.text !== undefined && (
+                <>
+                  <p className={styles.muted}>{t("archiveCompareNote")}</p>
+                  {(["added", "removed"] as const).map((kind) => {
+                    const keys = compareArchiveKeys(
+                      result.keys,
+                      comparison.keys,
+                    )[kind];
+                    return (
+                      <p key={kind}>
+                        <strong>
+                          {t(
+                            kind === "added"
+                              ? "archiveAdded"
+                              : "archiveRemoved",
+                          )}
+                          :
+                        </strong>{" "}
+                        {keys.length ? keys.join(", ") : t("archiveNoKeys")}
+                      </p>
+                    );
+                  })}
+                  <p>
+                    <strong>
+                      {t("archiveCandidate")} · {t("archiveSchema")}:
+                    </strong>{" "}
+                    {comparison.schema ?? t("archiveSchemaUnknown")}
+                  </p>
+                  <pre className={styles.preview}>{comparison.text}</pre>
+                </>
+              )}
+              <p>
+                <strong>{t("archiveBaseline")}</strong>
+              </p>
+              <pre className={styles.preview}>{result.text}</pre>
+            </>
           )}
         </Stack>
       </Modal>

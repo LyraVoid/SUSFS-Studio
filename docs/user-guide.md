@@ -26,9 +26,10 @@ Use **Settings → Demo scenario** to switch between simulated outcomes. The def
 
 1. Open **Settings → Offline preview**.
 2. Select a UTF-8 JSON file up to 128 KiB. The top-level JSON value must be an object.
-3. Review the original JSON text in the dialog. Clear the selection or close the dialog to discard the preview.
+3. Review the original JSON text and its declared numeric schema label. The label does not confirm compatibility.
+4. Optionally select a second archive. The dialog lists added and removed top-level field names; it does not compare values or the device configuration. Both original texts remain unchanged. Clear the selection or close the dialog to discard the preview.
 
-Previewing validates the file size, encoding, and JSON structure. It does not validate a configuration schema or persist archive contents. Device save, export, and restore controls require host integration. Automatic collection is also disabled in the preview.
+Previewing validates the file size, encoding, and JSON object structure. It does not validate schema compatibility or rule contents, normalize data, or persist archive contents. Unknown fields and exact integers remain in the original text. Device save, export, and restore controls require host integration. Automatic collection is also disabled in the preview.
 
 ## Change appearance
 
