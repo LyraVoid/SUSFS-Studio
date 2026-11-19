@@ -18,6 +18,18 @@ A host may inject `window.studioDiagnostics` before the WebUI starts. Its argume
 
 When the bridge is absent, the browser uses demo data. When it is present, errors are shown as host diagnostic failures. This repository provides the WebUI adapter. Android bridge injection and packaging require a host implementation.
 
+## Test the WebUI in Android WebView
+
+The smoke APK bundles the built WebUI and the shared protocol fixtures. It serves bundled assets under a local HTTPS origin, blocks page-initiated navigation outside the loaded document, and disables file and content access. Its bridge methods return fixtures. Android host integration with `studioctl` is verified separately.
+
+Build the WebUI first. With JDK 17 or later, Android SDK Platform 36, Build Tools 36.0.0, and an Android debug keystore available, run `bash scripts/build-webview-smoke.sh`. The script prints the APK path under `.local/`. Set `STUDIO_DEBUG_KEYSTORE` to use a standard Android debug keystore at a different path.
+
+Launch the installed smoke activity with ADB. Omit the `scenario` extra for the active fixture. Use `failed`, `mismatch`, or `demo` to check the diagnostic failure, unsupported protocol, or absent bridge respectively.
+
+```bash
+adb shell am start -S -W -n dev.susfs.studio.smoke/.SmokeActivity --es scenario mismatch
+```
+
 ## Build and verify
 
 From the repository root, with an Android NDK, the Rust Android target, and `cargo-ndk` installed:
