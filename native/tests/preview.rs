@@ -22,3 +22,21 @@ fn reads_archive_from_stdin_without_changing_it() {
     assert_eq!(preview(b"\xff")["data"], "invalid");
     assert_eq!(preview(&vec![b' '; 128 * 1024 + 1])["data"], "invalid");
 }
+
+#[test]
+fn shared_depth_and_number_boundaries() {
+    let deep = |nested: usize| {
+        format!(
+            "{{\"extra\":{}0{}}}",
+            "[".repeat(nested),
+            "]".repeat(nested)
+        )
+    };
+    assert_eq!(preview(deep(63).as_bytes())["data"], "unknown");
+    assert_eq!(preview(deep(64).as_bytes())["data"], "invalid");
+    assert_eq!(preview(b"{\"format\":\"susfs-studio\",\"schema\":1,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[],\"redirects\":[]},\"future\":1e1000}")["data"], "valid");
+    assert_eq!(
+        preview(br#"{"$serde_json::private::Number":"1"}"#)["data"],
+        "unknown"
+    );
+}

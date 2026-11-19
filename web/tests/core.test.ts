@@ -155,6 +155,25 @@ describe("archive preview", () => {
       await previewArchive(new Blob([new Uint8Array(archiveLimit + 1)])),
     ).toEqual({ error: "archiveTooLarge" });
   });
+  it("uses the same nesting and large-number boundaries as native", async () => {
+    const nested = (count: number) =>
+      `{"extra":${"[".repeat(count)}0${"]".repeat(count)}}`;
+    expect(await previewArchive(new Blob([nested(63)]))).toMatchObject({
+      formatStatus: "unknown",
+    });
+    expect(await previewArchive(new Blob([nested(64)]))).toEqual({
+      error: "archiveInvalid",
+    });
+    const huge =
+      '{"format":"susfs-studio","schema":1,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]},"future":1e1000}';
+    expect(await previewArchive(new Blob([huge]))).toMatchObject({
+      formatStatus: "valid",
+      text: huge,
+    });
+    expect(
+      await previewArchive(new Blob(['{"$serde_json::private::Number":"1"}'])),
+    ).toMatchObject({ formatStatus: "unknown" });
+  });
 });
 
 it("keeps language keys and placeholder sets aligned", () => {

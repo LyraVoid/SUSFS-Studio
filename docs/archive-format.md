@@ -8,4 +8,6 @@ The native `studioctl preview` command reads at most 128 KiB of UTF-8 JSON from 
 
 Exact 64-bit values must be represented as decimal strings when authoring a Studio archive. The preview also preserves JSON number tokens losslessly for inspection of other inputs. It does not rewrite or export parsed data. Any repeated object key triggers an ambiguity warning, including equivalent escaped names and identical values. The original text is preserved; comparison uses the parsed value and must not be treated as an unambiguous interpretation.
 
+Both previews reject inputs with more than 64 nested objects or arrays, counting the root object as one. The 128 KiB input limit applies before parsing. Large JSON numbers may appear in uninterpreted fields; they are never converted into an editable device value by the preview.
+
 Comparisons report added, removed, and changed JSON Pointer paths. Arrays are compared by position, so moving an entry can produce multiple changes. Numeric tokens are compared exactly as written: `1`, `1.0`, and `1e0` are reported as different. Comparison stops after 500 changes or 64 levels and explicitly indicates an incomplete result. The original text is retained even when comparison is incomplete.

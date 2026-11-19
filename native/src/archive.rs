@@ -70,8 +70,38 @@ pub enum Envelope {
     Unknown,
 }
 
+fn exceeds_depth(text: &str) -> bool {
+    let mut depth = 0_u32;
+    let mut string = false;
+    let mut escape = false;
+    for byte in text.bytes() {
+        if string {
+            if escape {
+                escape = false;
+            } else if byte == b'\\' {
+                escape = true;
+            } else if byte == b'"' {
+                string = false;
+            }
+        } else {
+            match byte {
+                b'"' => string = true,
+                b'{' | b'[' => {
+                    depth += 1;
+                    if depth > 64 {
+                        return true;
+                    }
+                }
+                b'}' | b']' => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+        }
+    }
+    false
+}
+
 pub fn validate_envelope(text: &str) -> Envelope {
-    if text.len() > 128 * 1024 {
+    if text.len() > 128 * 1024 || exceeds_depth(text) {
         return Envelope::Invalid;
     }
     let Ok(Value::Object(root)) = serde_json::from_str::<Value>(text) else {

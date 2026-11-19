@@ -1,10 +1,15 @@
-export function hasDuplicateKeys(text: string): boolean {
+export function scanArchive(text: string): {
+  duplicate: boolean;
+  tooDeep: boolean;
+} {
   const stack: Array<Set<string> | null> = [];
+  let duplicate = false;
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
-    if (char === "{") stack.push(new Set());
-    else if (char === "[") stack.push(null);
-    else if (char === "}" || char === "]") stack.pop();
+    if (char === "{" || char === "[") {
+      stack.push(char === "{" ? new Set() : null);
+      if (stack.length > 64) return { duplicate, tooDeep: true };
+    } else if (char === "}" || char === "]") stack.pop();
     else if (char === '"') {
       const start = i++;
       while (i < text.length && text[i] !== '"') {
@@ -16,10 +21,10 @@ export function hasDuplicateKeys(text: string): boolean {
       const keys = stack.at(-1);
       if (text[next] === ":" && keys) {
         const key = JSON.parse(text.slice(start, i + 1)) as string;
-        if (keys.has(key)) return true;
+        if (keys.has(key)) duplicate = true;
         keys.add(key);
       }
     }
   }
-  return false;
+  return { duplicate, tooDeep: false };
 }
