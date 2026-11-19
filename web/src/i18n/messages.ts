@@ -84,11 +84,19 @@ export const zh = {
   archiveSchema: "声明的 Schema",
   archiveSchemaUnknown: "未声明或格式未知",
   archiveSchemaNote: "版本标签仅供参考；尚未验证格式兼容性或规则内容。",
+  archiveFormatValid: "Studio 归档结构通过检查；规则字段和设备兼容性尚未验证。",
+  archiveFormatInvalid: "Studio 归档结构无效；原文仍保留供查看。",
+  archiveAmbiguous: "检测到值不同的重复字段；对比使用最后一个值，原文未改变。",
+  archiveRuleCount: "规则条目：{count}",
   archiveCompare: "选择另一份归档进行对比",
   archiveAdded: "新增字段",
   archiveRemoved: "移除字段",
+  archiveChanged: "更改字段",
+  archiveNoChanges: "未发现差异",
+  archiveDiffTruncated: "差异过多或层级过深，结果未完整显示。",
   archiveNoKeys: "无",
-  archiveCompareNote: "仅比较顶层字段名，不比较字段值或设备配置。",
+  archiveCompareNote:
+    "比较两个文件的字段值；数组按位置比较，数字格式差异会标记为更改。",
   archiveBaseline: "原始归档",
   archiveCandidate: "对比归档",
   archiveFile: "选择 JSON 归档",
@@ -196,12 +204,23 @@ export const en = {
   archiveSchemaUnknown: "Missing or unrecognized",
   archiveSchemaNote:
     "The version label is informational; format compatibility and rule contents have not been validated.",
+  archiveFormatValid:
+    "Studio archive structure is valid; rule fields and device compatibility have not been validated.",
+  archiveFormatInvalid:
+    "Studio archive structure is invalid; the original text remains available.",
+  archiveAmbiguous:
+    "Conflicting duplicate keys were found; comparison uses the last value and the original text is unchanged.",
+  archiveRuleCount: "Rule entries: {count}",
   archiveCompare: "Choose another archive to compare",
   archiveAdded: "Added fields",
   archiveRemoved: "Removed fields",
+  archiveChanged: "Changed fields",
+  archiveNoChanges: "No differences found",
+  archiveDiffTruncated:
+    "The comparison is incomplete because it exceeded the change or depth limit.",
   archiveNoKeys: "None",
   archiveCompareNote:
-    "Only top-level field names are compared, not values or device configuration.",
+    "Compares values in both files; arrays are compared by position and different number formats count as changes.",
   archiveBaseline: "Original archive",
   archiveCandidate: "Comparison archive",
   archiveFile: "Choose JSON archive",

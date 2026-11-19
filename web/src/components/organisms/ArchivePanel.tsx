@@ -1,9 +1,6 @@
 import { FileInput, Modal, Stack } from "@mantine/core";
 import { useRef, useState } from "react";
-import {
-  compareArchiveKeys,
-  previewArchive,
-} from "../../features/config/preview";
+import { compareArchives, previewArchive } from "../../features/config/preview";
 import type { Translate } from "../../i18n/messages";
 import { Icon } from "../atoms/Icon";
 import { SettingsList, SettingsRow } from "../molecules/SettingsList";
@@ -76,7 +73,19 @@ export function ArchivePanel({ t }: { t: Translate }) {
                 <strong>{t("archiveSchema")}:</strong>{" "}
                 {result.schema ?? t("archiveSchemaUnknown")}
               </p>
-              <p className={styles.muted}>{t("archiveSchemaNote")}</p>
+              <p className={styles.muted}>
+                {t(
+                  result.formatStatus === "valid"
+                    ? "archiveFormatValid"
+                    : result.formatStatus === "invalid"
+                      ? "archiveFormatInvalid"
+                      : "archiveSchemaNote",
+                )}
+              </p>
+              {result.ambiguous && <p role="alert">{t("archiveAmbiguous")}</p>}
+              {result.ruleCount !== undefined && (
+                <p>{t("archiveRuleCount", { count: result.ruleCount })}</p>
+              )}
               <FileInput
                 size="md"
                 classNames={{ input: styles.file }}
@@ -96,25 +105,40 @@ export function ArchivePanel({ t }: { t: Translate }) {
               {comparison?.text !== undefined && (
                 <>
                   <p className={styles.muted}>{t("archiveCompareNote")}</p>
-                  {(["added", "removed"] as const).map((kind) => {
-                    const keys = compareArchiveKeys(
-                      result.keys,
-                      comparison.keys,
-                    )[kind];
-                    return (
-                      <p key={kind}>
-                        <strong>
-                          {t(
-                            kind === "added"
-                              ? "archiveAdded"
-                              : "archiveRemoved",
-                          )}
-                          :
-                        </strong>{" "}
-                        {keys.length ? keys.join(", ") : t("archiveNoKeys")}
-                      </p>
+                  {comparison.ambiguous && (
+                    <p role="alert">{t("archiveAmbiguous")}</p>
+                  )}
+                  {(() => {
+                    const diff = compareArchives(
+                      result.value,
+                      comparison.value,
                     );
-                  })}
+                    return (
+                      <>
+                        {diff.changes.length === 0 && !diff.truncated && (
+                          <p>{t("archiveNoChanges")}</p>
+                        )}
+                        {diff.changes.map((change) => (
+                          <p key={`${change.kind}:${change.path}`}>
+                            <strong>
+                              {t(
+                                change.kind === "added"
+                                  ? "archiveAdded"
+                                  : change.kind === "removed"
+                                    ? "archiveRemoved"
+                                    : "archiveChanged",
+                              )}
+                              :
+                            </strong>{" "}
+                            <code>{change.path || "/"}</code>
+                          </p>
+                        ))}
+                        {diff.truncated && (
+                          <output>{t("archiveDiffTruncated")}</output>
+                        )}
+                      </>
+                    );
+                  })()}
                   <p>
                     <strong>
                       {t("archiveCandidate")} · {t("archiveSchema")}:

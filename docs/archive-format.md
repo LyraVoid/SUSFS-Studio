@@ -1,0 +1,9 @@
+# Configuration Archive Format
+
+Studio archive version 1 is a JSON object with `format` equal to `"susfs-studio"`, numeric `schema` equal to `1`, and a `rules` object. The rules object contains arrays named `paths`, `maps`, `kstats`, and `redirects`. Each entry is an object with a non-empty `id`; IDs must be unique across all four arrays. Additional fields are retained in the original text. The [sample](../contracts/archive-v1.json) illustrates the envelope.
+
+The browser preview checks the envelope and IDs only. It does not validate rule-specific fields, migrate data, apply rules, or establish compatibility with the device. Other formats and schema versions remain available as original text and are marked unknown. Invalid version-1 structures remain available for inspection but are not marked valid. No native importer or saved-device configuration uses this format yet.
+
+Exact 64-bit values must be represented as decimal strings when authoring a Studio archive. The preview also preserves JSON number tokens losslessly for inspection of other inputs. It does not rewrite or export parsed data. Conflicting repeated object keys trigger an ambiguity warning, and comparison uses the last value. Identical repeated keys are preserved in the original text, but the comparison treats them as a single key. The parser may collapse repeated keys with deeply equal values without reporting them, so this check does not guarantee key uniqueness.
+
+Comparisons report added, removed, and changed JSON Pointer paths. Arrays are compared by position, so moving an entry can produce multiple changes. Numeric tokens are compared exactly as written: `1`, `1.0`, and `1e0` are reported as different. Comparison stops after 500 changes or 64 levels and explicitly indicates an incomplete result. The original text is retained even when comparison is incomplete.

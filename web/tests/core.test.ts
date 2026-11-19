@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
+import archiveFixture from "../../contracts/archive-v1.json";
 import { resolveRoute } from "../src/app/routes";
 import {
   archiveLimit,
-  compareArchiveKeys,
+  compareArchives,
   previewArchive,
 } from "../src/features/config/preview";
 import { en, zh } from "../src/i18n/messages";
@@ -10,29 +11,112 @@ import { en, zh } from "../src/i18n/messages";
 describe("archive preview", () => {
   it("preserves raw JSON, including exact integers", async () => {
     const text = '{"value":18446744073709551615}';
-    expect(await previewArchive(new Blob([text]))).toEqual({
+    expect(await previewArchive(new Blob([text]))).toMatchObject({
       text,
       schema: undefined,
       keys: ["value"],
+      formatStatus: "unknown",
     });
   });
   it("identifies schema labels without claiming support or rewriting unknown fields", async () => {
     const text = '{"schema":2,"unknown":{"n":18446744073709551615}}';
-    expect(await previewArchive(new Blob([text]))).toEqual({
+    expect(await previewArchive(new Blob([text]))).toMatchObject({
       text,
       schema: "2",
       keys: ["schema", "unknown"],
+      formatStatus: "unknown",
     });
-    expect(await previewArchive(new Blob(['{"schema":"2"}']))).toEqual({
+    expect(await previewArchive(new Blob(['{"schema":"2"}']))).toMatchObject({
       text: '{"schema":"2"}',
       schema: undefined,
       keys: ["schema"],
     });
   });
-  it("compares only top-level field names", () => {
-    expect(compareArchiveKeys(["a", "b"], ["b", "c"])).toEqual({
-      added: ["c"],
-      removed: ["a"],
+  it("compares nested values without losing integer precision", async () => {
+    const a = await previewArchive(
+      new Blob(['{"rules":[{"n":18446744073709551615}],"a/b":true}']),
+    );
+    const b = await previewArchive(
+      new Blob(['{"rules":[{"n":18446744073709551614}],"a/b":false}']),
+    );
+    if (!a.value || !b.value) throw new Error("invalid fixture");
+    expect(compareArchives(a.value, b.value)).toEqual({
+      changes: [
+        { path: "/a~1b", kind: "changed" },
+        { path: "/rules/0/n", kind: "changed" },
+      ],
+      truncated: false,
+    });
+  });
+  it("validates the versioned envelope and rejects duplicate rule IDs", async () => {
+    const valid = await previewArchive(
+      new Blob([JSON.stringify(archiveFixture)]),
+    );
+    expect(valid).toMatchObject({
+      formatStatus: "valid",
+      ruleCount: 2,
+      schema: "1",
+    });
+    const rules = {
+      paths: [{ id: "x" }],
+      maps: [{ id: "x" }],
+      kstats: [],
+      redirects: [],
+    };
+    expect(
+      await previewArchive(
+        new Blob([
+          JSON.stringify({ format: "susfs-studio", schema: 1, rules }),
+        ]),
+      ),
+    ).toMatchObject({ formatStatus: "invalid" });
+    expect(
+      await previewArchive(
+        new Blob([
+          JSON.stringify({ format: "susfs-studio", schema: 2, rules }),
+        ]),
+      ),
+    ).toMatchObject({ formatStatus: "unknown" });
+  });
+  it("reports bounded comparisons without losing original archives", async () => {
+    const base = await previewArchive(new Blob(["{}"]));
+    const changed = await previewArchive(
+      new Blob([
+        JSON.stringify(
+          Object.fromEntries(
+            Array.from({ length: 501 }, (_, i) => [`k${i}`, i]),
+          ),
+        ),
+      ]),
+    );
+    if (!base.value || !changed.value) throw new Error("invalid fixture");
+    expect(compareArchives(base.value, changed.value)).toMatchObject({
+      truncated: true,
+    });
+    expect(compareArchives(base.value, changed.value).changes).toHaveLength(
+      500,
+    );
+  });
+  it("treats numeric marker-like unknown objects as normal JSON objects", async () => {
+    const base = await previewArchive(
+      new Blob(['{"isLosslessNumber":true,"value":"5","extra":1}']),
+    );
+    const candidate = await previewArchive(
+      new Blob(['{"isLosslessNumber":true,"value":"5","extra":2}']),
+    );
+    if (!base.value || !candidate.value) throw new Error("invalid fixture");
+    expect(compareArchives(base.value, candidate.value)).toEqual({
+      changes: [{ kind: "changed", path: "/extra" }],
+      truncated: false,
+    });
+  });
+  it("preserves ambiguous duplicate keys and warns without validating the structure", async () => {
+    const text =
+      '{"format":"susfs-studio","schema":1,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]},"x":1,"x":2}';
+    expect(await previewArchive(new Blob([text]))).toMatchObject({
+      text,
+      ambiguous: true,
+      formatStatus: "invalid",
     });
   });
   it("rejects malformed, non-object, invalid UTF-8 and oversized inputs", async () => {

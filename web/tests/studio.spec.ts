@@ -224,8 +224,8 @@ test("archive preview stays local and retains no draft on close", async ({
       mimeType: "application/json",
       buffer: Buffer.from('{"schema":3,"extra":18446744073709551615}'),
     });
-  await expect(page.getByRole("dialog")).toContainText("新增字段: extra");
-  await expect(page.getByRole("dialog")).toContainText("移除字段: 无");
+  await expect(page.getByRole("dialog")).toContainText("新增字段: /extra");
+  await expect(page.getByRole("dialog")).toContainText("更改字段: /schema");
   await expect(page.getByRole("dialog").locator("pre").first()).toHaveText(
     '{"schema":3,"extra":18446744073709551615}',
   );

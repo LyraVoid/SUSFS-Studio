@@ -1,0 +1,11 @@
+{
+  "format": "susfs-studio",
+  "schema": 1,
+  "rules": {
+    "paths": [{ "id": "path-example", "path": "/example" }],
+    "maps": [],
+    "kstats": [{ "id": "stat-example", "inode": "18446744073709551615" }],
+    "redirects": []
+  },
+  "futureField": { "example": true }
+}
