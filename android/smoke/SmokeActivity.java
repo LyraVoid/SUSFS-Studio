@@ -93,7 +93,9 @@ public final class SmokeActivity extends Activity {
                     new ByteArrayInputStream(new byte[0]));
             }
         });
-        if ("unavailable".equals(scenario)) {
+        if ("native".equals(scenario)) {
+            web.addJavascriptInterface(new NativeDiagnostics(getApplicationInfo().nativeLibraryDir), "studioDiagnostics");
+        } else if ("unavailable".equals(scenario)) {
             web.addJavascriptInterface(new Object(), "ksu");
         } else if (!"demo".equals(scenario)) {
             try (InputStream stream = getAssets().open("diagnostic-v1.json");

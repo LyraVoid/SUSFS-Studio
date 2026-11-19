@@ -67,3 +67,9 @@ check_scenario mismatch '协议未知' '宿主诊断'
 check_scenario failed '连接失败' '宿主诊断'
 check_scenario unavailable '宿主未提供安全诊断接口' '宿主诊断'
 check_scenario navigation 'Navigation checks passed' '宿主诊断'
+check_scenario native '连接失败' '宿主诊断'
+pid=$(adb -s "$serial" shell pidof "$package")
+log=$(adb -s "$serial" logcat -d --pid="$pid" -s StudioSmoke:I)
+grep -Fq 'studioctl hello completed' <<< "$log"
+grep -Fq 'studioctl status completed' <<< "$log"
+printf 'native: handshake and unprivileged status query completed\n'
