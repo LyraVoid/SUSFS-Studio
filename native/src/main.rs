@@ -38,6 +38,61 @@ struct Provider {
     capabilities: BTreeMap<&'static str, &'static str>,
 }
 
+#[derive(Serialize)]
+struct StatusData {
+    #[serde(flatten)]
+    status: Status,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    device: Option<Device>,
+}
+
+#[derive(Serialize)]
+struct Device {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kernel: Option<String>,
+}
+
+fn device() -> Option<Device> {
+    #[cfg(target_os = "android")]
+    {
+        fn property(name: &std::ffi::CStr) -> Option<String> {
+            let mut value = [0_u8; 92];
+            // The Android property API requires a buffer of PROP_VALUE_MAX bytes.
+            let length =
+                unsafe { libc::__system_property_get(name.as_ptr(), value.as_mut_ptr().cast()) };
+            let length = usize::try_from(length).ok()?;
+            if length == 0 || length >= value.len() {
+                return None;
+            }
+            Some(std::str::from_utf8(&value[..length]).ok()?.to_owned())
+        }
+
+        let system = property(c"ro.build.version.release").map(|release| {
+            match property(c"ro.build.version.sdk") {
+                Some(sdk) => format!("Android {release} (API {sdk})"),
+                None => format!("Android {release}"),
+            }
+        });
+        let kernel = std::fs::read_to_string("/proc/sys/kernel/osrelease")
+            .ok()
+            .map(|text| text.trim().to_owned())
+            .filter(|text| !text.is_empty());
+        Some(Device {
+            model: property(c"ro.product.model"),
+            system,
+            kernel,
+        })
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        None
+    }
+}
+
 #[derive(Debug)]
 #[cfg(any(target_os = "android", test))]
 struct Reply {
@@ -173,7 +228,13 @@ fn main() {
     }
     let output = match action.as_deref() {
         Some("hello") => serde_json::to_string(&response("hello", "studioctl")),
-        _ => serde_json::to_string(&response("status", status())),
+        _ => serde_json::to_string(&response(
+            "status",
+            StatusData {
+                status: status(),
+                device: device(),
+            },
+        )),
     };
     match output {
         Ok(json) => println!("{json}"),
@@ -210,8 +271,13 @@ mod tests {
             ("unknownProtocol", Status::UnknownProtocol),
             ("failed", Status::Failed),
         ] {
+            let device = (name == "active").then(|| Device {
+                model: Some("Demo phone".into()),
+                system: Some("Android 17 (API 37)".into()),
+                kernel: Some("6.6.118-demo".into()),
+            });
             assert_eq!(
-                serde_json::to_value(response("status", status)).unwrap(),
+                serde_json::to_value(response("status", StatusData { status, device })).unwrap(),
                 fixtures[name]
             );
         }

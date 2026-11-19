@@ -32,6 +32,19 @@ describe("status response boundary", () => {
       valid.data,
     );
   });
+  it("preserves valid optional device facts without changing a failed status", () => {
+    const response = {
+      ...fixtures.failed,
+      data: {
+        kind: "failed",
+        device: { model: "Demo phone", system: "\n", kernel: 42 },
+      },
+    };
+    expect(parseStatusResponse(JSON.stringify(response), "status")).toEqual({
+      kind: "failed",
+      device: { model: "Demo phone" },
+    });
+  });
   it("separates unknown protocol from invalid or unrelated replies", () => {
     expect(
       parseStatusResponse(JSON.stringify({ ...valid, protocol: 2 }), "r1"),

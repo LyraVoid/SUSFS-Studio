@@ -37,6 +37,7 @@ installed=true
 
 check_scenario() {
     local scenario=$1 expected=$2 source=$3 notice=${4:-}
+    if (( $# >= 4 )); then shift 4; else shift 3; fi
     adb -s "$serial" shell am start -S -W -n "$package/.SmokeActivity" --es scenario "$scenario" >/dev/null
     for _ in 1 2 3 4 5; do
         sleep 1
@@ -45,15 +46,16 @@ check_scenario() {
 import sys
 import xml.etree.ElementTree as ET
 
-package, expected, source, notice = sys.argv[1:]
+package, expected, source, notice, *facts = sys.argv[1:]
 try:
     root = ET.parse(sys.stdin)
 except ET.ParseError:
     sys.exit(1)
 labels = [n.get("text", "") for n in root.iter("node") if n.get("package") == package]
 sys.exit(not (source in labels and any(expected in label for label in labels)
+    and all(fact in labels for fact in facts)
     and (not notice or any(notice in label or "设备状态快照" in label for label in labels))))
-' "$package" "$expected" "$source" "$notice"; then
+' "$package" "$expected" "$source" "$notice" "$@"; then
             printf '%s: %s\n' "$scenario" "$expected"
             return
         fi
@@ -119,8 +121,14 @@ version = provider["version"]
 assert isinstance(version, str) and version
 badge = {"lkm": "LKM", "builtin": "Built-In", "unknown": ""}[provider["implementation"]]
 print(version + badge)
+device = response["data"].get("device", {})
+for key in ("model", "system", "kernel"):
+    value = device.get(key)
+    if isinstance(value, str) and value.strip() and len(value) <= 256 and value.isprintable():
+        print(value)
 ' "$1")
-    check_scenario snapshot "已激活SUSFS 版本 $summary" '宿主诊断' 'Captured device status'
+    mapfile -t captured <<< "$summary"
+    check_scenario snapshot "已激活SUSFS 版本 ${captured[0]}" '宿主诊断' 'Captured device status' "${captured[@]:1}"
     pid=$(adb -s "$serial" shell pidof "$package")
     before=$(adb -s "$serial" logcat -d --pid="$pid" -s StudioSmoke:I | grep -Fc 'Captured status replayed')
     tap_label '状态'

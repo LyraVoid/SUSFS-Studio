@@ -10,7 +10,7 @@ export const scenarios = [
 export type Scenario = (typeof scenarios)[number];
 export type Capability = "paths" | "map" | "kstat" | "redirect" | "extensions";
 export type Availability = "available" | "unavailable" | "unknown";
-type Device = { model: string; system: string; kernel: string };
+export type Device = { model?: string; system?: string; kernel?: string };
 type Result =
   | {
       kind: "active";

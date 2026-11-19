@@ -6,6 +6,7 @@
     "ok": true,
     "data": {
       "kind": "active",
+      "device": { "model": "Demo phone", "system": "Android 17 (API 37)", "kernel": "6.6.118-demo" },
       "provider": {
         "implementation": "lkm",
         "kernelType": "GKI",

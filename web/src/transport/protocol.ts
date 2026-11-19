@@ -1,4 +1,4 @@
-import type { Status } from "./mock";
+import type { Device, Status } from "./mock";
 
 const maxResponseBytes = 512 * 1024;
 
@@ -28,12 +28,28 @@ export function parseStatusResponse(text: string, requestId: string): Status {
   if (response.protocol !== 1) return { kind: "unknownProtocol" };
   if (!record(response.data)) return { kind: "failed" };
   const data = response.data;
+  const device: Device = {};
+  if (record(data.device)) {
+    for (const key of ["model", "system", "kernel"] as const) {
+      const value = data.device[key];
+      if (
+        typeof value === "string" &&
+        value.length <= 256 &&
+        value.trim() &&
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: device labels must be printable.
+        !/[\u0000-\u001f\u007f]/u.test(value)
+      ) {
+        device[key] = value;
+      }
+    }
+  }
+  const facts = Object.keys(device).length ? { device } : {};
   if (
     data.kind === "missing" ||
     data.kind === "unknownProtocol" ||
     data.kind === "failed"
   )
-    return { kind: data.kind };
+    return { kind: data.kind, ...facts };
   if (data.kind !== "active" || !record(data.provider))
     return { kind: "failed" };
   const provider = data.provider;
@@ -73,6 +89,7 @@ export function parseStatusResponse(text: string, requestId: string): Status {
   }
   return {
     kind: "active",
+    ...facts,
     provider: {
       implementation: provider.implementation,
       kernelType: provider.kernelType,

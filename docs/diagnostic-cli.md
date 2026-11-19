@@ -12,6 +12,8 @@ The status result distinguishes a complete recognized response (`active`), an ab
 
 The implementation is reported as LKM only when both the variant and feature marker agree. Conflicting evidence leaves the implementation unknown. An implementation badge must not be inferred from the kernel type alone.
 
+On Android, `status` can include `data.device` with the model, Android release and API level, and kernel release. Each field is optional. The WebUI shows the available fields independently of the provider state.
+
 The executable makes no configuration changes. It does not open a network listener, apply rules, or manage startup tasks.
 
 ## WebUI host contract
