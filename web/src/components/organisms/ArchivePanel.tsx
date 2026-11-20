@@ -119,6 +119,7 @@ export function ArchivePanel({
   const request = useRef(0);
   const compareRequest = useRef(0);
   const savedRequest = useRef(0);
+  const committing = useRef(false);
 
   const refreshSaved = async () => {
     if (!archive) return;
@@ -155,7 +156,7 @@ export function ArchivePanel({
   };
 
   const close = () => {
-    if (saving) return;
+    if (committing.current) return;
     request.current++;
     compareRequest.current++;
     savedRequest.current++;
@@ -189,6 +190,9 @@ export function ArchivePanel({
 
   const save = async () => {
     if (
+      committing.current ||
+      needsVerification ||
+      loadingSaved ||
       !archive?.prepare ||
       !archive.write ||
       !archive.save ||
@@ -198,8 +202,11 @@ export function ArchivePanel({
       result.formatStatus !== "valid"
     )
       return;
+    committing.current = true;
+    savedRequest.current++;
     setSaving(true);
     setOperationError(undefined);
+    setReceipt(undefined);
     let prepared: PreparedArchive | undefined;
     try {
       prepared = await archive.prepare();
@@ -228,6 +235,7 @@ export function ArchivePanel({
         setLoadingSaved(false);
       }
     } finally {
+      committing.current = false;
       setSaving(false);
     }
   };
@@ -528,6 +536,7 @@ export function ArchivePanel({
                 <Button
                   variant="outline"
                   loading={loadingSaved}
+                  disabled={saving}
                   onClick={() => void refreshSaved()}
                 >
                   {t("archiveRefresh")}

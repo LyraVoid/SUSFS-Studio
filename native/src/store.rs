@@ -735,10 +735,18 @@ mod tests {
         let expected = std::env::var("STUDIO_TEST_RESULT").unwrap();
         let store = Store::open(Path::new(&path)).unwrap();
         match store.save_staged(&token) {
-            Ok(_) => assert_eq!(expected, "saved"),
+            Ok(_) => {
+                assert_ne!(expected, "conflict");
+                println!("writer: saved");
+            }
             Err(SaveError::BeforeCommit(error)) => {
-                assert_eq!(expected, "conflict");
-                assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+                let outcome = match error.kind() {
+                    io::ErrorKind::AlreadyExists => "conflict",
+                    io::ErrorKind::WouldBlock => "busy",
+                    _ => panic!("unexpected result: {error}"),
+                };
+                assert!(expected == "race" || expected == outcome);
+                println!("writer: {outcome}");
             }
             Err(error) => panic!("unexpected result: {error:?}"),
         }
@@ -752,21 +760,53 @@ mod tests {
         let first = store.prepare().unwrap();
         let second = store.prepare().unwrap();
         let newer = br#"{"format":"susfs-studio","schema":1,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]},"newer":true}"#;
+        let other = br#"{"format":"susfs-studio","schema":1,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]},"other":true}"#;
         fs::write(&first.upload_path, newer).unwrap();
-        fs::write(&second.upload_path, fixture()).unwrap();
-        for (token, result) in [(&first.token, "saved"), (&second.token, "conflict")] {
-            let status = std::process::Command::new(std::env::current_exe().unwrap())
-                .args(["--exact", "store::tests::staged_writer_child"])
+        fs::write(&second.upload_path, other).unwrap();
+        let writer = |token: &str, result: &str| {
+            std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "store::tests::staged_writer_child",
+                    "--nocapture",
+                ])
                 .env("STUDIO_TEST_STORE", &dir)
                 .env("STUDIO_TEST_TOKEN", token)
                 .env("STUDIO_TEST_RESULT", result)
-                .status()
-                .unwrap();
-            assert!(status.success());
+                .stdout(std::process::Stdio::piped())
+                .spawn()
+                .unwrap()
+        };
+        let a = writer(&first.token, "race");
+        let b = writer(&second.token, "race");
+        let outcomes = [a, b].map(|child| {
+            let output = child.wait_with_output().unwrap();
+            let log = String::from_utf8(output.stdout).unwrap();
+            assert!(output.status.success(), "{log}");
+            log.lines()
+                .find_map(|line| line.strip_prefix("writer: "))
+                .unwrap()
+                .to_owned()
+        });
+        let winner = outcomes
+            .iter()
+            .position(|result| result == "saved")
+            .unwrap();
+        assert!(matches!(outcomes[1 - winner].as_str(), "conflict" | "busy"));
+        if outcomes[1 - winner] == "busy" {
+            let token = [&first.token, &second.token][1 - winner];
+            assert!(
+                writer(token, "conflict")
+                    .wait_with_output()
+                    .unwrap()
+                    .status
+                    .success()
+            );
         }
         let stored = store.read().unwrap().unwrap();
-        assert_eq!(stored.bytes, newer);
-        assert_eq!(stored.receipt.unwrap().revision, revision(newer));
+        let expected: &[u8] = [newer.as_slice(), other.as_slice()][winner];
+        assert_eq!(stored.bytes, expected);
+        assert_eq!(stored.receipt.unwrap().revision, revision(expected));
         assert!(!Path::new(&first.upload_path).exists());
         assert!(!Path::new(&second.upload_path).exists());
         drop(store);
