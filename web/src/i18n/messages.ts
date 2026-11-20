@@ -104,6 +104,8 @@ export const zh = {
   archiveDeviceDiff: "与设备已保存归档的差异",
   archiveReviewSave: "检查并确认保存",
   archiveSavedReceipt: "保存完成：修订 {revision}，{bytes} 字节",
+  archiveRestoredReceipt:
+    "恢复完成：修订 {revision}，{bytes} 字节；内核运行状态未改变。",
   archiveRestoreDetail:
     "选择备份并核对差异；恢复前会保留当前 Studio 归档，不改变内核运行状态。",
   archiveReviewRestore: "检查并确认恢复",
@@ -279,6 +281,8 @@ export const en = {
   archiveDeviceDiff: "Differences from the saved device archive",
   archiveReviewSave: "Review and confirm save",
   archiveSavedReceipt: "Save complete: revision {revision}, {bytes} bytes",
+  archiveRestoredReceipt:
+    "Restore complete: revision {revision}, {bytes} bytes; kernel runtime state is unchanged.",
   archiveRestoreDetail:
     "Select a backup and review the differences. The current Studio archive is preserved before restore; kernel runtime state is unchanged.",
   archiveReviewRestore: "Review and confirm restore",

@@ -470,10 +470,15 @@ export function ArchivePanel({
               </Group>
               {receipt && (
                 <Alert color="green" role="status">
-                  {t("archiveSavedReceipt", {
-                    revision: receipt.revision.slice(0, 12),
-                    bytes: receipt.bytes,
-                  })}
+                  {t(
+                    restoring
+                      ? "archiveRestoredReceipt"
+                      : "archiveSavedReceipt",
+                    {
+                      revision: receipt.revision.slice(0, 12),
+                      bytes: receipt.bytes,
+                    },
+                  )}
                 </Alert>
               )}
             </>
@@ -485,7 +490,11 @@ export function ArchivePanel({
                 )}
               </p>
               {result && !result.error && (
-                <section aria-label={t("archiveConfirmSave")}>
+                <section
+                  aria-label={t(
+                    restoring ? "archiveConfirmRestore" : "archiveConfirmSave",
+                  )}
+                >
                   <p>
                     <strong>{t("archiveSource")}:</strong> {source}
                   </p>

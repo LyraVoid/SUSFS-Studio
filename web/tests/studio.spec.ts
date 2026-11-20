@@ -380,7 +380,7 @@ test("archive save, receipt refresh and export form one confirmed loop", async (
   await page.waitForTimeout(300);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await restore.getByRole("button", { name: "确认恢复" }).click();
-  await expect(restore.getByRole("status")).toContainText("保存完成");
+  await expect(restore.getByRole("status")).toContainText("恢复完成");
 });
 
 test("an uncertain archive save keeps the draft and requires verification", async ({
