@@ -284,6 +284,9 @@ test("archive save, receipt refresh and export form one confirmed loop", async (
           else if (command.endsWith(` save ${token}`)) {
             saved = upload;
             output = reply("save", receipt);
+          } else if (command.endsWith(` restore ${token}`)) {
+            saved = upload;
+            output = reply("restore", receipt);
           } else if (command.endsWith(" read")) {
             output = reply(
               "read",
@@ -361,6 +364,23 @@ test("archive save, receipt refresh and export form one confirmed loop", async (
   await expect(page.getByRole("dialog")).toContainText(
     "回执：修订 aaaaaaaaaaaa",
   );
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "恢复备份" }).click();
+  const restore = page.getByRole("dialog");
+  await expect(restore).toContainText("不改变内核运行状态");
+  await restore
+    .locator("input[type=file]")
+    .first()
+    .setInputFiles({
+      name: "backup.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(archive),
+    });
+  await restore.getByRole("button", { name: "检查并确认恢复" }).click();
+  await page.waitForTimeout(300);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await restore.getByRole("button", { name: "确认恢复" }).click();
+  await expect(restore.getByRole("status")).toContainText("保存完成");
 });
 
 test("an uncertain archive save keeps the draft and requires verification", async ({

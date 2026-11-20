@@ -171,6 +171,41 @@ it("treats an invalid save receipt as unknown and consumes the token", async () 
   });
 });
 
+it("uses only a staged token for restore", async () => {
+  const host: Record<string, unknown> = {};
+  const commands: string[] = [];
+  const bridge = createArchiveBridge(host as unknown as Window, {
+    exec(command, _options, callback) {
+      commands.push(command);
+      const stage = command.endsWith(" stage");
+      (host[callback] as (code: number, stdout: string) => void)(
+        0,
+        response(
+          stage ? "stage" : "restore",
+          stage ? { token, uploadPath } : { revision, savedAt: "1", bytes: 3 },
+        ),
+      );
+    },
+    io: () => ({
+      version: () => 1,
+      FileOutputStream: () => ({
+        open: () => "stream",
+        write: () => true,
+        close: () => true,
+      }),
+    }),
+  });
+  await expect(bridge.restore?.(token)).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+  });
+  await bridge.prepare?.();
+  await expect(bridge.restore?.(token)).resolves.toMatchObject({ revision });
+  expect(commands[1]).toMatch(new RegExp(` restore ${token}$`));
+  await expect(bridge.restore?.(token)).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+  });
+});
+
 it("streams archive bytes in bounded chunks", async () => {
   const host: Record<string, unknown> = {};
   const chunks: string[] = [];

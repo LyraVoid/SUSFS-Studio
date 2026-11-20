@@ -145,4 +145,6 @@ If the process stops after the archive rename but before the receipt is durable,
 
 Interrupted atomic temporary files are not replayed or automatically removed on a subsequent stage. A matching name alone does not establish ownership by the current transaction. Such files can consume space until an administrator identifies and removes them.
 
-Export rereads `archive.json` and returns the exact UTF-8 text. Unknown fields and number tokens are therefore preserved. Restore is outside the current save/export scope.
+Export rereads `archive.json` and returns the exact UTF-8 text. Unknown fields and number tokens are therefore preserved.
+
+Restore accepts a selected version-1 archive through the same staging path and baseline check as save. Under the same lock, it first creates an exclusive randomly named `0600` backup of the current archive, synchronizes the backup and directory, then consumes the stage and replaces the archive and receipt. It refuses restore when no current archive exists. Each successful or interrupted attempt may leave a backup; backups are not automatically deleted. A backup write or sync failure leaves the current archive unchanged. After archive replacement, an unconfirmed sync or receipt is result unknown: refresh and inspect before another attempt. The revision is the digest of the restored bytes and may match an earlier revision. This operation does not change kernel runtime state. Backups are currently retained in the private store, not listed in the WebUI; select a previously exported backup for restore.

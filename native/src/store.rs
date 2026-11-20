@@ -420,6 +420,14 @@ impl Store {
     }
 
     pub fn save_staged(&self, token: &str) -> Result<Receipt, SaveError> {
+        self.save_staged_with_backup(token, false)
+    }
+
+    pub fn restore_staged(&self, token: &str) -> Result<Receipt, SaveError> {
+        self.save_staged_with_backup(token, true)
+    }
+
+    fn save_staged_with_backup(&self, token: &str, restore: bool) -> Result<Receipt, SaveError> {
         if !valid_token(token) {
             return Err(io::Error::from(io::ErrorKind::InvalidInput).into());
         }
@@ -430,6 +438,22 @@ impl Store {
         if current.as_deref() != expected.as_deref() {
             let _ = self.remove_stage(&staging, token);
             return Err(io::Error::new(io::ErrorKind::AlreadyExists, "revision conflict").into());
+        }
+        if restore {
+            let current = current.ok_or_else(|| {
+                io::Error::new(io::ErrorKind::NotFound, "no current archive to preserve")
+            })?;
+            let name = format!("backup-{}.json", random_token()?);
+            let mut backup = open_name(
+                &self.dir,
+                &name,
+                libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL,
+                0o600,
+            )?;
+            trusted(&backup, false)?;
+            backup.write_all(&current)?;
+            backup.sync_all()?;
+            self.dir.sync_all()?;
         }
         self.remove_stage(&staging, token)?;
         let receipt = self.save_locked(&input, File::sync_all)?;
@@ -824,6 +848,53 @@ mod tests {
             },
             io::ErrorKind::NotFound
         );
+        drop(store);
+        cleanup(dir);
+    }
+
+    #[test]
+    fn restore_preserves_current_archive_before_replacement() {
+        let (dir, store) = test_store("restore");
+        store.save(None, fixture()).unwrap();
+        let prepared = store.prepare().unwrap();
+        let replacement = br#"{"format":"susfs-studio","schema":1,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]}}"#;
+        fs::write(&prepared.upload_path, replacement).unwrap();
+        let receipt = store.restore_staged(&prepared.token).unwrap();
+        assert_eq!(receipt.revision, revision(replacement));
+        assert_eq!(store.read().unwrap().unwrap().bytes, replacement);
+        let backups: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| {
+                path.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with("backup-")
+            })
+            .collect();
+        assert_eq!(backups.len(), 1);
+        assert_eq!(fs::read(&backups[0]).unwrap(), fixture());
+        assert_eq!(fs::metadata(&backups[0]).unwrap().mode() & 0o777, 0o600);
+        drop(store);
+        cleanup(dir);
+    }
+
+    #[test]
+    fn restore_rejects_missing_or_changed_current_archive() {
+        let (dir, store) = test_store("restore-conflict");
+        let empty = store.prepare().unwrap();
+        fs::write(&empty.upload_path, fixture()).unwrap();
+        assert!(store.restore_staged(&empty.token).is_err());
+        assert!(store.read().unwrap().is_none());
+        store.save(None, fixture()).unwrap();
+        let stale = store.prepare().unwrap();
+        fs::write(&stale.upload_path, fixture()).unwrap();
+        let newer = br#"{"format":"susfs-studio","schema":1,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]}}"#;
+        store.save(Some(fixture()), newer).unwrap();
+        assert!(
+            matches!(store.restore_staged(&stale.token), Err(SaveError::BeforeCommit(error)) if error.kind() == io::ErrorKind::AlreadyExists)
+        );
+        assert_eq!(store.read().unwrap().unwrap().bytes, newer);
         drop(store);
         cleanup(dir);
     }

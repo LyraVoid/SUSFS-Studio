@@ -381,7 +381,8 @@ fn main() {
     let action = args.first().map(String::as_str);
     if !matches!(
         (action, args.len()),
-        (Some("hello" | "status" | "preview" | "stage" | "read"), 1) | (Some("save"), 2)
+        (Some("hello" | "status" | "preview" | "stage" | "read"), 1)
+            | (Some("save" | "restore"), 2)
     ) {
         std::process::exit(2);
     }
@@ -423,6 +424,11 @@ fn main() {
             Ok(Ok(receipt)) => serde_json::to_string(&response("save", receipt)),
             Ok(Err(error)) => serde_json::to_string(&failure("save", error)),
             Err(error) => serde_json::to_string(&io_failure("save", error)),
+        },
+        Some("restore") => match archive_store().map(|store| store.restore_staged(&args[1])) {
+            Ok(Ok(receipt)) => serde_json::to_string(&response("restore", receipt)),
+            Ok(Err(error)) => serde_json::to_string(&failure("restore", error)),
+            Err(error) => serde_json::to_string(&io_failure("restore", error)),
         },
         Some("read") => match read_archive() {
             Ok(data) => serde_json::to_string(&response("read", data)),

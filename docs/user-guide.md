@@ -44,7 +44,7 @@ The selected file name is never sent to a shell. Native creates the staging file
 
 If another writer changed the device archive after review, the save reports a revision conflict and keeps the browser draft. If the process times out or reports that the result is unknown, refresh the device archive before another attempt. Do not retry directly. A missing receipt after a readable archive is reported separately.
 
-**Export from device** rereads the saved archive and downloads its original JSON text, including unknown fields and exact number tokens. Restore is not enabled in this version. A future restore would create a new archive revision and would still not restore kernel runtime state.
+**Export from device** rereads the saved archive and downloads its original JSON text, including unknown fields and exact number tokens. To restore an exported backup, choose **Restore**, select the backup, review the difference, and confirm separately. A current archive must exist. Studio preserves it in a private backup before replacing it; automatic backups are not currently listed in the interface. The restored revision is the digest of the selected bytes and can match an older revision. Restore changes only Studio's private archive, not kernel runtime state.
 
 In standalone browser mode, preview works locally. Device save and export require a host. If a host has command execution but no verified file stream, save remains disabled with the reason shown in Settings. Automatic collection is also disabled.
 

@@ -12,6 +12,7 @@ The device archive commands are:
 | --- | --- |
 | `studioctl stage` | Captures the current archive baseline and creates one empty, `0600`, token-named input below the private staging directory. It returns the token, upload path, baseline text, and revision. |
 | `studioctl save <token>` | Validates and consumes the staged bytes, checks the baseline under the write lock, then atomically stores the archive and receipt. The token is a fixed 32-character lowercase hexadecimal value. |
+| `studioctl restore <token>` | Checks the staged candidate and baseline, durably preserves the current archive in a new private backup, then replaces the archive and receipt. |
 | `studioctl read` | Validates and returns the saved archive text, SHA-256 revision, and matching receipt when available. |
 
 The host adapter constructs `stage` and `read` as fixed commands. For `save`, it accepts only a token returned by that adapter's own successful `stage` call and embeds only the validated hexadecimal token. Selected file names, JSON, and form values are never incorporated into a root shell command.
@@ -66,6 +67,8 @@ cargo clippy --manifest-path native/Cargo.toml --locked --all-targets -- -D warn
 The debug executable is written to `native/target/aarch64-linux-android/debug/studioctl`. Validate the host transport and device ABI separately before distributing it.
 
 The separate serial tests run writers in child processes against ordinary-permission temporary directories. They check a stale staged baseline and process exits after archive write, file sync, and rename. They do not simulate power loss, storage hardware failure, or every transaction boundary.
+
+On 2026-11-20, the arm64 debug test executable ran these serial tests and `restore_preserves_current_archive_before_replacement` as the shell UID with `TMPDIR=/data/local/tmp` on the PKX110 device described in [host integration](host-integration.md). The test directories and executable were removed. This does not exercise the installed manager or its privileged store.
 
 ## Package the development artifacts
 

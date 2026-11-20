@@ -110,6 +110,7 @@ export function ArchivePanel({
   const [comparison, setComparison] = useState<Preview>();
   const [source, setSource] = useState<string>();
   const [confirming, setConfirming] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [saving, setSaving] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [loadingSaved, setLoadingSaved] = useState(false);
@@ -145,6 +146,7 @@ export function ArchivePanel({
   };
 
   const open = () => {
+    setRestoring(false);
     setOpened(true);
     setOperationError(undefined);
     setReceipt(undefined);
@@ -204,7 +206,10 @@ export function ArchivePanel({
       if (prepared.revision !== saved?.revision)
         throw new ArchiveCommandError("REVISION_CONFLICT", true);
       await archive.write(prepared.uploadPath, result.bytes);
-      const next = await archive.save(prepared.token);
+      const next = restoring
+        ? await archive.restore?.(prepared.token)
+        : await archive.save(prepared.token);
+      if (!next) throw new ArchiveCommandError("RESULT_UNKNOWN");
       setReceipt(next);
       setConfirming(false);
       setNeedsVerification(false);
@@ -268,8 +273,16 @@ export function ArchivePanel({
         <SettingsRow
           icon="restore"
           title={t("restore")}
-          detail={t("archiveRestorePending")}
-          disabled
+          detail={t("archiveRestoreDetail")}
+          disabled={!hasWriter || !archive?.restore}
+          action={
+            hasWriter && archive?.restore
+              ? () => {
+                  open();
+                  setRestoring(true);
+                }
+              : undefined
+          }
         />
       </SettingsList>
       <Modal
@@ -277,14 +290,18 @@ export function ArchivePanel({
         onClose={close}
         closeOnClickOutside={!saving}
         closeOnEscape={!saving}
-        title={confirming ? t("archiveConfirmSave") : t("preview")}
+        title={
+          confirming
+            ? t(restoring ? "archiveConfirmRestore" : "archiveConfirmSave")
+            : t("preview")
+        }
         classNames={{ content: styles.dialog, header: styles.dialogHeader }}
         closeButtonProps={{ "aria-label": t("close") }}
       >
         <Stack>
           {!confirming ? (
             <>
-              <p>{t("previewPending")}</p>
+              <p>{t(restoring ? "archiveRestoreDetail" : "previewPending")}</p>
               <section aria-label={t("archiveDeviceState")}>
                 <strong>{t("archiveDeviceState")}:</strong>{" "}
                 {loadingSaved
@@ -434,13 +451,20 @@ export function ArchivePanel({
                     {t("export")}
                   </Button>
                   <Button
-                    disabled={!canSave || !valid || needsVerification}
+                    disabled={
+                      !canSave ||
+                      !valid ||
+                      needsVerification ||
+                      (restoring && saved?.kind !== "saved")
+                    }
                     onClick={() => {
                       setOperationError(undefined);
                       setConfirming(true);
                     }}
                   >
-                    {t("archiveReviewSave")}
+                    {t(
+                      restoring ? "archiveReviewRestore" : "archiveReviewSave",
+                    )}
                   </Button>
                 </Group>
               </Group>
@@ -455,7 +479,11 @@ export function ArchivePanel({
             </>
           ) : (
             <>
-              <p>{t("archiveConfirmWarning")}</p>
+              <p>
+                {t(
+                  restoring ? "archiveRestoreWarning" : "archiveConfirmWarning",
+                )}
+              </p>
               {result && !result.error && (
                 <section aria-label={t("archiveConfirmSave")}>
                   <p>
@@ -498,9 +526,14 @@ export function ArchivePanel({
                 <Button
                   loading={saving}
                   disabled={needsVerification || !saved || loadingSaved}
+                  variant="outline"
                   onClick={() => void save()}
                 >
-                  {t("archiveConfirmSaveAction")}
+                  {t(
+                    restoring
+                      ? "archiveRestoreAction"
+                      : "archiveConfirmSaveAction",
+                  )}
                 </Button>
               </Group>
             </>

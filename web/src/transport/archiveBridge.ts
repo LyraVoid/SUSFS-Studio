@@ -40,6 +40,7 @@ export type ArchiveBridge = {
   prepare?: () => Promise<PreparedArchive>;
   write?: (path: string, bytes: Uint8Array) => Promise<void>;
   save?: (token: string) => Promise<ArchiveReceipt>;
+  restore?: (token: string) => Promise<ArchiveReceipt>;
 };
 
 type KsuStream = {
@@ -169,7 +170,7 @@ export function createArchiveBridge(
   }
   const stagePaths = new Map<string, string>();
   const call = async (
-    requestId: "stage" | "save" | "read",
+    requestId: "stage" | "save" | "restore" | "read",
     command: string,
     timeout: number,
   ) => {
@@ -181,7 +182,9 @@ export function createArchiveBridge(
     } catch (error) {
       if (error instanceof ArchiveCommandError) throw error;
       throw new ArchiveCommandError(
-        requestId === "save" ? "RESULT_UNKNOWN" : "TIMEOUT",
+        requestId === "save" || requestId === "restore"
+          ? "RESULT_UNKNOWN"
+          : "TIMEOUT",
       );
     }
   };
@@ -232,29 +235,34 @@ export function createArchiveBridge(
         }
       : undefined,
     write: io ? writeStage : undefined,
-    save: io
-      ? async (token) => {
-          if (!tokenPattern.test(token) || !stagePaths.has(token))
-            throw new ArchiveCommandError("BAD_REQUEST");
-          stagePaths.delete(token);
-          try {
-            const data = await call(
-              "save",
-              `/system/bin/timeout 15 ${executable} save ${token}`,
-              17000,
-            );
-            const value = receipt(data);
-            if (!value) throw new ArchiveCommandError("BAD_RESPONSE");
-            return value;
-          } catch (error) {
-            if (
-              error instanceof ArchiveCommandError &&
-              !["BAD_RESPONSE", "UNSUPPORTED_PROTOCOL"].includes(error.code)
-            )
-              throw error;
-            throw new ArchiveCommandError("RESULT_UNKNOWN");
-          }
-        }
-      : undefined,
+    ...Object.fromEntries(
+      (["save", "restore"] as const).map((action) => [
+        action,
+        io
+          ? async (token: string) => {
+              if (!tokenPattern.test(token) || !stagePaths.has(token))
+                throw new ArchiveCommandError("BAD_REQUEST");
+              stagePaths.delete(token);
+              try {
+                const data = await call(
+                  action,
+                  `/system/bin/timeout 15 ${executable} ${action} ${token}`,
+                  17000,
+                );
+                const value = receipt(data);
+                if (!value) throw new ArchiveCommandError("BAD_RESPONSE");
+                return value;
+              } catch (error) {
+                if (
+                  error instanceof ArchiveCommandError &&
+                  !["BAD_RESPONSE", "UNSUPPORTED_PROTOCOL"].includes(error.code)
+                )
+                  throw error;
+                throw new ArchiveCommandError("RESULT_UNKNOWN");
+              }
+            }
+          : undefined,
+      ]),
+    ),
   };
 }
