@@ -15,7 +15,8 @@
       ],
       "bootId": "00000000-0000-0000-0000-000000000000",
       "uid": 0,
-      "procNodes": ["susfs_path"]
+      "procNodes": ["susfs_path"],
+      "redirectUidSchemes": [0, 1, 2, 3, 4]
     },
     "status": "ready",
     "effectStatus": "unverified",

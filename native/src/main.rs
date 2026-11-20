@@ -451,6 +451,7 @@ fn provider_snapshot(status: &Status) -> Option<device::ProviderSnapshot> {
         boot_id: device::boot_id(),
         uid: unsafe { libc::geteuid() },
         proc_nodes: provider.proc_nodes.clone(),
+        redirect_uid_schemes: provider.redirect_uid_schemes.clone(),
     })
 }
 
@@ -652,6 +653,7 @@ fn main() {
                         boot_id: device::boot_id(),
                         uid: unsafe { libc::geteuid() },
                         proc_nodes: Vec::new(),
+                        redirect_uid_schemes: Vec::new(),
                     };
                     match archive_store().and_then(|store| {
                         let (before, after) = store.read_staged_candidate(&args[1])?;
@@ -811,7 +813,7 @@ fn main() {
         }
         Some("effect-probe") => {
             let path = &args[2];
-            if args[1] != "map"
+            if !matches!(args[1].as_str(), "map" | "stat")
                 || !path.starts_with('/')
                 || path == "/"
                 || path.len() >= 256
@@ -824,12 +826,19 @@ fn main() {
                     serde_json::json!({"status":"invalid"}),
                 ))
             } else {
-                Ok(if device::effect_probe_map(path) {
-                    "visible"
+                if args[1] == "map" {
+                    Ok(if device::effect_probe_map(path) {
+                        "visible"
+                    } else {
+                        "hidden"
+                    }
+                    .to_owned())
                 } else {
-                    "hidden"
+                    Ok(device::effect_probe_stat(path)
+                        .as_deref()
+                        .unwrap_or("unavailable")
+                        .to_owned())
                 }
-                .to_owned())
             }
         }
         Some("boot-enabled") => match archive_store().and_then(|store| store.read()) {

@@ -392,6 +392,7 @@ async function host(
             bootId: "test-boot",
             uid: 0,
             procNodes: [],
+            redirectUidSchemes: [],
           },
           status: "blocked",
           effectStatus: "unverified",

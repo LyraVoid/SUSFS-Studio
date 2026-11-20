@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::os::fd::AsRawFd;
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 #[cfg(test)]
 use std::path::Path;
+use std::thread;
+use std::time::Duration;
 
 const ADD_PATH: u32 = 0x0005_5550;
 const ADD_LOOP_PATH: u32 = 0x0005_5553;
@@ -17,6 +20,10 @@ const SET_CMDLINE: u32 = 0x0005_55b0;
 const SET_REDIRECT: u32 = 0x0005_55c0;
 const HIDE_MOUNTS: u32 = 0x0005_5561;
 const LOGGING: u32 = 0x0005_55a0;
+const AVC_SPOOF: u32 = 0x0006_0010;
+const PRIORITY_UID_FILTER: u32 = 0x0006_0030;
+const KSU_FEATURE_AVC_SPOOF: u32 = 6;
+const KSU_IOCTL_GET_FEATURE: libc::c_ulong = 0xc000_4b0d;
 const APP_PROBE_CONTEXT: &str = "u:r:untrusted_app:s0:c123,c256,c512,c768";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -30,6 +37,7 @@ pub struct ProviderSnapshot {
     pub boot_id: String,
     pub uid: u32,
     pub proc_nodes: Vec<String>,
+    pub redirect_uid_schemes: Vec<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -197,6 +205,13 @@ impl AbiPayload for Kstat {
     fn error(&self) -> i32 {
         self.error
     }
+}
+
+#[repr(C)]
+struct Feature {
+    feature_id: u32,
+    value: u64,
+    supported: u8,
 }
 
 impl Kstat {
@@ -388,6 +403,14 @@ fn static_kstat(path: &str, fields: &StaticKstat) -> Result<DeviceOutcome, Devic
     Ok(call(ADD_STATIC_KSTAT, &mut payload))
 }
 
+fn priority_string(packages: &[String]) -> String {
+    if packages.is_empty() {
+        ",".to_owned()
+    } else {
+        packages.join(",")
+    }
+}
+
 pub fn execute(action: &DeviceAction, provider: &ProviderSnapshot) -> DeviceOutcome {
     if provider.uid != 0 {
         return outcome("failed", "ROOT_REQUIRED");
@@ -445,7 +468,10 @@ pub fn execute(action: &DeviceAction, provider: &ProviderSnapshot) -> DeviceOutc
             }
         }
         DeviceAction::UpdateKstat { path, full_clone } => {
-            if *full_clone && provider.proc_nodes.iter().any(|node| node == "susfs_kstat") {
+            if provider.implementation == "lkm"
+                && *full_clone
+                && provider.proc_nodes.iter().any(|node| node == "susfs_kstat")
+            {
                 proc_write(
                     "susfs_kstat",
                     &format!("update_sus_kstat_full_clone {path}"),
@@ -463,6 +489,9 @@ pub fn execute(action: &DeviceAction, provider: &ProviderSnapshot) -> DeviceOutc
         }
         DeviceAction::ToggleHideMounts(enabled) => toggle(HIDE_MOUNTS, *enabled),
         DeviceAction::ToggleLogging(enabled) => toggle(LOGGING, *enabled),
+        DeviceAction::ToggleAvcSpoof(enabled) if provider.implementation == "builtin" => {
+            toggle(AVC_SPOOF, *enabled)
+        }
         DeviceAction::ToggleAvcSpoof(enabled) => {
             proc_write("susfs_avc_spoof", if *enabled { "1" } else { "0" })
         }
@@ -506,7 +535,7 @@ pub fn execute(action: &DeviceAction, provider: &ProviderSnapshot) -> DeviceOutc
             if provider.implementation != "builtin" {
                 return outcome("failed", "PROVIDER_NOT_AUTHORIZED");
             }
-            let value = packages.join(",");
+            let value = priority_string(packages);
             let mut payload = Box::new(Text::<65535> {
                 text: [0; 65535],
                 error: 126,
@@ -515,7 +544,7 @@ pub fn execute(action: &DeviceAction, provider: &ProviderSnapshot) -> DeviceOutc
                 return outcome("failed", "INVALID_FIELD");
             }
             payload.text[..value.len()].copy_from_slice(value.as_bytes());
-            call(0x0006_0030, payload.as_mut())
+            call(PRIORITY_UID_FILTER, payload.as_mut())
         }
         DeviceAction::AddHiddenModule(name) => {
             proc_write("susfs_hide_modules", &format!("add {name}"))
@@ -594,8 +623,8 @@ fn file_write_private(path: &Path, contents: &[u8]) -> io::Result<File> {
     Ok(file)
 }
 
-fn fork_read_same(path: &str, destination: &str) -> Option<bool> {
-    let source = app_output("/system/bin/cat", &[path])?;
+fn fork_read_same(path: &str, destination: &str, uid: u32, context: &str) -> Option<bool> {
+    let source = output_for_uid(uid, context, "/system/bin/cat", &[path])?;
     let target = fs::read(destination).ok()?;
     Some(source.status.success() && source.stdout == target)
 }
@@ -655,11 +684,153 @@ fn mount_hidden_for_app() -> bool {
 }
 
 fn app_output(program: &str, arguments: &[&str]) -> Option<std::process::Output> {
+    app_output_for_uid(10123, program, arguments)
+}
+
+fn app_output_for_uid(uid: u32, program: &str, arguments: &[&str]) -> Option<std::process::Output> {
+    output_for_uid(uid, APP_PROBE_CONTEXT, program, arguments)
+}
+
+fn output_for_uid(
+    uid: u32,
+    context: &str,
+    program: &str,
+    arguments: &[&str],
+) -> Option<std::process::Output> {
+    let uid = uid.to_string();
     std::process::Command::new("/system/bin/su")
-        .args(["-Z", APP_PROBE_CONTEXT, "10123", program])
+        .args(["-Z", context, &uid, program])
         .args(arguments)
         .output()
         .ok()
+}
+
+fn app_probe_output(uid: u32, arguments: &[&str]) -> Option<std::process::Output> {
+    let current = std::env::current_exe().ok()?;
+    let target = format!("/data/local/tmp/.susfs-studio-probe-{}", std::process::id());
+    let mut source = File::open(current).ok()?;
+    if source.metadata().ok()?.len() > 64 * 1024 * 1024 {
+        return None;
+    }
+    let cleanup = || {
+        let _ = fs::remove_file(&target);
+    };
+    let mut destination = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o700)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(&target)
+        .ok()?;
+    if io::copy(&mut source, &mut destination).is_err()
+        || destination.sync_all().is_err()
+        || fs::set_permissions(&target, fs::Permissions::from_mode(0o755)).is_err()
+    {
+        cleanup();
+        return None;
+    }
+    drop(destination);
+    let relabel = std::process::Command::new("/system/bin/chcon")
+        .args(["u:object_r:system_file:s0", &target])
+        .status();
+    if !relabel.is_ok_and(|status| status.success()) {
+        cleanup();
+        return None;
+    }
+    let uid = uid.to_string();
+    let output = std::process::Command::new("/system/bin/su")
+        .args(["-Z", APP_PROBE_CONTEXT, &uid, &target])
+        .args(arguments)
+        .output()
+        .ok();
+    cleanup();
+    output
+}
+
+fn installed_uids() -> Option<BTreeMap<String, u32>> {
+    let metadata = fs::metadata("/data/system/packages.list").ok()?;
+    if metadata.len() == 0 || metadata.len() > 4 * 1024 * 1024 {
+        return None;
+    }
+    let text = fs::read_to_string("/data/system/packages.list").ok()?;
+    let packages = text
+        .lines()
+        .filter_map(|line| {
+            let mut fields = line.split_ascii_whitespace();
+            let name = fields.next()?;
+            let uid = fields.next()?.parse::<u32>().ok()?;
+            (name.len() <= 255
+                && name != "."
+                && name != ".."
+                && name
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_')))
+            .then(|| (name.to_owned(), uid))
+        })
+        .collect();
+    Some(packages)
+}
+
+fn priority_probe(target_uid: u32, caller_uid: u32) -> Option<bool> {
+    if target_uid == caller_uid || !(10000..=19999).contains(&target_uid) {
+        return None;
+    }
+    let target = target_uid.to_string();
+    let mut holder = std::process::Command::new("/system/bin/su")
+        .args(["-Z", APP_PROBE_CONTEXT, &target, "/system/bin/sleep", "5"])
+        .spawn()
+        .ok()?;
+    thread::sleep(Duration::from_millis(100));
+    let user = format!("u0_a{}", target_uid - 10000);
+    let output = app_output_for_uid(caller_uid, "/system/bin/renice", &["-u", &user, "-n", "0"]);
+    let _ = holder.kill();
+    let _ = holder.wait();
+    let output = output?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if stderr.contains("No such process") {
+        Some(true)
+    } else if stderr.contains("Operation not permitted") || output.status.success() {
+        Some(false)
+    } else {
+        None
+    }
+}
+
+fn priority_uid_effect(packages: &[String]) -> Option<bool> {
+    let installed = installed_uids()?;
+    let selected: Vec<u32> = if packages.is_empty() {
+        installed
+            .values()
+            .copied()
+            .find(|uid| {
+                (10000..=19999).contains(uid)
+                    && installed
+                        .values()
+                        .any(|candidate| candidate != uid && (10000..=19999).contains(candidate))
+            })
+            .into_iter()
+            .collect()
+    } else {
+        packages
+            .iter()
+            .filter_map(|name| installed.get(name).copied())
+            .filter(|uid| (10000..=19999).contains(uid))
+            .collect()
+    };
+    if selected.is_empty() || selected.len() > 32 {
+        return Some(false);
+    }
+    for target in selected {
+        let caller = installed
+            .values()
+            .copied()
+            .find(|uid| *uid != target && (10000..=19999).contains(uid))?;
+        let filtered = priority_probe(target, caller)?;
+        if filtered != !packages.is_empty() {
+            return Some(false);
+        }
+    }
+    Some(true)
 }
 
 fn mount_prefix_effect(path: &str) -> bool {
@@ -675,13 +846,117 @@ fn mount_prefix_effect(path: &str) -> bool {
     })
 }
 
+fn kernel_log_state(enabled: &str, disabled: &str) -> Option<bool> {
+    std::process::Command::new("/system/bin/dmesg")
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| {
+            String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .rev()
+                .find_map(|line| {
+                    if line.contains(enabled) {
+                        Some(true)
+                    } else if line.contains(disabled) {
+                        Some(false)
+                    } else {
+                        None
+                    }
+                })
+        })
+}
+
+fn kernel_feature(feature_id: u32) -> Option<(u64, bool)> {
+    let mut installed = false;
+    let mut driver = None;
+    for entry in fs::read_dir("/proc/self/fd").ok()?.flatten() {
+        let Ok(target) = fs::read_link(entry.path()) else {
+            continue;
+        };
+        if matches!(
+            target.to_str(),
+            Some("anon_inode:[ksu_driver]" | "anon_inode:[ksu_driver_su]")
+        ) {
+            driver = entry
+                .file_name()
+                .to_str()
+                .and_then(|fd| fd.parse::<i32>().ok());
+            break;
+        }
+    }
+    if driver.is_none() {
+        let mut fd = -1;
+        let result = unsafe {
+            libc::syscall(
+                libc::SYS_reboot,
+                0xdead_beef_u32,
+                0xcafe_babe_u32,
+                0,
+                std::ptr::from_mut(&mut fd),
+            )
+        };
+        if result != -1 && fd >= 0 {
+            driver = Some(fd);
+            installed = true;
+        }
+    }
+    let fd = driver?;
+    let mut feature = Feature {
+        feature_id,
+        value: 0,
+        supported: 0,
+    };
+    let result = unsafe {
+        libc::syscall(
+            libc::SYS_ioctl,
+            fd,
+            KSU_IOCTL_GET_FEATURE,
+            std::ptr::from_mut(&mut feature),
+        )
+    };
+    if installed {
+        unsafe {
+            libc::close(fd);
+        }
+    }
+    (result >= 0).then_some((feature.value, feature.supported & 1 != 0))
+}
+
+fn ksu_mount_count(mountinfo: &str) -> usize {
+    mountinfo
+        .lines()
+        .filter(|line| {
+            line.split_whitespace()
+                .next()
+                .and_then(|id| id.parse::<u64>().ok())
+                .is_some_and(|id| id >= 2_000_000_000)
+        })
+        .count()
+}
+
+fn mount_visibility() -> Option<(usize, usize)> {
+    let root = fs::read_to_string("/proc/self/mountinfo").ok()?;
+    let shell = output_for_uid(
+        2000,
+        "u:r:shell:s0",
+        "/system/bin/cat",
+        &["/proc/self/mountinfo"],
+    )?;
+    shell.status.success().then(|| {
+        (
+            ksu_mount_count(&root),
+            ksu_mount_count(&String::from_utf8_lossy(&shell.stdout)),
+        )
+    })
+}
+
 fn app_path_visible(path: &str) -> Option<bool> {
     app_output("/system/bin/stat", &["-c", "%n", path]).map(|output| output.status.success())
 }
 
 fn app_map_visible(path: &str) -> Option<bool> {
-    let executable = std::env::current_exe().ok()?;
-    let output = app_output(executable.to_str()?, &["effect-probe", "map", path])?;
+    let output = app_probe_output(10123, &["effect-probe", "map", path])?;
     output
         .status
         .success()
@@ -689,29 +964,22 @@ fn app_map_visible(path: &str) -> Option<bool> {
 }
 
 fn app_static_matches(path: &str, fields: &StaticKstat) -> Option<bool> {
-    if fields.atime_nanoseconds.is_some()
-        || fields.mtime_nanoseconds.is_some()
-        || fields.ctime_nanoseconds.is_some()
-    {
-        return Some(false);
-    }
-    let output = app_output(
-        "/system/bin/stat",
-        &["-c", "%i|%d|%h|%s|%X|%Y|%Z|%b|%o", path],
-    )?;
+    let output = app_probe_output(10123, &["effect-probe", "stat", path])?;
     if !output.status.success() {
         return Some(false);
     }
     let text = String::from_utf8_lossy(&output.stdout);
     let values: Vec<_> = text.trim().split('|').collect();
-    if values.len() != 9 {
+    if values.len() != 12 {
         return Some(false);
     }
     let unsigned = |index: usize| values[index].parse::<u64>().ok();
     let signed = |index: usize| values[index].parse::<i64>().ok();
     Some(
         fields.inode.is_none_or(|value| unsigned(0) == Some(value))
-            && fields.device.is_none_or(|value| unsigned(1) == Some(value))
+            && fields
+                .device
+                .is_none_or(|value| unsigned(1) == Some(stat_device(value)))
             && fields
                 .links
                 .is_none_or(|value| unsigned(2) == Some(u64::from(value)))
@@ -722,16 +990,29 @@ fn app_static_matches(path: &str, fields: &StaticKstat) -> Option<bool> {
                 .atime_seconds
                 .is_none_or(|value| signed(4) == Some(value))
             && fields
+                .atime_nanoseconds
+                .is_none_or(|value| unsigned(5) == Some(u64::from(value)))
+            && fields
                 .mtime_seconds
-                .is_none_or(|value| signed(5) == Some(value))
+                .is_none_or(|value| signed(6) == Some(value))
+            && fields
+                .mtime_nanoseconds
+                .is_none_or(|value| unsigned(7) == Some(u64::from(value)))
             && fields
                 .ctime_seconds
-                .is_none_or(|value| signed(6) == Some(value))
-            && fields.blocks.is_none_or(|value| signed(7) == Some(value))
+                .is_none_or(|value| signed(8) == Some(value))
+            && fields
+                .ctime_nanoseconds
+                .is_none_or(|value| unsigned(9) == Some(u64::from(value)))
+            && fields.blocks.is_none_or(|value| signed(10) == Some(value))
             && fields
                 .block_size
-                .is_none_or(|value| signed(8) == Some(value)),
+                .is_none_or(|value| signed(11) == Some(value)),
     )
+}
+
+fn stat_device(value: u64) -> u64 {
+    u64::from(value as u32)
 }
 
 pub fn verify(action: &DeviceAction, provider: &ProviderSnapshot) -> EffectEvidence {
@@ -753,10 +1034,25 @@ pub fn verify(action: &DeviceAction, provider: &ProviderSnapshot) -> EffectEvide
             observed(visible, "app-domain-maps", "MAP_VISIBILITY", path)
         }
         DeviceAction::AddRedirect {
-            path, destination, ..
+            path,
+            destination,
+            uid_scheme,
         } => {
-            let redirected = fork_read_same(path, destination) == Some(true);
-            observed(redirected, "uid-app-range-open", "OPEN_REDIRECT", path)
+            let (uid, context) = match uid_scheme {
+                0 => (2000, "u:r:shell:s0"),
+                1 => (0, "u:r:shell:s0"),
+                2 => (10123, APP_PROBE_CONTEXT),
+                _ => {
+                    return observed(false, "unsupported-uid-scheme", "OPEN_REDIRECT", path);
+                }
+            };
+            let redirected = fork_read_same(path, destination, uid, context) == Some(true);
+            observed(
+                redirected,
+                "uid-scheme-open",
+                "OPEN_REDIRECT",
+                &format!("scheme={uid_scheme}"),
+            )
         }
         DeviceAction::RemoveRedirect { path } => {
             let restored = app_output("/system/bin/cat", &[path])
@@ -766,48 +1062,108 @@ pub fn verify(action: &DeviceAction, provider: &ProviderSnapshot) -> EffectEvide
         DeviceAction::AddKstat { path, .. }
         | DeviceAction::UpdateKstat { path, .. }
         | DeviceAction::RemoveKstat { path } => {
-            let stat = fs::symlink_metadata(path).ok();
-            observed(stat.is_some(), "stat-syscall", "KSTAT", path)
+            let format = "%i|%d|%h|%s|%X|%Y|%Z|%b|%o";
+            let root = std::process::Command::new("/system/bin/stat")
+                .args(["-c", format, path])
+                .output()
+                .ok()
+                .filter(|output| output.status.success())
+                .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned());
+            let app = app_output("/system/bin/stat", &["-c", format, path])
+                .filter(|output| output.status.success())
+                .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned());
+            observed(
+                root.is_some() && root == app,
+                "app-domain-stat",
+                "KSTAT",
+                &format!("{root:?}/{app:?}"),
+            )
         }
         DeviceAction::AddStaticKstat { path, fields } => {
             let matches = app_static_matches(path, fields) == Some(true);
             observed(matches, "app-domain-stat", "STATIC_FIELDS", path)
         }
         DeviceAction::ToggleHideMounts(enabled) => {
-            let hidden = mount_hidden_for_app();
-            observed(
-                hidden == *enabled,
-                "uid-app-range-mountinfo",
-                "HIDE_MOUNTS",
-                if hidden { "hidden" } else { "visible" },
-            )
+            if provider.implementation == "builtin" {
+                let state = mount_visibility();
+                let value = state
+                    .map(|(root, shell)| format!("root={root},non_su={shell}"))
+                    .unwrap_or_else(|| "unavailable".to_owned());
+                observed(
+                    state.is_some_and(|(root, shell)| {
+                        root > 0 && if *enabled { shell == 0 } else { shell == root }
+                    }),
+                    "non-su-mountinfo",
+                    "HIDE_MOUNTS",
+                    &value,
+                )
+            } else {
+                let hidden = mount_hidden_for_app();
+                observed(
+                    hidden == *enabled,
+                    "uid-app-range-mountinfo",
+                    "HIDE_MOUNTS",
+                    if hidden { "hidden" } else { "visible" },
+                )
+            }
         }
         DeviceAction::ToggleLogging(enabled) => {
-            let state = fs::read_to_string("/proc/susfs_enable_log").unwrap_or_default();
-            observed(
-                state.trim() == if *enabled { "1" } else { "0" },
-                "proc-state",
-                "LOGGING",
-                &state,
-            )
+            if provider.implementation == "builtin" {
+                let accepted = toggle(LOGGING, *enabled).status == "applied";
+                let state = accepted
+                    .then(|| {
+                        kernel_log_state(
+                            "susfs: enable logging to kernel",
+                            "susfs: disable logging to kernel",
+                        )
+                    })
+                    .flatten();
+                observed(
+                    state == Some(*enabled),
+                    "kernel-log",
+                    "LOGGING",
+                    &format!("enabled={enabled},observed={state:?}"),
+                )
+            } else {
+                let state = fs::read_to_string("/proc/susfs_enable_log").unwrap_or_default();
+                observed(
+                    state.trim() == if *enabled { "1" } else { "0" },
+                    "proc-state",
+                    "LOGGING",
+                    &state,
+                )
+            }
         }
         DeviceAction::ToggleAvcSpoof(enabled) => {
-            if *enabled {
-                let _ = app_output("/system/bin/cat", &["/data/adb/susfs-studio/receipt.json"]);
+            if provider.implementation == "builtin" {
+                let accepted = toggle(AVC_SPOOF, *enabled).status == "applied";
+                let state = accepted
+                    .then(|| kernel_feature(KSU_FEATURE_AVC_SPOOF))
+                    .flatten();
+                observed(
+                    state == Some((u64::from(*enabled), true)),
+                    "ksu-feature-state",
+                    "AVC_LOG_STATE",
+                    &format!("enabled={enabled},observed={state:?}"),
+                )
+            } else {
+                if *enabled {
+                    let _ = app_output("/system/bin/cat", &["/data/adb/susfs-studio/receipt.json"]);
+                }
+                let state = fs::read_to_string("/proc/susfs_avc_spoof").unwrap_or_default();
+                let hits = state
+                    .split("hits=")
+                    .nth(1)
+                    .and_then(|value| value.split(')').next())
+                    .and_then(|value| value.trim().parse::<u64>().ok())
+                    .unwrap_or(0);
+                observed(
+                    *enabled == (state.contains("enter=1") || hits > 0),
+                    "avc-state",
+                    "AVC_SPOOF",
+                    &state,
+                )
             }
-            let state = fs::read_to_string("/proc/susfs_avc_spoof").unwrap_or_default();
-            let hits = state
-                .split("hits=")
-                .nth(1)
-                .and_then(|value| value.split(')').next())
-                .and_then(|value| value.trim().parse::<u64>().ok())
-                .unwrap_or(0);
-            observed(
-                *enabled == (state.contains("enter=1") || hits > 0),
-                "avc-state",
-                "AVC_SPOOF",
-                &state,
-            )
         }
         DeviceAction::SetUname { release, version } => {
             let value = format!(
@@ -846,12 +1202,19 @@ pub fn verify(action: &DeviceAction, provider: &ProviderSnapshot) -> EffectEvide
                 &format!("{value}\n{bootconfig}"),
             )
         }
-        DeviceAction::SetPriorityUidFilter(_) => observed(
-            provider.implementation == "builtin",
-            "provider-state",
-            "PRIORITY_UID",
-            &provider.variant,
-        ),
+        DeviceAction::SetPriorityUidFilter(packages) => {
+            let filtered = priority_uid_effect(packages);
+            observed(
+                filtered == Some(true),
+                "app-uid-getpriority",
+                "PRIORITY_UID_FILTER",
+                if packages.is_empty() {
+                    "empty"
+                } else {
+                    "selected"
+                },
+            )
+        }
         DeviceAction::AddHiddenModule(name) => observed(
             !proc_named("modules", name) && proc_listed("susfs_hide_modules", "names: ", name),
             "proc-modules+state",
@@ -916,6 +1279,25 @@ pub fn effect_probe_map(path: &str) -> bool {
     map_visible_here(path)
 }
 
+pub fn effect_probe_stat(path: &str) -> Option<String> {
+    let metadata = fs::metadata(path).ok()?;
+    Some(format!(
+        "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+        metadata.ino(),
+        metadata.dev(),
+        metadata.nlink(),
+        metadata.size(),
+        metadata.atime(),
+        metadata.atime_nsec(),
+        metadata.mtime(),
+        metadata.mtime_nsec(),
+        metadata.ctime(),
+        metadata.ctime_nsec(),
+        metadata.blocks(),
+        metadata.blksize(),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -928,6 +1310,35 @@ mod tests {
             ..StaticKstat::default()
         };
         assert_eq!(kstat_flags(&fields), 0x108);
+    }
+
+    #[test]
+    fn explicit_empty_priority_filter_matches_the_kernel_abi() {
+        assert_eq!(priority_string(&[]), ",");
+        assert_eq!(
+            priority_string(&["com.example.one".to_owned(), "com.example.two".to_owned()]),
+            "com.example.one,com.example.two"
+        );
+    }
+
+    #[test]
+    fn static_device_uses_the_kernel_dev_encoding_boundary() {
+        assert_eq!(stat_device(9_876_543_210), 1_286_608_618);
+    }
+
+    #[test]
+    fn ksu_mount_count_uses_the_provider_mount_id_boundary() {
+        let mounts = "203 1 0:1 / / rw - rootfs rootfs rw\n\
+                      2000000000 203 0:2 / /data rw - ext4 /dev/x rw\n\
+                      1999999999 203 0:3 / /tmp rw - tmpfs tmpfs rw\n";
+        assert_eq!(ksu_mount_count(mounts), 1);
+    }
+
+    #[test]
+    fn ksu_feature_payload_uses_the_audited_layout() {
+        assert_eq!(std::mem::size_of::<Feature>(), 24);
+        assert_eq!(std::mem::offset_of!(Feature, value), 8);
+        assert_eq!(std::mem::offset_of!(Feature, supported), 16);
     }
 
     #[test]

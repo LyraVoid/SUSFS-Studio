@@ -31,7 +31,9 @@ The four `rules` arrays are required. Unknown object fields are allowed at the e
 - `uname`: optional `null` or object with `release` and `version`, each a nonblank single-line string of at most 64 UTF-8 bytes and no control characters.
 - `cmdline`: optional `null` or a string shorter than 8,192 UTF-8 bytes. An empty string is allowed; a non-empty string must not be blank or contain controls other than newline and tab.
 - `lkm`: optional object with optional `hiddenModules` (up to 16 distinct names of 1–63 ASCII letters, digits or underscores) and `mountPrefixes` (up to eight distinct paths following the path rules below).
-- `automatic`: optional boolean that enables Studio's own boot handler. When true, the module runs `pre-mount` and `late-pre-mount` from `post-fs-data.sh` plus `post-mount` and `late-load` from `service.sh`. It never invokes the host manager's or FinaSU's task. When false or absent, the boot handler exits without loading or applying a provider.
+- `automatic`: optional boolean that enables Studio's own boot handler. When true, the module runs `pre-mount` and `late-pre-mount` from `post-fs-data.sh` plus `post-mount` and `late-load` from `service.sh`. It never invokes the host manager's or FinaSU's task. When false or absent, Studio's boot handler exits without loading or applying a provider. The host may still load its own LKM outside Studio.
+
+Studio queries the live Provider before considering any KO fallback. An active Built-In or LKM Provider is left in place. The known-KO fallback is disabled unless the module directory contains an explicit `load-lkm` marker; Studio does not infer permission to replace a Built-In Provider from a missing proc node.
 
 Version 1 remains readable and editable without migration. A version upgrade is a previewed and separately confirmed save that changes only the schema token. The upgrade is unavailable if the old archive already uses any of the new keys as unknown metadata; Studio does not silently reinterpret them.
 

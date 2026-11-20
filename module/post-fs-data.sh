@@ -16,20 +16,41 @@ case "$enabled" in
     ;;
 esac
 
-if [ ! -w /proc/susfs_kstat ] &&
-  [ -f /data/adb/ksu/lkm/susfs_guard_lkm/module.ko ]; then
-  /system/bin/timeout 20 /data/adb/ksud insmod \
-    /data/adb/ksu/lkm/susfs_guard_lkm/module.ko >/dev/null 2>&1 || true
-  /system/bin/log -t SUSFS_STUDIO "provider load attempted"
-fi
-
+provider=missing
 i=0
-while [ ! -w /proc/susfs_kstat ] && [ "$i" -lt 50 ]; do
+while [ "$i" -lt 50 ]; do
+  status=$("$STUDIOCTL" status)
+  case "$status" in
+    *'"kind":"active"'*)
+      provider=ready
+      break
+      ;;
+  esac
   sleep 0.1
   i=$((i + 1))
 done
 
-if [ -w /proc/susfs_kstat ]; then
+if [ "$provider" != ready ] &&
+  [ -f "$MODDIR/load-lkm" ] &&
+  [ -f /data/adb/ksu/lkm/susfs_guard_lkm/module.ko ]; then
+  /system/bin/timeout 20 /data/adb/ksud insmod \
+    /data/adb/ksu/lkm/susfs_guard_lkm/module.ko >/dev/null 2>&1 || true
+  /system/bin/log -t SUSFS_STUDIO "provider missing; known KO load attempted"
+  i=0
+  while [ "$i" -lt 50 ]; do
+    status=$("$STUDIOCTL" status)
+    case "$status" in
+      *'"kind":"active"'*)
+        provider=ready
+        break
+        ;;
+    esac
+    sleep 0.1
+    i=$((i + 1))
+  done
+fi
+
+if [ "$provider" = ready ]; then
   /system/bin/log -t SUSFS_STUDIO "provider ready"
 else
   /system/bin/log -t SUSFS_STUDIO "provider missing"

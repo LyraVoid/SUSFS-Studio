@@ -49,5 +49,13 @@ describe("operation protocol v2", () => {
         failed: { ffffffffffffffffffffffffffffffff: "missing" },
       }),
     ).toThrow(ArchiveCommandError);
+    const noSchemes = structuredClone(fixture.plan);
+    delete noSchemes.provider.redirectUidSchemes;
+    expect(() => parseOperationPlan(noSchemes)).toThrow(ArchiveCommandError);
+    const duplicateSchemes = structuredClone(fixture.plan);
+    duplicateSchemes.provider.redirectUidSchemes = [0, 0];
+    expect(() => parseOperationPlan(duplicateSchemes)).toThrow(
+      ArchiveCommandError,
+    );
   });
 });

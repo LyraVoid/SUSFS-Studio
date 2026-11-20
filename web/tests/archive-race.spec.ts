@@ -69,6 +69,7 @@ test("two pages retain independent drafts and must review a newer revision", asy
             bootId: "test-boot",
             uid: 0,
             procNodes: [],
+            redirectUidSchemes: [],
           },
           status: "blocked",
           effectStatus: "unverified",

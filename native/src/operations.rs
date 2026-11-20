@@ -226,25 +226,43 @@ fn capability(
             .any(|candidate| candidate == node)
     };
     match action {
-        DeviceAction::RemovePath { .. } if !proc("susfs_path") => {
+        DeviceAction::RemovePath { .. }
+            if provider.implementation == "lkm" && !proc("susfs_path") =>
+        {
             return Err("PROC_EXTENSION_REQUIRED".to_owned());
         }
-        DeviceAction::RemoveMap { .. } if !proc("susfs_map") => {
+        DeviceAction::RemoveMap { .. }
+            if provider.implementation == "lkm" && !proc("susfs_map") =>
+        {
             return Err("PROC_EXTENSION_REQUIRED".to_owned());
         }
-        DeviceAction::RemoveRedirect { .. } if !proc("susfs_open_redirect") => {
+        DeviceAction::RemoveRedirect { .. }
+            if provider.implementation == "lkm" && !proc("susfs_open_redirect") =>
+        {
             return Err("PROC_EXTENSION_REQUIRED".to_owned());
         }
-        DeviceAction::RemoveKstat { .. } if !proc("susfs_kstat") => {
+        DeviceAction::RemoveKstat { .. }
+            if provider.implementation == "lkm" && !proc("susfs_kstat") =>
+        {
             return Err("PROC_EXTENSION_REQUIRED".to_owned());
         }
         DeviceAction::UpdateKstat {
             full_clone: true, ..
-        } if !proc("susfs_kstat") => {
+        } if provider.implementation == "lkm" && !proc("susfs_kstat") => {
             return Err("PROC_EXTENSION_REQUIRED".to_owned());
         }
-        DeviceAction::ToggleAvcSpoof(_) if !proc("susfs_avc_spoof") => {
+        DeviceAction::ToggleAvcSpoof(_)
+            if provider.implementation == "lkm" && !proc("susfs_avc_spoof") =>
+        {
             return Err("PROC_EXTENSION_REQUIRED".to_owned());
+        }
+        DeviceAction::AddRedirect { uid_scheme, .. }
+            if !provider.redirect_uid_schemes.is_empty()
+                && !provider
+                    .redirect_uid_schemes
+                    .contains(&u32::from(*uid_scheme)) =>
+        {
+            return Err("UID_SCHEME_UNSUPPORTED".to_owned());
         }
         DeviceAction::AddHiddenModule(_) | DeviceAction::RemoveHiddenModule(_)
             if !proc("susfs_hide_modules") =>
@@ -291,18 +309,27 @@ fn push_operation(
     action: DeviceAction,
     provider: &ProviderSnapshot,
 ) {
-    let (eligibility, reason) =
-        if matches!(action, DeviceAction::ResetCmdline) && provider.implementation != "builtin" {
-            (
-                "pending_reboot",
-                "EXPLICIT_RESET_REQUIRES_REBOOT".to_owned(),
-            )
-        } else {
-            match capability(provider, &action, marker) {
-                Ok(()) => ("eligible", "CAPABILITY_VERIFIED".to_owned()),
-                Err(reason) => ("blocked", reason),
-            }
-        };
+    let builtin_remove = provider.implementation == "builtin"
+        && matches!(
+            action,
+            DeviceAction::RemovePath { .. }
+                | DeviceAction::RemoveMap { .. }
+                | DeviceAction::RemoveRedirect { .. }
+                | DeviceAction::RemoveKstat { .. }
+        );
+    let (eligibility, reason) = if builtin_remove {
+        ("pending_reboot", "ONLINE_REMOVE_UNAVAILABLE".to_owned())
+    } else if matches!(action, DeviceAction::ResetCmdline) {
+        (
+            "pending_reboot",
+            "EXPLICIT_RESET_REQUIRES_REBOOT".to_owned(),
+        )
+    } else {
+        match capability(provider, &action, marker) {
+            Ok(()) => ("eligible", "CAPABILITY_VERIFIED".to_owned()),
+            Err(reason) => ("blocked", reason),
+        }
+    };
     output.push(RuntimeOperation {
         item: PlanItem {
             id: short_digest(&format!("{category}:{intent}:{identity}")),
@@ -316,7 +343,11 @@ fn push_operation(
             eligibility: eligibility.to_owned(),
             reason,
             effect_probe: effect_probe.to_owned(),
-            recovery: recovery.to_owned(),
+            recovery: if builtin_remove {
+                "reboot-to-restore".to_owned()
+            } else {
+                recovery.to_owned()
+            },
             identity_digest: digest(identity.as_bytes()),
             execution_uid: provider.uid,
             status: match eligibility {
@@ -342,10 +373,10 @@ fn settings_changes(
         (
             "hideMounts",
             "CONFIG_KSU_SUSFS_SUS_MOUNT",
-            "MOUNT_NAMESPACE",
+            "NON_SU_MOUNTINFO",
         ),
         ("logging", "CONFIG_KSU_SUSFS_ENABLE_LOG", "KERNEL_LOG"),
-        ("avcSpoof", "", "AVC_LOG"),
+        ("avcSpoof", "", "AVC_FEATURE_STATE"),
     ] {
         let next = settings(after, key);
         let previous = settings(before, key);
@@ -388,7 +419,7 @@ fn settings_changes(
             "update",
             "live",
             "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER",
-            "UID_FILTER",
+            "PRIORITY_UID",
             "provider-reapply",
             "priorityUidFilter",
             DeviceAction::SetPriorityUidFilter(packages),
@@ -551,7 +582,12 @@ fn rule_changes(
             continue;
         };
         let changed_same_path = old.is_some();
-        let (stage, eligibility_override, reason, recovery) = if changed_same_path {
+        let static_update = changed_same_path
+            && matches!(action, DeviceAction::AddStaticKstat { .. })
+            && old.is_some_and(|rule| string(rule.get("mode")) == Some("static"));
+        let (stage, eligibility_override, reason, recovery) = if static_update {
+            ("live", "eligible", "STATIC_KSTAT_UPDATE", "boot-reload")
+        } else if changed_same_path {
             (
                 "pending-reboot",
                 "pending_reboot",
@@ -585,13 +621,17 @@ fn rule_changes(
                 eligibility: eligibility_override.to_owned(),
                 reason: reason.to_owned(),
                 effect_probe: match group.as_str() {
-                    "paths" => "UID_PATH_VISIBILITY",
+                    "paths" => "APP_PATH_VISIBILITY",
                     "maps" => "PROCESS_MAPS",
-                    "kstats" => "STAT_SYSCALL",
+                    "kstats" => "APP_STAT",
                     _ => "UID_OPEN",
                 }
                 .to_owned(),
-                recovery: recovery.to_owned(),
+                recovery: if provider.implementation == "builtin" {
+                    "reboot-to-restore".to_owned()
+                } else {
+                    recovery.to_owned()
+                },
                 identity_digest: digest(path.as_bytes()),
                 execution_uid: provider.uid,
                 status: if eligibility_override == "eligible" {
@@ -687,7 +727,19 @@ pub fn create(
         provider.variant,
         provider.boot_id,
         digest(provider.features.join("\n").as_bytes()),
-        digest(provider.proc_nodes.join("\n").as_bytes()),
+        digest(
+            format!(
+                "{}\n{}",
+                provider.proc_nodes.join("\n"),
+                provider
+                    .redirect_uid_schemes
+                    .iter()
+                    .map(u32::to_string)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            )
+            .as_bytes(),
+        ),
     ));
     if store.read_operation(&plan_id)?.is_some() {
         return load(store, &plan_id);
@@ -782,6 +834,7 @@ fn current_provider(
         || planned.audited != current.audited
         || planned.features != current.features
         || planned.proc_nodes != current.proc_nodes
+        || planned.redirect_uid_schemes != current.redirect_uid_schemes
         || planned.boot_id != current.boot_id
         || planned.uid != current.uid
     {
@@ -1340,7 +1393,20 @@ mod tests {
             boot_id: "boot".to_owned(),
             uid: 0,
             proc_nodes: proc_nodes.iter().map(|node| (*node).to_owned()).collect(),
+            redirect_uid_schemes: vec![0, 1, 2, 3, 4],
         }
+    }
+
+    fn builtin() -> ProviderSnapshot {
+        let mut provider = provider(&[]);
+        provider.implementation = "builtin".to_owned();
+        provider.variant = "GKI".to_owned();
+        provider.version = "v2.4.0".to_owned();
+        provider
+            .features
+            .push("CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER".to_owned());
+        provider.redirect_uid_schemes = vec![0, 1, 2];
+        provider
     }
 
     #[test]
@@ -1397,12 +1463,78 @@ mod tests {
     }
 
     #[test]
+    fn builtin_cmdline_clear_also_waits_for_reboot() {
+        let before = r#"{"format":"susfs-studio","schema":2,"cmdline":"androidboot.demo=1","rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]}}"#;
+        let after = r#"{"format":"susfs-studio","schema":2,"cmdline":"","rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]}}"#;
+        let operations = runtime_operations(before, after, &builtin());
+        assert_eq!(operations[0].item.eligibility, "pending_reboot");
+        assert_eq!(operations[0].item.reason, "EXPLICIT_RESET_REQUIRES_REBOOT");
+    }
+
+    #[test]
     fn removals_need_the_matching_proc_extension() {
         let before = r#"{"format":"susfs-studio","schema":2,"rules":{"paths":[{"id":"p","path":"/data/p","looping":false}],"maps":[],"kstats":[],"redirects":[]}}"#;
         let after = r#"{"format":"susfs-studio","schema":2,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]}}"#;
         let operations = runtime_operations(before, after, &provider(&[]));
         assert_eq!(operations[0].item.intent, "remove");
         assert_eq!(operations[0].item.reason, "PROC_EXTENSION_REQUIRED");
+    }
+
+    #[test]
+    fn builtin_removals_wait_for_reboot_without_inventing_a_delete_abi() {
+        let before = r#"{"format":"susfs-studio","schema":2,"rules":{"paths":[{"id":"p","path":"/data/p","looping":false}],"maps":[],"kstats":[],"redirects":[]}}"#;
+        let after = r#"{"format":"susfs-studio","schema":2,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]}}"#;
+        let operations = runtime_operations(before, after, &builtin());
+        assert_eq!(operations[0].item.intent, "remove");
+        assert_eq!(operations[0].item.eligibility, "pending_reboot");
+        assert_eq!(operations[0].item.reason, "ONLINE_REMOVE_UNAVAILABLE");
+    }
+
+    #[test]
+    fn builtin_avc_and_full_clone_use_their_supercalls() {
+        let provider = builtin();
+        assert!(capability(&provider, &DeviceAction::ToggleAvcSpoof(true), "").is_ok());
+        assert!(
+            capability(
+                &provider,
+                &DeviceAction::UpdateKstat {
+                    path: "/data/k".to_owned(),
+                    full_clone: true,
+                },
+                "CONFIG_KSU_SUSFS_SUS_KSTAT",
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn redirect_is_limited_to_reported_uid_schemes() {
+        let provider = builtin();
+        assert_eq!(
+            capability(
+                &provider,
+                &DeviceAction::AddRedirect {
+                    path: "/system/a".to_owned(),
+                    destination: "/system/b".to_owned(),
+                    uid_scheme: 3,
+                },
+                "CONFIG_KSU_SUSFS_OPEN_REDIRECT",
+            ),
+            Err("UID_SCHEME_UNSUPPORTED".to_owned())
+        );
+    }
+
+    #[test]
+    fn static_kstat_can_update_in_place_but_mode_changes_wait_for_reboot() {
+        let before = r#"{"format":"susfs-studio","schema":2,"rules":{"paths":[],"maps":[],"kstats":[{"id":"k","path":"/data/k","mode":"static","static":{"inode":"1"}}],"redirects":[]}}"#;
+        let after = r#"{"format":"susfs-studio","schema":2,"rules":{"paths":[],"maps":[],"kstats":[{"id":"k","path":"/data/k","mode":"static","static":{"inode":"2"}}],"redirects":[]}}"#;
+        let operations = runtime_operations(before, after, &builtin());
+        assert_eq!(operations[0].item.eligibility, "eligible");
+        assert_eq!(operations[0].item.reason, "STATIC_KSTAT_UPDATE");
+
+        let dynamic = r#"{"format":"susfs-studio","schema":2,"rules":{"paths":[],"maps":[],"kstats":[{"id":"k","path":"/data/k","mode":"normal"}],"redirects":[]}}"#;
+        let operations = runtime_operations(before, dynamic, &builtin());
+        assert_eq!(operations[0].item.eligibility, "pending_reboot");
     }
 
     #[test]

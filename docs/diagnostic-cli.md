@@ -11,6 +11,7 @@
 | `studioctl apps` | Returns package names and UIDs only when an audited Built-In Provider reports priority-UID support. LKM currently returns `TRUSTED_UID_SOURCE_UNAVAILABLE`. |
 | `studioctl preview` | Reads at most 128 KiB from standard input and classifies the Studio envelope without storing it. |
 | `studioctl effect-probe map <path>` | Runs a fixed app-domain mapping probe for an already configured path. The path is validated as an absolute non-dot path; it is not inserted into a shell. |
+| `studioctl effect-probe stat <path>` | Returns the 12 native stat values used by static-kstat verification. The path uses the same absolute non-dot validation and is not inserted into a shell. |
 | `studioctl boot-enabled` | Reports whether the current Studio archive enables Studio's own boot handler. Values are `enabled`, `disabled`, `missing`, or `invalid`. |
 
 Version 1 responses contain `protocol`, `requestId`, `ok`, and `data`. The status kinds are `active`, `missing`, `unknownProtocol`, and `failed`. An active result keeps implementation identity, raw evidence, capabilities, proc nodes, and authorization separate. A malformed or duplicate feature report is an unknown protocol. An unfamiliar version may remain active for inspection but is not audited.
@@ -46,11 +47,11 @@ The archive revision is the lowercase SHA-256 digest of the exact bytes. Save an
 | `studioctl operation-status <plan-id>` | Returns the redacted current plan state. |
 | `studioctl boot <phase>` | Executes Studio-owned `pre-mount`, `late-pre-mount`, `post-mount`, or `late-load` planning when automatic application is enabled. |
 
-Operation protocol version 2 is shared by Rust and TypeScript fixtures in `contracts/operation-v2.json`. A plan binds the archive baseline/candidate revisions, Provider implementation/version/variant/features/proc extensions, boot ID, executing UID, and per-item opaque IDs, idempotency keys, identity digests, stages, eligibility, recovery, status, attempts, and effect evidence. Public output omits archive payload text.
+Operation protocol version 2 is shared by Rust and TypeScript fixtures in `contracts/operation-v2.json`. A plan binds the archive baseline/candidate revisions, Provider implementation/version/variant/features/proc extensions/redirect UID schemes, boot ID, executing UID, and per-item opaque IDs, idempotency keys, identity digests, stages, eligibility, recovery, status, attempts, and effect evidence. Public output omits archive payload text.
 
 An item status is one of `saved`, `applying`, `applied`, `partial`, `failed`, `unknown`, `deferred`, `pending_reboot`, `blocked`, or `recovery_required`. The separate effect status is `unverified`, `partial`, or `verified`. An accepted Provider call is not an observed effect. A loaded LKM is not evidence that every feature or proc extension is available.
 
-Dynamic kstat follows `pre-mount` capture, `late-pre-mount` deduplication, and `post-mount` update. A request made after the snapshot stage becomes `pending_reboot`. The tested LKM writes manually spoofed command-line data to `/proc/bootconfig`; an empty reset is rejected online and also becomes `pending_reboot`.
+Dynamic kstat follows `pre-mount` capture, `late-pre-mount` deduplication, and `post-mount` update. A request made after the snapshot stage becomes `pending_reboot`. The tested providers write manually spoofed command-line data to `/proc/bootconfig`; an empty reset is rejected online and also becomes `pending_reboot`.
 
 Current-boot journal entries are exempt from retention pruning based on filesystem modification time. This is necessary because `post-fs-data` can run before Android sets wall-clock time.
 
@@ -62,7 +63,7 @@ The packaged module contains executable `post-fs-data.sh` and `service.sh` scrip
 2. wait for the runtime proc extension within a bounded interval;
 3. run `boot pre-mount` and `boot late-pre-mount` with bounded retries.
 
-`service.sh` runs `boot post-mount` and `boot late-load`. With automatic application disabled or missing, `post-fs-data.sh` exits before loading a KO. The scripts contain no user-supplied command text and log only phase names and opaque plan IDs.
+`service.sh` runs `boot post-mount` and `boot late-load`. With automatic application disabled or missing, Studio's boot handler exits before applying a provider. It first queries the live Provider and never loads a KO for an active Built-In or LKM result. The known-KO fallback requires the explicit `load-lkm` file in the module directory. The scripts contain no user-supplied command text and log only phase names and opaque plan IDs.
 
 This is Studio's own boot flow. It does not invoke the host manager's or FinaSU's task, use `ksud susfs`, call sidex15's `ksu_susfs`, or manage another controller's files.
 

@@ -15,6 +15,13 @@ class ModuleScriptsTest(unittest.TestCase):
         )
         self.assertIn('"status":"enabled"', post_fs_data)
         self.assertIn("/data/adb/ksu/lkm/susfs_guard_lkm/module.ko", post_fs_data)
+        self.assertIn('"$STUDIOCTL" status', post_fs_data)
+        self.assertIn('*\'"kind":"active"\'*', post_fs_data)
+        self.assertIn('"$MODDIR/load-lkm"', post_fs_data)
+        self.assertLess(
+            post_fs_data.index('"$STUDIOCTL" status'),
+            post_fs_data.index("/data/adb/ksud insmod"),
+        )
         self.assertIn('boot pre-mount', post_fs_data)
         self.assertIn('boot late-pre-mount', post_fs_data)
         self.assertIn('boot post-mount', service)

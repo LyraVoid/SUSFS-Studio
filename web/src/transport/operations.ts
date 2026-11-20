@@ -65,6 +65,7 @@ export type OperationProvider = {
   bootId: string;
   uid: number;
   procNodes: string[];
+  redirectUidSchemes: number[];
 };
 export type OperationPlan = {
   planVersion: 2;
@@ -244,7 +245,17 @@ export function parseOperationPlan(value: unknown): OperationPlan {
     (provider.uid as number) > 0xffffffff ||
     !Array.isArray(provider.procNodes) ||
     provider.procNodes.length > 64 ||
-    !provider.procNodes.every((node: unknown) => text(node, 64))
+    !provider.procNodes.every((node: unknown) => text(node, 64)) ||
+    !Array.isArray(provider.redirectUidSchemes) ||
+    provider.redirectUidSchemes.length > 16 ||
+    !provider.redirectUidSchemes.every(
+      (scheme: unknown) =>
+        Number.isInteger(scheme) &&
+        (scheme as number) >= 0 &&
+        (scheme as number) <= 4,
+    ) ||
+    new Set(provider.redirectUidSchemes).size !==
+      provider.redirectUidSchemes.length
   )
     throw new ArchiveCommandError("BAD_RESPONSE");
   const items = value.items.map(item);
@@ -266,6 +277,7 @@ export function parseOperationPlan(value: unknown): OperationPlan {
       bootId: provider.bootId as string,
       uid: provider.uid as number,
       procNodes: provider.procNodes as string[],
+      redirectUidSchemes: provider.redirectUidSchemes as number[],
     },
     status,
     effectStatus,
