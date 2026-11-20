@@ -14,6 +14,7 @@ test("two pages retain independent drafts and must review a newer revision", asy
       label,
     });
   let text = draft("initial");
+  let receipt: { revision: string; bytes: number; savedAt: string } | undefined;
   const stages = new Map<string, { baseline: string; upload?: string }>();
   const digest = (value: string) =>
     createHash("sha256").update(value).digest("hex");
@@ -34,7 +35,13 @@ test("two pages retain independent drafts and must review a newer revision", asy
         data,
       });
       if (action === "read")
-        return reply({ kind: "saved", text, revision: digest(text) });
+        return reply({
+          kind: "saved",
+          text,
+          revision: digest(text),
+          receipt,
+          receiptStatus: receipt ? "available" : "missing",
+        });
       if (action === "stage") {
         const id = (stages.size + 1).toString(16).padStart(32, "0");
         stages.set(id, { baseline: text });
@@ -57,11 +64,12 @@ test("two pages retain independent drafts and must review a newer revision", asy
           error: { code: "REVISION_CONFLICT", retryable: true },
         };
       text = upload;
-      return reply({
+      receipt = {
         revision: digest(text),
         bytes: text.length,
         savedAt: "1",
-      });
+      };
+      return reply(receipt);
     },
   );
   await context.addInitScript(({ hello, active }) => {

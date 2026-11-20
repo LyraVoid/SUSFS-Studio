@@ -152,12 +152,15 @@ test("an injected host shows its own result and refresh failures", async ({
   await expect(page.getByRole("status")).not.toContainText("LKM");
 });
 
-test("six pages, diagnostic dialog and capability labels", async ({ page }) => {
+test("main navigation, diagnostic dialog and capability labels", async ({
+  page,
+}) => {
   await page.goto("/");
   await expect(page.getByRole("status")).toContainText("已激活");
   await expect(page.locator("main h2").allTextContents()).resolves.toEqual([
     "设备",
     "能力与兼容性",
+    "设备应用",
   ]);
   await expect(page.locator("main dd[data-availability]")).toHaveCount(5);
   const status = page.getByRole("button", { name: /状态/ });

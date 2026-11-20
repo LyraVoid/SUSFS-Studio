@@ -40,3 +40,18 @@ fn shared_depth_and_number_boundaries() {
         "unknown"
     );
 }
+
+#[test]
+fn provider_commands_are_blocked_without_authorization() {
+    for command in ["apply", "verify"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_studioctl"))
+            .arg(command)
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(result["requestId"], command);
+        assert_eq!(result["data"]["status"], "rejected");
+        assert_eq!(result["data"]["reason"], "PROVIDER_NOT_AUTHORIZED");
+    }
+}

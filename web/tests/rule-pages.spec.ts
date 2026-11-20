@@ -11,6 +11,83 @@ const original = JSON.stringify(fixture, null, 2).replace(
   '"example": 18446744073709551615, "other": 1e+02',
 );
 
+test("imports only after confirmation and edits Schema 2 settings and extensions", async ({
+  context,
+  page,
+}) => {
+  const session = await host(context);
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/#/settings");
+  const exchange = page.getByRole("button", { name: "SUSFS 配置交换" });
+  await exchange.click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .locator("input[type=file]")
+    .first()
+    .setInputFiles({
+      name: "exchange.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        '{"schema":2,"automatic":false,"settings":{"logging":true},"rules":[],"lkm":{"hidden_modules":[],"mount_prefixes":[]}}',
+      ),
+    });
+  await expect(dialog).toContainText("新增字段: /settings");
+  await expect.poll(session.saves).toBe(0);
+  await dialog.getByRole("button", { name: "检查并确认保存" }).click();
+  await dialog.getByRole("button", { name: "确认保存", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("保存完成");
+  await page.keyboard.press("Escape");
+  await expect(exchange).toBeFocused();
+  await page.goto("/#/rules/basic");
+  await expect(page.getByLabel("优先 UID 过滤")).toBeDisabled();
+  const logging = page.getByLabel("日志记录");
+  await expect(logging).toHaveValue("true");
+  await logging.selectOption("false");
+  await page.getByRole("link", { name: "扩展", exact: true }).click();
+  await page.getByLabel("隐藏模块名").fill("test_module");
+  const add = page.getByRole("button", { name: "添加：隐藏模块名" });
+  await add.click();
+  await page.getByLabel("隐藏模块名").fill("test_module");
+  await add.click();
+  await expect(
+    page.getByText("值的格式无效、重复，或列表已达到上限。"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "检查并确认保存" }).click();
+  await expect(dialog).toContainText("/lkm/hiddenModules");
+  await expect(dialog).toContainText("/settings/logging");
+  await dialog.getByRole("button", { name: "确认保存", exact: true }).click();
+  await expect
+    .poll(() => JSON.parse(session.text() ?? "{}"))
+    .toMatchObject({
+      settings: { logging: false },
+      lkm: { hiddenModules: ["test_module"] },
+    });
+  await page.goto("/#/");
+  await expect(page.getByRole("button", { name: "应用到设备" })).toBeDisabled();
+});
+
+test("a reviewed Schema 2 upgrade cannot overwrite a different baseline", async ({
+  context,
+  page,
+}) => {
+  const session = await host(context, original);
+  await page.goto("/#/settings");
+  await page.getByRole("button", { name: "离线预览" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "预览升级至 Schema 2" }).click();
+  await expect(dialog).toContainText("更改字段: /schema");
+  const newer = original.replace("1e+02", "1e+03");
+  session.replace(newer);
+  await dialog.getByRole("button", { name: "刷新设备归档" }).click();
+  await expect(dialog).toContainText("归档已变化；请关闭预览并重新检查升级。");
+  await expect(
+    dialog.getByRole("button", { name: "检查并确认保存" }),
+  ).toBeDisabled();
+  expect(session.text()).toBe(newer);
+  expect(session.saves()).toBe(0);
+});
+
 async function host(
   context: BrowserContext,
   initial?: string,
@@ -27,7 +104,7 @@ async function host(
     "ruleCall",
     async (_, command: string, upload: string) => {
       const match =
-        /^\/system\/bin\/timeout (?:5|15) \/data\/adb\/modules\/susfs_studio\/bin\/studioctl (read|stage|save)(?: ([0-9a-f]{32}))?$/.exec(
+        /^\/system\/bin\/timeout (?:5|15) \/data\/adb\/modules\/susfs_studio\/bin\/studioctl (read|stage|save|import)(?: ([0-9a-f]{32}))?$/.exec(
           command,
         );
       const action = match?.[1];
@@ -68,7 +145,7 @@ async function host(
           revision: baseline === undefined ? undefined : digest(baseline),
         });
       }
-      if (action !== "save" || match?.[2] !== token)
+      if ((action !== "save" && action !== "import") || match?.[2] !== token)
         throw new Error(`Unexpected command: ${command}`);
       saves++;
       if (baseline !== text) return reject("REVISION_CONFLICT");
@@ -132,10 +209,20 @@ async function host(
           : undefined,
       };
     },
-    { ...fixtures, writable },
+    {
+      ...fixtures,
+      active: {
+        ...fixtures.active,
+        data: { ...fixtures.active.data, control: { archiveImport: true } },
+      },
+      writable,
+    },
   );
   return {
     text: () => text,
+    replace: (next: string) => {
+      text = next;
+    },
     saves: () => saves,
     failure: (value?: string) => {
       failure = value;
@@ -240,7 +327,7 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
   await expect(
     page.getByRole("button", { name: "/changed-redirect" }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "设置" }).click();
+  await page.getByRole("link", { name: "设置", exact: true }).click();
   await page.getByRole("button", { name: "设备导出" }).click();
   const download = page.waitForEvent("download");
   await dialog.getByRole("button", { name: "设备导出" }).click();
