@@ -1,4 +1,4 @@
-import { Alert, Button, Group, Modal, Stack } from "@mantine/core";
+import { Alert, Button, Stack } from "@mantine/core";
 import { type ReactNode, useState } from "react";
 import { compareArchives } from "../../features/config/preview";
 import {
@@ -15,6 +15,7 @@ import {
 import type { Provider } from "../../transport/mock";
 import { Icon } from "../atoms/Icon";
 import { BatchRuleForm } from "../molecules/BatchRuleForm";
+import { DialogActions, M3eDialog } from "../molecules/M3eDialog";
 import { modeLabels, RuleForm } from "../molecules/RuleForm";
 import { SegmentedSection } from "../molecules/SegmentedSection";
 import { SettingsRow } from "../molecules/SettingsList";
@@ -303,15 +304,12 @@ export function RuleArchive({
           />
         </SegmentedSection>
       )}
-      <Modal
+      <M3eDialog
         opened={Boolean(dialog || review)}
         onClose={close}
         closeOnClickOutside={!saving}
         closeOnEscape={!saving}
-        withCloseButton={!saving}
         title={t(review ? "archiveConfirmSave" : title)}
-        closeButtonProps={{ "aria-label": t("close") }}
-        classNames={{ content: styles.dialog, header: styles.dialogHeader }}
       >
         {review && base && current && (
           <Stack>
@@ -336,11 +334,12 @@ export function RuleArchive({
               <pre className={rules.source}>{review.draft.text}</pre>
             </details>
             <Alert color="blue">{t("archiveSaveEffect")}</Alert>
-            <Group justify="flex-end">
+            <DialogActions>
               <Button variant="subtle" disabled={saving} onClick={close}>
                 {t("ruleCancel")}
               </Button>
               <Button
+                variant="subtle"
                 loading={saving}
                 disabled={
                   !canEdit ||
@@ -355,7 +354,7 @@ export function RuleArchive({
               >
                 {t("archiveConfirmSaveAction")}
               </Button>
-            </Group>
+            </DialogActions>
           </Stack>
         )}
         {dialog?.kind === "edit" && (
@@ -398,11 +397,12 @@ export function RuleArchive({
                 : t("ruleDeleteNote", { path: dialog.rule?.path ?? "" })}
             </p>
             {removeError && <p role="alert">{t("ruleWaitForRefresh")}</p>}
-            <Group justify="flex-end">
+            <DialogActions>
               <Button variant="subtle" onClick={close}>
                 {t("ruleCancel")}
               </Button>
               <Button
+                variant="subtle"
                 color="red"
                 disabled={dialog.kind === "remove" && !canEdit}
                 onClick={() => {
@@ -419,10 +419,10 @@ export function RuleArchive({
               >
                 {t(dialog.kind === "discard" ? "ruleDiscard" : "ruleDelete")}
               </Button>
-            </Group>
+            </DialogActions>
           </Stack>
         )}
-      </Modal>
+      </M3eDialog>
     </>
   );
 }

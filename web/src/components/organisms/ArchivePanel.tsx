@@ -3,7 +3,6 @@ import {
   Button,
   FileInput,
   Group,
-  Modal,
   NativeSelect,
   Stack,
 } from "@mantine/core";
@@ -29,6 +28,7 @@ import {
   type SavedArchive,
 } from "../../transport/archiveBridge";
 import { Icon } from "../atoms/Icon";
+import { DialogActions, M3eDialog } from "../molecules/M3eDialog";
 import { SettingsList, SettingsRow } from "../molecules/SettingsList";
 import styles from "./Panels.module.css";
 
@@ -374,7 +374,7 @@ export function ArchivePanel({
           trailing={<Icon name="chevron" />}
         />
       </SettingsList>
-      <Modal
+      <M3eDialog
         opened={opened}
         onClose={close}
         closeOnClickOutside={!saving}
@@ -384,8 +384,6 @@ export function ArchivePanel({
             ? t(restoring ? "archiveConfirmRestore" : "archiveConfirmSave")
             : t(importing ? "archiveInterchange" : "preview")
         }
-        classNames={{ content: styles.dialog, header: styles.dialogHeader }}
-        closeButtonProps={{ "aria-label": t("close") }}
       >
         <Stack>
           {!confirming ? (
@@ -420,7 +418,7 @@ export function ArchivePanel({
               </section>
               {upgrade && (
                 <Button
-                  variant="outline"
+                  variant="subtle"
                   onClick={() => {
                     setResult(inspectArchive(upgrade));
                     setSource(t("archiveUpgrade"));
@@ -624,37 +622,6 @@ export function ArchivePanel({
               {result?.formatStatus === "valid" &&
                 savedResult &&
                 !completeDiff && <p role="alert">{t("ruleDiffBlocked")}</p>}
-              <Group justify="space-between">
-                <Button
-                  variant="subtle"
-                  onClick={() => {
-                    void refreshSaved();
-                    if (restoring) void refreshBackups();
-                  }}
-                >
-                  {t("archiveRefresh")}
-                </Button>
-                <Group>
-                  <Button
-                    variant="outline"
-                    disabled={saved?.kind !== "saved"}
-                    onClick={() => void exportSaved(importing)}
-                  >
-                    {t(importing ? "archiveExportConfig" : "export")}
-                  </Button>
-                  <Button
-                    disabled={!canConfirm}
-                    onClick={() => {
-                      setOperationError(undefined);
-                      setConfirming(true);
-                    }}
-                  >
-                    {t(
-                      restoring ? "archiveReviewRestore" : "archiveReviewSave",
-                    )}
-                  </Button>
-                </Group>
-              </Group>
               {receipt && (
                 <Alert color="green" role="status">
                   {t(
@@ -668,6 +635,38 @@ export function ArchivePanel({
                   )}
                 </Alert>
               )}
+              <DialogActions justify="space-between">
+                <Button
+                  variant="subtle"
+                  onClick={() => {
+                    void refreshSaved();
+                    if (restoring) void refreshBackups();
+                  }}
+                >
+                  {t("archiveRefresh")}
+                </Button>
+                <Group>
+                  <Button
+                    variant="subtle"
+                    disabled={saved?.kind !== "saved"}
+                    onClick={() => void exportSaved(importing)}
+                  >
+                    {t(importing ? "archiveExportConfig" : "export")}
+                  </Button>
+                  <Button
+                    variant="subtle"
+                    disabled={!canConfirm}
+                    onClick={() => {
+                      setOperationError(undefined);
+                      setConfirming(true);
+                    }}
+                  >
+                    {t(
+                      restoring ? "archiveReviewRestore" : "archiveReviewSave",
+                    )}
+                  </Button>
+                </Group>
+              </DialogActions>
             </>
           ) : (
             <>
@@ -716,7 +715,7 @@ export function ArchivePanel({
                   {t(operationError)}
                 </Alert>
               )}
-              <Group justify="flex-end">
+              <DialogActions>
                 <Button
                   variant="subtle"
                   disabled={saving}
@@ -727,7 +726,7 @@ export function ArchivePanel({
                   {t("archiveBack")}
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="subtle"
                   loading={loadingSaved}
                   disabled={saving}
                   onClick={() => void refreshSaved()}
@@ -737,7 +736,7 @@ export function ArchivePanel({
                 <Button
                   loading={saving}
                   disabled={!canConfirm}
-                  variant="outline"
+                  variant="subtle"
                   onClick={() => void save()}
                 >
                   {t(
@@ -746,11 +745,11 @@ export function ArchivePanel({
                       : "archiveConfirmSaveAction",
                   )}
                 </Button>
-              </Group>
+              </DialogActions>
             </>
           )}
         </Stack>
-      </Modal>
+      </M3eDialog>
     </>
   );
 }

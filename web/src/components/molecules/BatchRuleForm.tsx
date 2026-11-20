@@ -1,11 +1,4 @@
-import {
-  Button,
-  Group,
-  NativeSelect,
-  Stack,
-  Switch,
-  Textarea,
-} from "@mantine/core";
+import { Button, NativeSelect, Stack, Switch, Textarea } from "@mantine/core";
 import { useState } from "react";
 import { path } from "../../features/config/preview";
 import {
@@ -15,6 +8,7 @@ import {
 } from "../../features/config/ruleEdits";
 import { redirectSchemeLabels, type Translate } from "../../i18n/messages";
 import type { Provider } from "../../transport/mock";
+import { DialogActions } from "./M3eDialog";
 
 export function BatchRuleForm({
   group,
@@ -118,14 +112,14 @@ export function BatchRuleForm({
         )}
         {valid && <p>{t("ruleBatchCount", { count: rows.length })}</p>}
         {rejected && <p role="alert">{t("ruleEditInvalid")}</p>}
-        <Group justify="flex-end">
+        <DialogActions>
           <Button variant="subtle" onClick={onClose}>
             {t("ruleCancel")}
           </Button>
-          <Button type="submit" disabled={!valid}>
+          <Button type="submit" variant="subtle" disabled={!valid}>
             {t("ruleDraftApply")}
           </Button>
-        </Group>
+        </DialogActions>
       </Stack>
     </form>
   );

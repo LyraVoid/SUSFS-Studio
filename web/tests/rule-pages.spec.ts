@@ -55,14 +55,28 @@ test("imports only after confirmation and edits Schema 2 settings and extensions
   await page.keyboard.press("Escape");
   await expect(apps).toBeFocused();
   const logging = page.getByRole("button", { name: "日志记录" });
-  await expect(logging).toContainText("开");
+  await expect(logging).toContainText("启用");
   await logging.click();
-  await expect(dialog.getByRole("radio", { name: "开" })).toBeChecked();
-  await dialog.getByText("关", { exact: true }).click();
-  await expect(logging).toContainText("关");
+  await expect(dialog).toHaveCSS("border-radius", "28px");
+  expect((await dialog.boundingBox())?.width).toBeLessThanOrEqual(328);
+  await expect(dialog.getByRole("heading", { name: "日志记录" })).toHaveCSS(
+    "font-size",
+    "24px",
+  );
+  await expect(dialog.locator(".mantine-Modal-close")).toHaveCount(0);
+  const choices = dialog.getByTestId("dialog-choice");
+  await expect(choices).toHaveCount(3);
+  await expect(choices.nth(1)).toHaveAttribute("data-selected", "true");
+  await expect(dialog.getByTestId("dialog-actions")).toHaveCSS(
+    "position",
+    "sticky",
+  );
+  await expect(dialog.getByRole("radio", { name: "启用" })).toBeChecked();
+  await dialog.getByRole("radio", { name: "关闭" }).click();
+  await expect(logging).toContainText("关闭");
   await page.getByRole("link", { name: "扩展", exact: true }).click();
   const add = page.getByRole("button", { name: "添加：隐藏模块名" });
-  const update = dialog.getByRole("button", { name: "更新草稿" });
+  const update = dialog.getByRole("button", { name: "仅保存" });
   await add.click();
   await dialog.getByLabel("隐藏模块名").fill("test_module");
   await update.click();
@@ -80,7 +94,10 @@ test("imports only after confirmation and edits Schema 2 settings and extensions
   await page
     .getByRole("button", { name: "updated_module", exact: true })
     .click();
-  const remove = dialog.getByRole("button", { name: "移除规则", exact: true });
+  const remove = dialog.getByRole("button", {
+    name: "移除已保存规则",
+    exact: true,
+  });
   await remove.click();
   await expect(dialog.getByText(/从归档草稿移除 updated_module/)).toBeVisible();
   await dialog.getByRole("button", { name: "取消" }).click();
@@ -280,9 +297,12 @@ test("static kstat form follows explicitly reported fields", async ({
 }) => {
   await host(context, original, true, { staticKstatFields: ["size"] });
   await page.goto("/#/rules/disguise");
-  await page.getByRole("button", { name: "新增静态 kstat" }).click();
+  await page.getByRole("button", { name: "静态元数据规则" }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByLabel("文件大小")).toBeVisible();
+  const field = dialog.getByLabel("文件大小");
+  await expect(field).toBeVisible();
+  await expect(field).toHaveCSS("border-radius", "16px");
+  await expect(field).toHaveCSS("min-height", "56px");
   await expect(dialog.getByLabel("inode 编号")).toHaveCount(0);
   await expect(dialog.getByLabel("状态变更时间（秒）")).toHaveCount(0);
   await expect(dialog).toContainText("报告的字段：size");
@@ -329,7 +349,7 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
     const group = page.getByRole("region", { name: title });
     await group.getByRole("button", { name: old, exact: true }).click();
     await dialog.getByLabel("源路径").fill("/../invalid");
-    await expect(name("更新草稿")).toBeDisabled();
+    await expect(name("仅保存")).toBeDisabled();
     await name("取消").click();
     await group.getByRole("button", { name: old, exact: true }).click();
     await dialog.getByLabel("源路径").fill(next);
@@ -340,24 +360,24 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
         "18446744073709551615",
       );
       await dialog.getByLabel("inode 编号").fill("18446744073709551616");
-      await expect(name("更新草稿")).toBeDisabled();
+      await expect(name("仅保存")).toBeDisabled();
       await dialog.getByLabel("inode 编号").fill("18446744073709551614");
     }
-    await name("更新草稿").click();
-    await group.getByRole("button", { name: "新增规则", exact: true }).click();
+    await name("仅保存").click();
+    await group.getByRole("button", { name: "添加规则", exact: true }).click();
     await dialog.getByLabel("源路径").fill(next);
     if (route === "redirect") {
       await dialog.getByLabel("目标路径").fill(next);
-      await expect(name("更新草稿")).toBeDisabled();
+      await expect(name("仅保存")).toBeDisabled();
       await dialog.getByLabel("目标路径").fill("/safe-target");
     }
-    await name("更新草稿").click();
+    await name("仅保存").click();
     await expect(dialog.getByRole("alert")).toContainText("路径重复");
     await dialog.getByLabel("源路径").fill(added);
-    await name("更新草稿").click();
+    await name("仅保存").click();
     await group.getByRole("button", { name: added, exact: true }).click();
-    await name("移除规则").click();
-    await name("移除规则").click();
+    await name("移除已保存规则").click();
+    await name("移除已保存规则").click();
     await expect(
       group.getByRole("button", { name: added, exact: true }),
     ).toHaveCount(0);
@@ -400,9 +420,9 @@ test("Map batches preserve the entire draft on invalid or duplicate paths", asyn
   await page.goto("/#/rules/disguise");
   const group = page.getByRole("region", { name: "Map 规则" });
   const dialog = page.getByRole("dialog");
-  await group.getByRole("button", { name: "批量新增规则" }).click();
+  await group.getByRole("button", { name: "批量添加规则" }).click();
   const input = dialog.getByLabel("规则列表");
-  const submit = dialog.getByRole("button", { name: "更新草稿" });
+  const submit = dialog.getByRole("button", { name: "仅保存" });
   await input.fill("/fixture-a\nrelative");
   await expect(dialog).toContainText("第 2 行无效");
   await expect(submit).toBeDisabled();
@@ -413,7 +433,7 @@ test("Map batches preserve the entire draft on invalid or duplicate paths", asyn
   await expect(group.getByRole("button", { name: "/fixture-a" })).toHaveCount(
     0,
   );
-  await group.getByRole("button", { name: "批量新增规则" }).click();
+  await group.getByRole("button", { name: "批量添加规则" }).click();
   await input.fill("/fixture-a\n/fixture-b");
   await submit.click();
   await expect(group.getByRole("button", { name: "/fixture-a" })).toBeVisible();
@@ -434,7 +454,7 @@ test("two rule sessions rebase only nonconflicting edits and require new review"
     await tab.goto(`/#/rules/${route}`);
     await tab.getByRole("button", { name: current, exact: true }).click();
     await tab.getByRole("dialog").getByLabel("源路径").fill(next);
-    await tab.getByRole("button", { name: "更新草稿" }).click();
+    await tab.getByRole("button", { name: "仅保存" }).click();
     await openOverview(tab);
     await tab.getByRole("button", { name: "检查并确认保存" }).click();
   }
@@ -475,9 +495,9 @@ for (const failure of [
       .getByRole("navigation", { name: "规则分类" })
       .getByRole("link", { name: "路径隐藏" })
       .click();
-    await page.getByRole("button", { name: "新增规则", exact: true }).click();
+    await page.getByRole("button", { name: "添加规则", exact: true }).click();
     await page.getByLabel("源路径").fill("/new-safe-rule");
-    await page.getByRole("button", { name: "更新草稿" }).click();
+    await page.getByRole("button", { name: "仅保存" }).click();
     await openOverview(page);
     await page.getByRole("button", { name: "检查并确认保存" }).click();
     await page.getByRole("button", { name: "确认保存", exact: true }).click();
@@ -520,7 +540,7 @@ test("no host, read-only host and unsupported archives do not expose device save
     .getByRole("link", { name: "路径隐藏" })
     .click();
   await expect(
-    page.getByRole("button", { name: "新增规则", exact: true }),
+    page.getByRole("button", { name: "添加规则", exact: true }),
   ).toBeDisabled();
   for (const [text, writable] of [
     [original, false],
@@ -541,7 +561,7 @@ test("no host, read-only host and unsupported archives do not expose device save
       .getByRole("link", { name: "路径隐藏" })
       .click();
     await expect(
-      tab.getByRole("button", { name: "新增规则", exact: true }),
+      tab.getByRole("button", { name: "添加规则", exact: true }),
     ).toBeDisabled();
     if (!writable) {
       await tab.getByRole("button", { name: "/example", exact: true }).click();

@@ -1,6 +1,5 @@
 import {
   Button,
-  Group,
   NativeSelect,
   SimpleGrid,
   Stack,
@@ -26,6 +25,7 @@ import {
   type Translate,
 } from "../../i18n/messages";
 import type { Provider } from "../../transport/mock";
+import { DialogActions } from "./M3eDialog";
 
 export const modeLabels = {
   normal: "ruleNormal",
@@ -210,16 +210,16 @@ export function RuleForm({
           </>
         )}
         {error && <p role="alert">{t("ruleEditInvalid")}</p>}
-        <Group justify="flex-end">
+        <DialogActions>
           <Button variant="subtle" onClick={onClose}>
             {t(readOnly ? "close" : "ruleCancel")}
           </Button>
           {!readOnly && (
-            <Button type="submit" disabled={!valid}>
+            <Button type="submit" variant="subtle" disabled={!valid}>
               {t("ruleDraftApply")}
             </Button>
           )}
-        </Group>
+        </DialogActions>
       </Stack>
     </form>
   );

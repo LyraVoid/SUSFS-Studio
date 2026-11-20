@@ -37,15 +37,6 @@
 .facts dd[data-availability="unavailable"] {
   color: var(--warning);
 }
-.dialog.dialog {
-  background: var(--surface-container-high);
-  color: var(--on-surface);
-  border-radius: var(--r28);
-}
-.dialogHeader.dialogHeader {
-  background: inherit;
-  color: inherit;
-}
 .file.file {
   background: var(--surface);
   color: var(--on-surface);

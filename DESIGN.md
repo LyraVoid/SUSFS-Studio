@@ -92,6 +92,7 @@ The YAML color values are light-mode samples generated from the default seed. At
 
 - Use connected lists in Rules and Settings. Rules rows may omit a leading icon. Use a 14/20 primary section title with 16px start padding and 8px bottom spacing. Use 16px outer corners, 4px inner corners, and 2px gaps. Keep pending host actions visible with the reason they are unavailable.
 - Use a pill for the selected navigation indicator and 28px corners for the archive dialog. Pages and business components use the semantic tokens in `web/src/theme/`.
+- Use the shared M3E dialog shell for every modal flow. It uses a centered 28px container, a 24/32 title, no header close icon, a scrollable body, and right-aligned sticky text actions. Choice dialogs use connected 4px-radius rows with 24px outer ends, a trailing radio indicator, and a selected tonal fill. Inputs use 16px outlined fields. Destructive actions stay textual and use the error color; dialogs do not mix filled navigation buttons with text actions.
 
 ## Interaction and Validation
 

@@ -1,10 +1,7 @@
 import {
   Button,
   Checkbox,
-  Group,
-  Modal,
   NativeSelect,
-  Radio,
   Stack,
   Tabs,
   Textarea,
@@ -14,6 +11,11 @@ import { useState } from "react";
 import { type Json, object, settingsKeys } from "../../features/config/preview";
 import type { useRuleArchive } from "../../features/config/useRuleArchive";
 import type { Message, Translate } from "../../i18n/messages";
+import {
+  DialogActions,
+  DialogChoiceGroup,
+  M3eDialog,
+} from "../molecules/M3eDialog";
 import { SettingsList, SettingsRow } from "../molecules/SettingsList";
 import styles from "./Panels.module.css";
 
@@ -31,7 +33,6 @@ const tri = {
 } as const;
 const triValue = (value: unknown) =>
   value === true ? "true" : value === false ? "false" : "unset";
-const modalStyles = { content: styles.dialog, header: styles.dialogHeader };
 
 export function BasicArchive({ state, t }: { state: State; t: Translate }) {
   const [dialog, setDialog] = useState<
@@ -153,18 +154,16 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
           });
         }}
       />
-      <Modal
-        opened={dialog !== undefined}
-        onClose={close}
-        title={t(title)}
-        classNames={modalStyles}
-        closeButtonProps={{ "aria-label": t("close") }}
-      >
+      <M3eDialog opened={dialog !== undefined} onClose={close} title={t(title)}>
         <Stack>
           {key ? (
-            <Radio.Group
-              label={t(switchLabels[key])}
+            <DialogChoiceGroup
               value={triValue(settings[key])}
+              disabled={disabled}
+              options={Object.entries(tri).map(([value, label]) => ({
+                value,
+                label: t(label),
+              }))}
               onChange={(selected) => {
                 if (
                   !disabled &&
@@ -177,18 +176,7 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
                 )
                   close();
               }}
-            >
-              <Stack gap="xs" mt="xs">
-                {Object.entries(tri).map(([value, label]) => (
-                  <Radio
-                    key={value}
-                    value={value}
-                    label={t(label)}
-                    disabled={disabled}
-                  />
-                ))}
-              </Stack>
-            </Radio.Group>
+            />
           ) : dialog === "apps" ? (
             <>
               <TextInput
@@ -253,13 +241,13 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
               </Tabs>
             </>
           )}
-          <Group justify="flex-end">
+          <DialogActions>
             <Button variant="subtle" onClick={close}>
               {t("close")}
             </Button>
-          </Group>
+          </DialogActions>
         </Stack>
-      </Modal>
+      </M3eDialog>
     </section>
   );
 }
@@ -357,10 +345,9 @@ export function LkmArchive({
           </SettingsList>
         );
       })}
-      <Modal
+      <M3eDialog
         opened={Boolean(dialog)}
         onClose={close}
-        classNames={modalStyles}
         title={
           entry
             ? t(dialog?.removing ? "controlRemoveEntry" : "controlEditEntry", {
@@ -370,7 +357,6 @@ export function LkmArchive({
               ? t(group.title)
               : undefined
         }
-        closeButtonProps={{ "aria-label": t("close") }}
       >
         {dialog && group && (
           <form
@@ -399,13 +385,13 @@ export function LkmArchive({
               {dialog.removing && invalid && (
                 <p role="alert">{t("ruleWaitForRefresh")}</p>
               )}
-              <Group justify="flex-end">
+              <DialogActions>
                 <Button variant="subtle" onClick={close}>
                   {t("ruleCancel")}
                 </Button>
                 {entry && !dialog.removing && (
                   <Button
-                    variant="outline"
+                    variant="subtle"
                     color="red"
                     disabled={disabled}
                     onClick={() => {
@@ -418,15 +404,16 @@ export function LkmArchive({
                 )}
                 <Button
                   type="submit"
+                  variant="subtle"
                   disabled={disabled || (!dialog.removing && !value)}
                 >
                   {t(dialog.removing ? "ruleDelete" : "ruleDraftApply")}
                 </Button>
-              </Group>
+              </DialogActions>
             </Stack>
           </form>
         )}
-      </Modal>
+      </M3eDialog>
     </section>
   );
 }

@@ -1,8 +1,9 @@
-import { Button, Modal, Stack } from "@mantine/core";
+import { Button, Stack } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import type { Translate } from "../../i18n/messages";
 import { capabilityKeys, type Status } from "../../transport/mock";
 import { FactRow } from "../molecules/FactRow";
+import { DialogActions, M3eDialog } from "../molecules/M3eDialog";
 import { SettingsList } from "../molecules/SettingsList";
 import { Capabilities } from "./Capabilities";
 import styles from "./Panels.module.css";
@@ -38,12 +39,7 @@ export function ProviderSummary({
         )}
         onClick={open}
       />
-      <Modal
-        opened={opened}
-        onClose={close}
-        title={t("diagnostic")}
-        closeButtonProps={{ "aria-label": t("close") }}
-      >
+      <M3eDialog opened={opened} onClose={close} title={t("diagnostic")}>
         <Stack>
           <p>
             {t(demo ? "demo" : "hostDiagnostics")} ·{" "}
@@ -90,11 +86,13 @@ export function ProviderSummary({
               t={t}
             />
           </SettingsList>
-          <Button variant="default" size="md" onClick={refresh}>
-            {t("refresh")}
-          </Button>
+          <DialogActions>
+            <Button variant="subtle" onClick={refresh}>
+              {t("refresh")}
+            </Button>
+          </DialogActions>
         </Stack>
-      </Modal>
+      </M3eDialog>
     </>
   );
 }
