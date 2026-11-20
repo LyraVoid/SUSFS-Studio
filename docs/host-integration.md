@@ -2,6 +2,8 @@
 
 This document records the integration boundary for Android hosts. It separates verified behavior from host-dependent security properties.
 
+Host projects are outside this module's implementation scope. An unverified host remains unverified; Studio's fixed calls and bundled CSP do not turn its general-purpose bridge into an origin-isolated interface. A host without the required bridge degrades to local preview and reports the unavailable capability. No manager modification or replacement is required to use that preview.
+
 ## Required WebUI contract
 
 The WebUI supports an injected `window.studioDiagnostics` with two argument-free methods:
