@@ -497,10 +497,23 @@ export function LkmArchive({
   const group = dialog ? extensionGroups[dialog.key] : undefined;
   const entry =
     dialog?.index === undefined ? undefined : dialog.entries[dialog.index];
+  if (!lkm) {
+    return (
+      <section className={styles.category} aria-label={t("extensions")}>
+        <SegmentedSection title={t("extensions")}>
+          <SettingsRow
+            icon="notice"
+            title={t("controlExtensionsUnavailable")}
+            detail={t("controlNeedsLkm")}
+            dataAvailability="unavailable"
+          />
+        </SegmentedSection>
+      </section>
+    );
+  }
   return (
     <section className={styles.category} aria-label={t("extensions")}>
       <p className={styles.notice}>{t("controlArchiveOnly")}</p>
-      {!lkm && <p className={styles.notice}>{t("controlNeedsLkm")}</p>}
       {archive?.schema === "1" && (
         <p className={styles.notice}>{t("controlNeedsUpgrade")}</p>
       )}

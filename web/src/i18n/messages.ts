@@ -447,8 +447,8 @@ export const zh = {
   controlInvalidEntry: "值的格式无效、重复，或列表已达到上限。",
   controlAddEntry: "添加：{label}",
   controlRemoveEntry: "移除：{entry}",
-  controlNeedsLkm:
-    "扩展编辑需要当前设备确认使用 LKM；演示和过期结果不会启用编辑。",
+  controlExtensionsUnavailable: "扩展不可用",
+  controlNeedsLkm: "隐藏模块和挂载路径前缀仅在受支持的 LKM Provider 下显示。",
   controlOverview: "设备应用",
   controlOwnerUnknown: "未验证 Studio 拥有设备配置的写入权限。",
   controlApplyBlocked: "当前没有可授权 Studio 写入的已验证接口。",
@@ -1013,8 +1013,9 @@ export const en = {
     "The value is invalid or duplicated, or the list is full.",
   controlAddEntry: "Add: {label}",
   controlRemoveEntry: "Remove: {entry}",
+  controlExtensionsUnavailable: "Extensions unavailable",
   controlNeedsLkm:
-    "Editing extensions requires a confirmed live LKM provider. Demo and stale results do not enable editing.",
+    "Hidden modules and mount prefixes appear only with a supported LKM provider.",
   controlOverview: "Device application",
   controlOwnerUnknown:
     "Studio has no verified write authorization for the device configuration.",

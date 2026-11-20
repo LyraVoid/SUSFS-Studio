@@ -778,8 +778,11 @@ test("no host, read-only host and unsupported archives do not expose device save
     await host(context, text, writable);
     const tab = await context.newPage();
     await tab.goto("/#/rules/overview");
-    await tab.getByText("设备归档原文").click();
-    await expect(tab.locator("pre")).toHaveText(text);
+    if (text === original) {
+      await expect(tab.getByText("设备归档原文")).toHaveCount(0);
+    } else {
+      await expect(tab.getByText("设备归档原文")).toBeVisible();
+    }
     await tab
       .getByRole("navigation", { name: "规则分类" })
       .getByRole("link", { name: "路径隐藏" })

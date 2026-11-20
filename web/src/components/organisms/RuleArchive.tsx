@@ -85,6 +85,8 @@ export function RuleArchive({
       ? compareArchives(base.value, current.value)
       : undefined;
   const empty = saved?.kind === "empty";
+  const exposeSource =
+    Boolean(error) || (base !== undefined && base.formatStatus !== "valid");
   const reason = !connected
     ? demo
       ? "ruleLocalOnly"
@@ -207,13 +209,15 @@ export function RuleArchive({
                   disabled={loading || saving}
                   action={() => setDialog({ kind: "discard" })}
                 />
-                <details className={rules.sourceBlock}>
-                  <summary>{t("ruleDraftText")}</summary>
-                  <pre className={rules.source}>{draft.text}</pre>
-                </details>
+                {exposeSource && (
+                  <details className={rules.sourceBlock}>
+                    <summary>{t("ruleDraftText")}</summary>
+                    <pre className={rules.source}>{draft.text}</pre>
+                  </details>
+                )}
               </>
             )}
-            {saved?.text !== undefined && (
+            {exposeSource && saved?.text !== undefined && (
               <details className={rules.sourceBlock}>
                 <summary>{t("ruleSourceText")}</summary>
                 <pre className={rules.source}>{saved.text}</pre>

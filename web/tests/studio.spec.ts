@@ -472,9 +472,10 @@ test("three-item main navigation and six SUSFS tabs", async ({ page }) => {
   await page.goBack();
   await expect(page.getByRole("heading", { name: "Map 规则" })).toBeVisible();
   await tabs.getByRole("link", { name: "扩展" }).click();
+  await expect(page.getByText("扩展不可用", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "添加：隐藏模块名" }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await menu.getByRole("link", { name: "设置" }).click();
   await expect(page.getByRole("heading", { name: "设置" })).toBeVisible();
 });
@@ -1016,17 +1017,16 @@ test("a non-LKM sample keeps extension edits blocked with a reason", async ({
       name: "扩展",
     })
     .click();
+  await expect(page.getByText("扩展不可用", { exact: true })).toBeVisible();
   await expect(
-    page.getByText(
-      "扩展编辑需要当前设备确认使用 LKM；演示和过期结果不会启用编辑。",
-    ),
+    page.getByText("隐藏模块和挂载路径前缀仅在受支持的 LKM Provider 下显示。"),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "添加：隐藏模块名" }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "添加：挂载路径前缀" }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
 });
 
 test("archive preview stays local and retains no draft on close", async ({
@@ -1202,6 +1202,7 @@ test("archive save, receipt refresh and export form one confirmed loop", async (
     { hello: fixtures.hello, active: fixtures.active, archive },
   );
   await page.goto("/#/rules/overview");
+  await expect(page.getByText("设备归档原文")).toHaveCount(0);
   const save = page.getByRole("button", { name: "设备保存" });
   await expect(save).toBeEnabled();
   await save.click();
