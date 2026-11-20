@@ -65,7 +65,8 @@ The automatic backup list and read commands were also verified on the same Andro
 
 | Environment | Evidence | Status |
 | --- | --- | --- |
-| PKX110, Android 17 API 37, host `v3.3.1-50-g64833c00` (32730), WebView `157.0.8103.50`, kernel `6.6.118-android15-8-g9bc34d5b0c79-abogki537459655-4k`, GKI-LKM provider `v2.3.0` | Host load, archive save/export and the restore round trip below. | Verified only for the stated operations; navigation isolation remains unverified. |
+| PKX110, Android 17 API 37, host `v3.3.1-50-g64833c00` (32730), WebView `157.0.8103.50`, kernel `6.6.118-android15-8-g9bc34d5b0c79-abogki537459655-4k`, GKI-LKM provider `v2.3.0` | Host load, archive save/export and restore; the current rule editor also saved and verified a receipt. | Verified only for the stated operations; host navigation did not block the earlier external-link probe. |
+| Same PKX110, host `v1.6.4` (33211) | Four-category rule archive round trip; two WebUI activities with stale-revision recovery; injected receipt-publication failure. | Verified only for the stated operations. The tagged source does not demonstrate origin isolation. |
 | Same PKX110, alternate manager build `0f3f42ba` (115404) | The app opens but reports its kernel patch missing and system patch inactive. No module WebUI or bridge check is possible from that inactive state. | Inactive; unverified. |
 | Same PKX110, alternate manager build `31.1` (31100) | The app opens and reports its runtime not installed. No module WebUI or bridge check is possible from that inactive state. | Inactive; unverified. |
 | Built-in GKI provider, SUSFS 2.3 | Reference source inspected; no running test target in this round. | Unverified. |
@@ -86,7 +87,17 @@ On 2026-11-20, the PKX110 ran the rule pages in host `v1.6.4` (33211), Android 1
 
 The WebUI changed the path looping flag, Map source, static kstat inode string, and redirect UID scheme. Before confirmation the device archive still matched the fixture. After confirmation the readback and receipt both reported 827 bytes and revision `b9a3b9d949516d0fa212bbd0dd8a3f6a9fdb6d0495a71c83ba5b960e112ebc81`. The exact bytes matched the four expected source edits and were identical to the file exported after refresh. The provider status response was unchanged. The original module files and private store were restored; file contents, paths, modes, and ownership were checked against retained inventory, and all on-device test artifacts were removed. Directory timestamps changed during the temporary swaps.
 
-This checks the archive round trip on the stated host, not provider application, host isolation, or other managers. Busy, stale revision, and uncertain post-save receipt cases for the rule pages were covered in Chromium, not repeated on this host.
+This checks the archive round trip on the stated host, not provider application, host isolation, or other managers.
+
+### Rule page recovery and follow-up compatibility
+
+The debug bundle at `667810e` was used in two independently opened WebUI activities on `v1.6.4` (33211). Both reviewed revision `46fd15c02ad4c4c0c958a45f6350d601951348e0788f3aaedc96ec818c23ccd9`. The Map edit saved and verified its receipt. The stale Paths activity reported a newer revision, retained its draft, and disabled confirmation. The archive and receipt remained unchanged by the rejected save. After refresh, the Paths review showed only its own looping-flag change against the newer Map revision. This was an interleaved save, not native lock contention.
+
+In the isolated test store, a directory at the receipt target prevented receipt publication after archive replacement. The Paths activity reported an unknown result. A native read returned the exact combined archive with revision `f426b146c11f71e5265cd028b31252e390cfa3f14b9839607e6d6e88bfc16096` and no receipt. Refresh left the draft available and save disabled; it did not replay the write. This tests one receipt failure, not power loss or all interruption points.
+
+The installed host `v3.3.1-50-g64833c00` (32730) also opened the same debug bundle, reported the live GKI-LKM status, loaded the archive in Rules, and saved an independent Paths edit after the test obstruction was removed. The WebUI verified its receipt. The other installed managers (`0f3f42ba` and `31.1`) still reported inactive runtimes, so their module WebUIs were not tested. No manager was replaced and the locked, verified-boot device was not flashed or rebooted.
+
+Read-only review of the `v1.6.4` tagged source found a local HTTPS asset loader, disabled file access, and general-purpose JavaScript command and file interfaces. The WebView client did not provide an exact top-level document allowlist or an origin-scoped bridge. External navigation and frame exposure were not probed on that build in this round. A separate UID 2000 CLI invocation completed the handshake but could not query the provider or read the private archive. Provider status before, after, and following cleanup was identical; the Studio module and private store were restored and their paths, file contents, modes, and owners matched the pre-test inventory. Provider writes remain disabled.
 
 ## Decision
 
