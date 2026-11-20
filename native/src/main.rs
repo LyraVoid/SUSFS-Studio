@@ -382,7 +382,8 @@ fn main() {
     if !matches!(
         (action, args.len()),
         (Some("hello" | "status" | "preview" | "stage" | "read"), 1)
-            | (Some("save" | "restore"), 2)
+            | (Some("save" | "restore" | "backup"), 2)
+            | (Some("backups"), 1)
     ) {
         std::process::exit(2);
     }
@@ -433,6 +434,19 @@ fn main() {
         Some("read") => match read_archive() {
             Ok(data) => serde_json::to_string(&response("read", data)),
             Err(error) => serde_json::to_string(&failure("read", error)),
+        },
+        Some("backups") => match archive_store().and_then(|store| store.backups()) {
+            Ok(data) => serde_json::to_string(&response("backups", data)),
+            Err(error) => serde_json::to_string(&io_failure("backups", error)),
+        },
+        Some("backup") => match archive_store().and_then(|store| store.read_backup(&args[1])) {
+            Ok(data) => serde_json::to_string(&response(
+                "backup",
+                serde_json::json!({
+                    "kind": "saved", "text": String::from_utf8(data.bytes).unwrap(), "revision": data.revision
+                }),
+            )),
+            Err(error) => serde_json::to_string(&io_failure("backup", error)),
         },
         _ => serde_json::to_string(&response(
             "status",

@@ -14,6 +14,8 @@ The device archive commands are:
 | `studioctl save <token>` | Validates and consumes the staged bytes, checks the baseline under the write lock, then atomically stores the archive and receipt. The token is a fixed 32-character lowercase hexadecimal value. |
 | `studioctl restore <token>` | Checks the staged candidate and baseline, durably preserves the current archive in a new private backup, then replaces the archive and receipt. |
 | `studioctl read` | Validates and returns the saved archive text, SHA-256 revision, and matching receipt when available. |
+| `studioctl backups` | Lists up to 32 newest trusted automatic backups, with ID, modification time, byte count, revision, and validation state. |
+| `studioctl backup <id>` | Reads and validates one private backup. The identifier is exactly 32 lowercase hexadecimal characters; the command does not accept paths. |
 
 The host adapter constructs `stage` and `read` as fixed commands. For `save`, it accepts only a token returned by that adapter's own successful `stage` call and embeds only the validated hexadecimal token. Selected file names, JSON, and form values are never incorporated into a root shell command.
 

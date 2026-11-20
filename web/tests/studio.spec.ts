@@ -274,6 +274,28 @@ test("archive save, receipt refresh and export form one confirmed loop", async (
           let output: string | undefined;
           if (command.endsWith(" hello")) output = JSON.stringify(hello);
           else if (command.endsWith(" status")) output = JSON.stringify(active);
+          else if (command.endsWith(" backups"))
+            output = reply("backups", [
+              {
+                id: token,
+                modifiedAt: 1760000000,
+                bytes: archive.length,
+                valid: true,
+                revision,
+              },
+              {
+                id: "0".repeat(32),
+                modifiedAt: 1760000000,
+                bytes: 7,
+                valid: false,
+              },
+            ]);
+          else if (command.endsWith(` backup ${token}`))
+            output = reply("backup", {
+              kind: "saved",
+              text: archive,
+              revision,
+            });
           else if (command.endsWith(" stage"))
             output = reply("stage", {
               token,
@@ -368,14 +390,12 @@ test("archive save, receipt refresh and export form one confirmed loop", async (
   await page.getByRole("button", { name: "恢复备份" }).click();
   const restore = page.getByRole("dialog");
   await expect(restore).toContainText("不改变内核运行状态");
-  await restore
-    .locator("input[type=file]")
-    .first()
-    .setInputFiles({
-      name: "backup.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(archive),
-    });
+  const backups = restore.getByLabel("设备自动备份");
+  await expect(
+    backups.getByRole("option", { name: /不可恢复/ }),
+  ).toBeDisabled();
+  await backups.selectOption("0123456789abcdef0123456789abcdef");
+  await expect(restore).toContainText("设备自动备份 · 01234567");
   await restore.getByRole("button", { name: "检查并确认恢复" }).click();
   await page.waitForTimeout(300);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);

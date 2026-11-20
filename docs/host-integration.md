@@ -51,6 +51,8 @@ On 2026-11-20, the updated debug module was deployed to the same PKX110 device. 
 
 This evidence covers one host build and one provider combination. It does not establish behavior for other managers, WebView versions, provider variants, concurrent UI instances, process termination at every transaction point, or hosts without the file API.
 
+The automatic backup list and read commands were also verified on the same Android device with the packaged debug executable, a private mount namespace, and two harmless archives. The listed digest and returned bytes matched the retained archive; the current archive matched the restore receipt. The installed module and its store were not changed by this check. The current backup picker was tested in Chromium with a test bridge, not in the installed manager; the earlier manager round trip used an exported JSON file.
+
 ### Compatibility evidence matrix
 
 | Environment | Evidence | Status |

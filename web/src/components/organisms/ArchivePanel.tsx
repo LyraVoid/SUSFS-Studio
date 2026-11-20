@@ -1,8 +1,17 @@
-import { Alert, Button, FileInput, Group, Modal, Stack } from "@mantine/core";
+import {
+  Alert,
+  Button,
+  FileInput,
+  Group,
+  Modal,
+  NativeSelect,
+  Stack,
+} from "@mantine/core";
 import { useRef, useState } from "react";
 import { compareArchives, previewArchive } from "../../features/config/preview";
 import type { Message, Translate } from "../../i18n/messages";
 import {
+  type ArchiveBackup,
   type ArchiveBridge,
   ArchiveCommandError,
   type ArchiveReceipt,
@@ -116,10 +125,58 @@ export function ArchivePanel({
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [operationError, setOperationError] = useState<Message>();
   const [receipt, setReceipt] = useState<ArchiveReceipt>();
+  const [backups, setBackups] = useState<ArchiveBackup[]>();
+  const [backupListError, setBackupListError] = useState(false);
+  const [backupId, setBackupId] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const request = useRef(0);
   const compareRequest = useRef(0);
   const savedRequest = useRef(0);
   const committing = useRef(false);
+  const listRequest = useRef(0);
+
+  const refreshBackups = async () => {
+    if (!archive) return;
+    const id = ++listRequest.current;
+    setBackupListError(false);
+    try {
+      const list = await archive.backups();
+      if (id === listRequest.current) setBackups(list);
+    } catch {
+      if (id === listRequest.current) setBackupListError(true);
+    }
+  };
+
+  const selectBackup = async (backup: ArchiveBackup | undefined) => {
+    const id = ++request.current;
+    compareRequest.current++;
+    setComparison(undefined);
+    setBackupId(backup?.id ?? "");
+    setFile(null);
+    setResult(undefined);
+    setSource(undefined);
+    setOperationError(undefined);
+    setReceipt(undefined);
+    if (!backup?.valid || !archive) return;
+    try {
+      const candidate = await archive.backup(backup.id);
+      const parsed = await parseSaved(candidate);
+      if (
+        candidate.revision !== backup.revision ||
+        !parsed ||
+        parsed.formatStatus !== "valid"
+      )
+        throw new ArchiveCommandError("STORE_CORRUPT");
+      if (id === request.current) {
+        setSource(
+          `${t("archiveBackupList")} · ${backup.id.slice(0, 8)} · ${candidate.revision}`,
+        );
+        setResult(parsed);
+      }
+    } catch (error) {
+      if (id === request.current) setOperationError(errorMessage(error));
+    }
+  };
 
   const refreshSaved = async () => {
     if (!archive) return;
@@ -146,13 +203,14 @@ export function ArchivePanel({
     }
   };
 
-  const open = () => {
-    setRestoring(false);
+  const open = (restore = false) => {
+    setRestoring(restore);
     setOpened(true);
     setOperationError(undefined);
     setReceipt(undefined);
     setNeedsVerification(false);
     void refreshSaved();
+    if (restore) void refreshBackups();
   };
 
   const close = () => {
@@ -160,6 +218,10 @@ export function ArchivePanel({
     request.current++;
     compareRequest.current++;
     savedRequest.current++;
+    listRequest.current++;
+    setBackups(undefined);
+    setBackupId("");
+    setFile(null);
     setOpened(false);
     setResult(undefined);
     setSavedResult(undefined);
@@ -221,6 +283,7 @@ export function ArchivePanel({
       setConfirming(false);
       setNeedsVerification(false);
       await refreshSaved();
+      if (restoring) void refreshBackups();
     } catch (error) {
       const message = errorMessage(error);
       setOperationError(message);
@@ -253,7 +316,7 @@ export function ArchivePanel({
           icon="archive"
           title={t("preview")}
           detail={archive ? t("archiveHostNote") : t("archivePreviewOnly")}
-          action={open}
+          action={() => open()}
           trailing={<Icon name="chevron" />}
         />
         <SettingsRow
@@ -267,7 +330,7 @@ export function ArchivePanel({
                 : t("archiveHostUnavailable")
           }
           disabled={!hasWriter}
-          action={hasWriter ? open : undefined}
+          action={hasWriter ? () => open() : undefined}
         />
         <SettingsRow
           icon="export"
@@ -276,21 +339,14 @@ export function ArchivePanel({
             archive ? t("archiveExportDetail") : t("archiveHostUnavailable")
           }
           disabled={!archive}
-          action={archive ? open : undefined}
+          action={archive ? () => open() : undefined}
         />
         <SettingsRow
           icon="restore"
           title={t("restore")}
           detail={t("archiveRestoreDetail")}
           disabled={!hasWriter || !archive?.restore}
-          action={
-            hasWriter && archive?.restore
-              ? () => {
-                  open();
-                  setRestoring(true);
-                }
-              : undefined
-          }
+          action={hasWriter && archive?.restore ? () => open(true) : undefined}
         />
       </SettingsList>
       <Modal
@@ -334,15 +390,64 @@ export function ArchivePanel({
                     </Alert>
                   )}
               </section>
+              {restoring && (
+                <NativeSelect
+                  size="md"
+                  classNames={{ input: styles.file }}
+                  label={t("archiveBackupList")}
+                  description={t(
+                    backupListError
+                      ? "archiveBackupsUnavailable"
+                      : backups?.length
+                        ? "archiveBackupChoice"
+                        : backups
+                          ? "archiveBackupsEmpty"
+                          : "loading",
+                  )}
+                  value={backupId}
+                  disabled={!backups?.length || backupListError}
+                  onChange={(event) =>
+                    void selectBackup(
+                      backups?.find(
+                        (item) => item.id === event.currentTarget.value,
+                      ),
+                    )
+                  }
+                  data={[
+                    { value: "", label: t("archiveBackupChoice") },
+                    ...(backups ?? []).map((backup) => ({
+                      value: backup.id,
+                      label: t(
+                        backup.valid
+                          ? "archiveBackupEntry"
+                          : "archiveBackupInvalid",
+                        {
+                          time: new Date(
+                            backup.modifiedAt * 1000,
+                          ).toLocaleString(),
+                          bytes: backup.bytes,
+                          revision:
+                            backup.revision?.slice(0, 12) ??
+                            backup.id.slice(0, 8),
+                        },
+                      ),
+                      disabled: !backup.valid,
+                    })),
+                  ]}
+                />
+              )}
               <FileInput
                 size="md"
                 classNames={{ input: styles.file }}
                 label={t("archiveFile")}
+                value={file}
                 accept=".json,application/json"
                 clearable
                 clearButtonProps={{ "aria-label": t("clearFile") }}
                 onChange={async (file) => {
                   const id = ++request.current;
+                  setFile(file);
+                  setBackupId("");
                   compareRequest.current++;
                   setComparison(undefined);
                   setResult(undefined);
@@ -447,7 +552,13 @@ export function ArchivePanel({
                 </Alert>
               )}
               <Group justify="space-between">
-                <Button variant="subtle" onClick={() => void refreshSaved()}>
+                <Button
+                  variant="subtle"
+                  onClick={() => {
+                    void refreshSaved();
+                    if (restoring) void refreshBackups();
+                  }}
+                >
                   {t("archiveRefresh")}
                 </Button>
                 <Group>

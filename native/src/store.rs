@@ -38,6 +38,16 @@ pub struct Prepared {
     pub revision: Option<String>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Backup {
+    id: String,
+    modified_at: i64,
+    bytes: u64,
+    revision: Option<String>,
+    valid: bool,
+}
+
 #[derive(Debug)]
 pub enum SaveError {
     BeforeCommit(io::Error),
@@ -266,6 +276,83 @@ impl Store {
             bytes,
             receipt,
         }))
+    }
+
+    fn open_backup(&self, id: &str) -> io::Result<File> {
+        if !valid_token(id) {
+            return Err(io::ErrorKind::InvalidInput.into());
+        }
+        let file = open_name(
+            &self.dir,
+            &format!("backup-{id}.json"),
+            libc::O_RDONLY | libc::O_NONBLOCK,
+            0,
+        )?;
+        trusted(&file, false)?;
+        Ok(file)
+    }
+
+    fn backup_bytes(file: &File) -> io::Result<Vec<u8>> {
+        let bytes = read_limited(file, MAX_ARCHIVE as u64)?;
+        if !valid_archive(&bytes) {
+            return Err(io::ErrorKind::InvalidData.into());
+        }
+        Ok(bytes)
+    }
+
+    pub fn backups(&self) -> io::Result<Vec<Backup>> {
+        let _lock = self.lock()?;
+        self.dir.sync_all()?;
+        let path = PathBuf::from(format!("/proc/self/fd/{}", self.dir.as_raw_fd()));
+        let mut newest = std::collections::BTreeSet::new();
+        for entry in fs::read_dir(path)? {
+            let name = entry?.file_name();
+            let Some(id) = name
+                .to_str()
+                .and_then(|name| name.strip_prefix("backup-")?.strip_suffix(".json"))
+            else {
+                continue;
+            };
+            let Ok(file) = self.open_backup(id) else {
+                continue;
+            };
+            newest.insert((file.metadata()?.mtime(), id.to_owned()));
+            if newest.len() > 32 {
+                newest.pop_first();
+            }
+        }
+        newest
+            .into_iter()
+            .rev()
+            .map(|(modified_at, id)| {
+                let file = self.open_backup(&id)?;
+                let bytes = file.metadata()?.len();
+                let revision = match Self::backup_bytes(&file) {
+                    Ok(content) => Some(revision(&content)),
+                    Err(error) if error.kind() == io::ErrorKind::InvalidData => None,
+                    Err(error) => return Err(error),
+                };
+                Ok(Backup {
+                    id,
+                    modified_at,
+                    bytes,
+                    valid: revision.is_some(),
+                    revision,
+                })
+            })
+            .collect()
+    }
+
+    pub fn read_backup(&self, id: &str) -> io::Result<Stored> {
+        let _lock = self.lock()?;
+        let file = self.open_backup(id)?;
+        let bytes = Self::backup_bytes(&file)?;
+        self.dir.sync_all()?;
+        Ok(Stored {
+            revision: revision(&bytes),
+            bytes,
+            receipt: None,
+        })
     }
 
     fn cleanup_stage(&self, staging: &File) -> io::Result<()> {
@@ -1075,7 +1162,54 @@ mod tests {
         assert_eq!(backups.len(), 1);
         assert_eq!(fs::read(&backups[0]).unwrap(), fixture());
         assert_eq!(fs::metadata(&backups[0]).unwrap().mode() & 0o777, 0o600);
+        let list = store.backups().unwrap();
+        assert_eq!(list.len(), 1);
+        assert!(list[0].valid);
+        assert_eq!(
+            list[0].revision.as_deref(),
+            Some(revision(fixture()).as_str())
+        );
+        assert_eq!(store.read_backup(&list[0].id).unwrap().bytes, fixture());
         drop(store);
+        cleanup(dir);
+    }
+
+    #[test]
+    fn backup_listing_omits_untrusted_files_and_disables_bad_content() {
+        let (dir, store) = test_store("backup-list");
+        assert!(store.backups().unwrap().is_empty());
+        let ids: Vec<_> = (0..6).map(|id| format!("{id:032x}")).collect();
+        let path = |index: usize| dir.join(format!("backup-{}.json", ids[index]));
+        for (index, content) in [
+            (0, b"{bad".to_vec()),
+            (1, vec![b' '; MAX_ARCHIVE + 1]),
+            (2, fixture().to_vec()),
+            (3, fixture().to_vec()),
+        ] {
+            fs::write(path(index), content).unwrap();
+            fs::set_permissions(
+                path(index),
+                fs::Permissions::from_mode(if index == 3 { 0o644 } else { 0o600 }),
+            )
+            .unwrap();
+        }
+        fs::hard_link(path(2), dir.join("another-name")).unwrap();
+        symlink(path(0), path(4)).unwrap();
+        let fifo = CString::new(path(5).as_os_str().as_encoded_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+        let list = store.backups().unwrap();
+        assert_eq!(list.len(), 2);
+        assert!(
+            list.iter()
+                .all(|backup| !backup.valid && backup.revision.is_none())
+        );
+        for id in ids
+            .iter()
+            .map(String::as_str)
+            .chain(["../archive", "0123456789ABCDEF0123456789ABCDEF"])
+        {
+            assert!(store.read_backup(id).is_err());
+        }
         cleanup(dir);
     }
 

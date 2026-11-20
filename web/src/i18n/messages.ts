@@ -113,6 +113,13 @@ export const zh = {
   archiveRestoreWarning:
     "将先保留当前归档，再用所选备份替换；不会恢复或改变内核运行状态。",
   archiveRestoreAction: "确认恢复",
+  archiveBackupList: "设备自动备份",
+  archiveBackupChoice: "选择一份备份以预览",
+  archiveBackupsEmpty: "设备上没有自动备份。也可以选择已导出的 JSON。",
+  archiveBackupsUnavailable:
+    "无法读取备份列表，或当前设备工具不支持列表。仍可选择已导出的 JSON。",
+  archiveBackupEntry: "{time} · {bytes} 字节 · {revision}",
+  archiveBackupInvalid: "不可恢复 · {time} · {bytes} 字节 · {revision}",
   archiveConfirmSave: "确认保存到设备",
   archiveConfirmWarning:
     "请核对来源、Schema、差异和警告。保存会原子替换 Studio 的上一份归档。",
@@ -290,6 +297,14 @@ export const en = {
   archiveRestoreWarning:
     "The current archive will be preserved before replacement. Kernel runtime state is not restored or changed.",
   archiveRestoreAction: "Confirm restore",
+  archiveBackupList: "Automatic device backups",
+  archiveBackupChoice: "Select a backup to preview",
+  archiveBackupsEmpty:
+    "There are no automatic backups on this device. You can also choose an exported JSON file.",
+  archiveBackupsUnavailable:
+    "The list could not be read or is unsupported by the device tool. You can still choose an exported JSON file.",
+  archiveBackupEntry: "{time} · {bytes} bytes · {revision}",
+  archiveBackupInvalid: "Cannot restore · {time} · {bytes} bytes · {revision}",
   archiveConfirmSave: "Confirm device save",
   archiveConfirmWarning:
     "Verify the source, schema, differences, and warnings. Saving atomically replaces Studio's previous archive.",

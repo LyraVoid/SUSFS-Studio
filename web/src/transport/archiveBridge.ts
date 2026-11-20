@@ -34,6 +34,14 @@ export type SavedArchive = {
   receiptStatus: "available" | "missing";
 };
 
+export type ArchiveBackup = {
+  id: string;
+  modifiedAt: number;
+  bytes: number;
+  revision?: string;
+  valid: boolean;
+};
+
 export type ArchiveBridge = {
   writable: boolean;
   read(): Promise<SavedArchive>;
@@ -41,6 +49,8 @@ export type ArchiveBridge = {
   write?: (path: string, bytes: Uint8Array) => Promise<void>;
   save?: (token: string) => Promise<ArchiveReceipt>;
   restore?: (token: string) => Promise<ArchiveReceipt>;
+  backups(): Promise<ArchiveBackup[]>;
+  backup(id: string): Promise<SavedArchive>;
 };
 
 type KsuStream = {
@@ -132,6 +142,39 @@ function saved(value: unknown): SavedArchive {
   };
 }
 
+function backups(value: unknown): ArchiveBackup[] {
+  if (!Array.isArray(value) || value.length > 32)
+    throw new ArchiveCommandError("BAD_RESPONSE");
+  const ids = new Set<string>();
+  return value.map((item: unknown) => {
+    if (
+      !record(item) ||
+      typeof item.id !== "string" ||
+      !tokenPattern.test(item.id) ||
+      ids.has(item.id) ||
+      typeof item.modifiedAt !== "number" ||
+      !Number.isSafeInteger(item.modifiedAt) ||
+      Math.abs(item.modifiedAt) > 8.64e12 ||
+      typeof item.bytes !== "number" ||
+      !Number.isSafeInteger(item.bytes) ||
+      item.bytes < 0 ||
+      typeof item.valid !== "boolean"
+    )
+      throw new ArchiveCommandError("BAD_RESPONSE");
+    const digest = revision(item.revision);
+    if (item.valid && (!digest || item.bytes > 128 * 1024))
+      throw new ArchiveCommandError("BAD_RESPONSE");
+    ids.add(item.id);
+    return {
+      id: item.id,
+      modifiedAt: item.modifiedAt,
+      bytes: item.bytes,
+      revision: digest,
+      valid: item.valid,
+    };
+  });
+}
+
 function prepared(value: unknown): PreparedArchive {
   if (!record(value)) throw new ArchiveCommandError("BAD_RESPONSE");
   if (
@@ -170,7 +213,7 @@ export function createArchiveBridge(
   }
   const stagePaths = new Map<string, string>();
   const call = async (
-    requestId: "stage" | "save" | "restore" | "read",
+    requestId: "stage" | "save" | "restore" | "read" | "backups" | "backup",
     command: string,
     timeout: number,
   ) => {
@@ -220,6 +263,24 @@ export function createArchiveBridge(
       saved(
         await call("read", `/system/bin/timeout 5 ${executable} read`, 6500),
       ),
+    backups: async () =>
+      backups(
+        await call(
+          "backups",
+          `/system/bin/timeout 5 ${executable} backups`,
+          6500,
+        ),
+      ),
+    backup: async (id) => {
+      if (!tokenPattern.test(id)) throw new ArchiveCommandError("BAD_REQUEST");
+      return saved(
+        await call(
+          "backup",
+          `/system/bin/timeout 5 ${executable} backup ${id}`,
+          6500,
+        ),
+      );
+    },
     prepare: io
       ? async () => {
           stagePaths.clear();
