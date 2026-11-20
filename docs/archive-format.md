@@ -126,6 +126,8 @@ Those are separate provider and device checks. No archive operation applies rule
 
 The browser reports added, removed, and changed JSON Pointer paths. Arrays are compared by position. Numeric tokens are compared exactly as written, so `1`, `1.0`, and `1e0` differ. Comparison stops after 500 changes or 64 levels and marks the result incomplete. The original text remains unchanged when a comparison is incomplete.
 
+Rule edits replace only the edited values or list entries in the source text. Untouched groups, unknown fields, and their original numeric tokens are not reserialized. Switching a static kstat rule to another mode is refused if that would discard unknown static fields. If the comparison parser cannot represent an archive field or the full difference cannot be reviewed, the rule pages do not save it.
+
 ## Device storage and receipt
 
 Device save is available only when the host exposes a verified constrained file stream. The native command creates a one-time token and an empty `0600` file below `/data/adb/susfs-studio/.staging/`. The WebUI writes the selected bytes through the host file stream, then invokes the fixed save command with that token. The path is never derived from a selected file name.
@@ -143,11 +145,15 @@ The staging baseline records the device and inode of the prepared input. Replaci
 
 The revision is the lowercase SHA-256 digest of the exact saved bytes. The receipt records that revision, saved time, and byte count. A conflict or busy result leaves the current archive untouched. A failure before archive replacement is known not to have committed. A failure after replacement or during directory synchronization is reported as result unknown. The UI preserves the browser draft and requires a refresh before another save.
 
+On the rule pages, Studio rereads the archive after saving and checks the exact text, revision, and persisted receipt before showing success. Refresh can rebase a retained draft on a newer archive if all affected entries still match. If any edited entry changed or replay would be invalid, the draft and current text remain available separately, with saving disabled.
+
 If the process stops after the archive rename but before the receipt is durable, the archive remains readable and the missing receipt is reported separately. Recovery starts by reading and validating the archive; it does not silently replay a save.
 
 Interrupted atomic temporary files are not replayed or automatically removed on a subsequent stage. A matching name alone does not establish ownership by the current transaction. Such files can consume space until an administrator identifies and removes them.
 
 Export rereads `archive.json` and returns the exact UTF-8 text. Unknown fields and number tokens are therefore preserved.
+
+A trusted archive file within the size limit can be read for inspection even if its UTF-8 JSON text is invalid or uses an unknown schema. It receives no valid receipt, and native staging still refuses to overwrite it. Unsafe file types, untrusted permissions, oversized files, and undecodable bytes are not exposed through the text interface.
 
 Restore accepts a selected version-1 archive through the same staging path and baseline check as save. Under the same lock, it writes the current archive to an exclusive `0600` temporary file, synchronizes it, publishes it with an atomic no-replace rename, and synchronizes the directory before consuming the stage and replacing the archive and receipt. If the filesystem cannot publish without replacement, restore fails closed. It refuses restore when no current archive exists. An interrupted attempt can leave a temporary file or backup; neither is automatically deleted. A backup write or sync failure leaves the current archive unchanged. After archive replacement, an unconfirmed sync or receipt is result unknown: refresh and inspect before another attempt. The revision is the digest of the restored bytes and may match an earlier revision. A receipt returned by `read` is associated with those bytes, not with an individual browser request. This operation does not change kernel runtime state.
 

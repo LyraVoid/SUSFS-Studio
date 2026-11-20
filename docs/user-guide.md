@@ -4,8 +4,8 @@ Follow the [browser preview instructions](../README.md#browser-preview) to open 
 
 ## Read the diagnostic overview
 
-1. Open **Home** to see the interface state, model, Android version, and kernel version.
-2. Select **Status** to see the implementation, kernel type, and capability information. The preview reports no device receipts.
+1. Open **Home** to see the interface state, model, Android version, kernel version, and reported capabilities.
+2. Select **Status** to see the implementation, kernel type, and capability information.
 3. Select **Refresh diagnostics** to repeat the current query. The previous result remains visible while the refresh is pending and is identified as such.
 
 | Home state | Meaning |
@@ -32,6 +32,10 @@ Use **Settings → Demo scenario** to switch between simulated outcomes. The def
 Previewing validates file size, encoding, JSON syntax, the complete [Studio version-1 rule structure](archive-format.md), duplicate keys, path boundaries, redirect constraints, and exact static kstat strings. It does not apply rules or prove device compatibility. Unknown fields and exact numeric tokens remain in the original text.
 
 ## Save and export a device archive
+
+Open **Rules → Paths**, **Disguise**, or **Redirect** to edit the saved archive without selecting a file. Disguise separates Map and kstat rules. Select a path to view or edit it, or use the add action. **Update draft** and **Remove rule** affect only the session draft. **Cancel** closes the form without applying its changes; **Discard draft** removes all pending edits. The draft follows you between the three rule pages but is not kept across a WebUI reload.
+
+With a compatible file stream, select **Review and confirm save** and check the differences against the displayed revision. A successful readback and receipt verification shows **Saved, not applied**. If the device archive changed, refresh to review the draft against the newer revision. Studio only replays edits that do not conflict; if an affected entry changed, inspect both JSON texts before discarding or recreating the draft. The rule lists can be viewed without the file stream, but edits and device saves remain disabled. A standalone browser has no device rule archive.
 
 When the host provides both the fixed command bridge and a verified version-1 file stream, **Save to device** is enabled.
 

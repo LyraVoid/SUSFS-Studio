@@ -73,7 +73,7 @@ components:
 
 ## Overview
 
-The home page summarizes interface response and device status. Rules and Extensions explain availability per capability. Settings groups appearance preferences, diagnostics, and archives. Material 3 Expressive guides tonal hierarchy, shape, and typography. Mantine provides the control primitives.
+The home page summarizes interface response and device status, followed by the reported capabilities. Rules edits the private archive and shows provider capability separately. Extensions is read-only. Settings groups appearance preferences, diagnostics, and archives. Material 3 Expressive guides tonal hierarchy, shape, and typography. Mantine provides the control primitives.
 
 ## Color and Hierarchy
 
@@ -109,8 +109,13 @@ Use a viewport width of 360 CSS px as the mobile baseline. Measure top and botto
 | Activation card | Use 16px page gutters and a full-width, borderless card approximately 96px tall with 16px corners. Align the ringed checkmark with the icon column below. Stack the localized Active label above the SUSFS version. Put a verified `LKM` or `Built-In` badge in its own column on the right and center it vertically. Use approximately 20px for the title, 14px for the version, and 12px at weight 600 for the badge. |
 | Status card | Place it 16px below the activation card. Use an approximately 72px height and 16px corners. A branch icon precedes the state title and a diagnostic summary. Report facts confirmed by the current result. |
 | Device group | List model, system, and kernel in that order. Rows start at approximately 72px and can grow with content. Use gaps of approximately 2px, outer corners of 16px, and inner corners of approximately 2px. Align the device, system, and chip icons. Use approximately 16px for labels and 14px for values. Allow long kernel strings to wrap. |
+| Capability list | Follow the device group with Path, Map, kstat, Redirect, and Extensions in that order. Show readings in progress and unconfirmed results without using the available indicator. |
 | Bottom navigation | Use four equal-width items and approximately 74px of content height plus the safe-area inset. The selected item has an approximately 64×34px blue-gray indicator, a filled icon, and a label. Other items use outline icons. Give every item an accessible name and a 48px touch target. Reserve space so the navigation does not cover content. |
 
 The dark home palette uses `#0F1012` for the canvas, `#16191E` for standard cards, `#2D3947` for the activation card, and `#14171C` for bottom navigation. The activation card uses `#E1E7EF` for primary text, `#B1C0D0` for the checkmark, secondary text, and badge background, and `#293543` for badge text. Light mode retains the same layout and contrast hierarchy. Keep configuration actions on their respective pages.
 
 `LKM` identifies a loadable kernel module. `Built-In` identifies an implementation compiled into the kernel. Report `GKI` separately as the kernel type in diagnostic details.
+
+## Rule pages
+
+Keep the rule subnavigation above the archive status and segmented lists. Group Map and kstat separately under Disguise. Lead with the add actions, then list each rule by source path with mode or destination underneath. Use a dialog for details, field edits, and destructive draft actions. Confirm the archive difference separately from field edits. Long paths and revisions wrap; the static fields stack on phones. Keep provider availability below the archive controls and do not imply application from an archive receipt.

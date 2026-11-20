@@ -80,6 +80,14 @@ On 2026-11-20, a debug build was installed on this device after preserving the i
 
 With temporary debug assets in the same host, the automatic backup selector displayed the real 830-byte backup. The user-visible confirmation showed its source and differences; restoring it produced revision `46fd15c02ad4c4c0c958a45f6350d601951348e0788f3aaedc96ec818c23ccd9`, a matching receipt, and preserved the prior 94-byte archive with revision `d3813c8f4be7c3d650157a2a3ada6580dd369f3f1a4331299fb35723fc93be28`. Two independently opened WebUI activities then reviewed different files against the same baseline. After the first saved, the second reported a newer revision, retained its draft and disabled confirmation; the archive and receipt still matched the first page. This was an interleaved save, not a simultaneous native lock-contention test. The provider status remained unchanged. The pre-test module and private store were restored and matched their archives byte-for-byte.
 
+### Rule page archive acceptance
+
+On 2026-11-20, the PKX110 ran the rule pages in host `v1.6.4` (33211), Android 17 API 37, WebView `157.0.8103.50`, and the GKI-LKM provider `v2.3.0` on kernel `6.6.118-android15-8-g9bc34d5b0c79-abogki537459655-4k`. Only the Studio module's WebUI and debug executable were temporarily replaced. The original private store was set aside and a separate copy of the shared archive fixture was used.
+
+The WebUI changed the path looping flag, Map source, static kstat inode string, and redirect UID scheme. Before confirmation the device archive still matched the fixture. After confirmation the readback and receipt both reported 827 bytes and revision `b9a3b9d949516d0fa212bbd0dd8a3f6a9fdb6d0495a71c83ba5b960e112ebc81`. The exact bytes matched the four expected source edits and were identical to the file exported after refresh. The provider status response was unchanged. The original module files and private store were restored; file contents, paths, modes, and ownership were checked against retained inventory, and all on-device test artifacts were removed. Directory timestamps changed during the temporary swaps.
+
+This checks the archive round trip on the stated host, not provider application, host isolation, or other managers. Busy, stale revision, and uncertain post-save receipt cases for the rule pages were covered in Chromium, not repeated on this host.
+
 ## Decision
 
 When a compatible command bridge is present, the module uses it for fixed queries and Studio archive storage. A malformed or unavailable bridge reports failure instead of simulated status. The standalone browser remains in demo mode when no host interface is present. If command execution exists but the verified file stream does not, device save remains disabled and names the missing capability.

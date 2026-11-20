@@ -23,6 +23,7 @@ The [navigation shell](../web/src/layouts/Shell.tsx) restores the main content s
 | --- | --- |
 | Diagnostic data and scenario fixtures | [`transport/mock.ts`](../web/src/transport/mock.ts) defines the result variants and simulated capabilities. [`useStatus.ts`](../web/src/features/status/useStatus.ts) coordinates requests and discards results from superseded requests. |
 | Archive preview and device flow | [`preview.ts`](../web/src/features/config/preview.ts) validates local input. [`archiveBridge.ts`](../web/src/transport/archiveBridge.ts) owns fixed command calls, token validation, and file-stream writes. [`ArchivePanel.tsx`](../web/src/components/organisms/ArchivePanel.tsx) renders comparison, explicit confirmation, receipts, refresh, export, and retained drafts on failure. |
+| Rule pages | [`ruleEdits.ts`](../web/src/features/config/ruleEdits.ts) edits validated archive source spans. [`useRuleArchive.ts`](../web/src/features/config/useRuleArchive.ts) keeps the shared in-session draft, checks the reviewed baseline, and verifies the persisted readback. Rules and Settings share the same staged transaction helper and host commands. |
 | Theme | [`theme.ts`](../web/src/theme/theme.ts) generates the light and dark tonal palettes. [`tokens.css`](../web/src/theme/tokens.css) defines shared tokens and the home palette. |
 | Localization | [`messages.ts`](../web/src/i18n/messages.ts) holds English and Simplified Chinese strings. Keep message keys and placeholders aligned. |
 
