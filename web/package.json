@@ -11,7 +11,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "check": "biome check . && tsc --noEmit && vitest run",
-    "test:e2e": "playwright test tests/studio.spec.ts",
+    "test:e2e": "playwright test tests/studio.spec.ts tests/archive-race.spec.ts tests/rule-pages.spec.ts",
     "test:static": "vite build --mode development && playwright test tests/static-policy.spec.ts"
   },
   "dependencies": {

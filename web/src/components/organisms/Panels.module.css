@@ -4,6 +4,7 @@
   border-radius: var(--r16);
   padding: var(--s16);
   display: grid;
+  min-width: 0;
   gap: var(--s12);
 }
 .panel h2 {

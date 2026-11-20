@@ -83,4 +83,17 @@ describe("source-preserving rule edits", () => {
       }),
     ).toBeUndefined();
   });
+
+  it("refuses edits when the comparison parser cannot represent a field", () => {
+    const text = original.replace('"futureStatField"', '"__pr\\u006fto__"');
+    const parsed = inspectArchive(text);
+    expect(parsed.formatStatus).toBe("valid");
+    expect(parsed.unrepresentable).toBe(true);
+    expect(
+      applyRuleEdit(text, {
+        group: "maps",
+        after: { id: "other", path: "/new" },
+      }),
+    ).toBeUndefined();
+  });
 });

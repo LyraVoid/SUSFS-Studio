@@ -42,11 +42,9 @@ export function useRuleArchive(
     !rebaseBlocked &&
     !loading &&
     !saving;
-  const previewEdit = (edit: RuleEdit) =>
-    canEdit && current ? applyRuleEdit(current.text, edit) : undefined;
-
   const edit = (change: RuleEdit) => {
-    const text = previewEdit(change);
+    if (!canEdit || !current) return false;
+    const text = applyRuleEdit(current.text, change);
     if (text === undefined) return false;
     if (text !== current?.text) {
       setDraft({ text, edits: [...(draft?.edits ?? []), change] });
@@ -169,7 +167,6 @@ export function useRuleArchive(
     verified,
     writable,
     canEdit,
-    previewEdit,
     edit,
     refresh,
     save,

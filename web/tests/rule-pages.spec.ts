@@ -72,7 +72,7 @@ async function host(
         throw new Error(`Unexpected command: ${command}`);
       saves++;
       if (baseline !== text) return reject("REVISION_CONFLICT");
-      if (failure === "BUSY") return reject(failure);
+      if (failure === "BUSY" || failure === "TIMEOUT") return reject(failure);
       text = upload;
       receipt = {
         revision: digest(upload),
@@ -284,7 +284,12 @@ test("two rule sessions rebase only nonconflicting edits and require new review"
   expect(store.text()).toContain("/map-b");
 });
 
-for (const failure of ["BUSY", "RESULT_UNKNOWN", "NO_RECEIPT"] as const) {
+for (const failure of [
+  "BUSY",
+  "TIMEOUT",
+  "RESULT_UNKNOWN",
+  "NO_RECEIPT",
+] as const) {
   test(`${failure} retains the draft and prevents a blind retry`, async ({
     context,
     page,
@@ -299,7 +304,11 @@ for (const failure of ["BUSY", "RESULT_UNKNOWN", "NO_RECEIPT"] as const) {
     await page.getByRole("button", { name: "检查并确认保存" }).click();
     await page.getByRole("button", { name: "确认保存", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText(
-      failure === "BUSY" ? "另一个写入正在进行" : "保存结果未知",
+      failure === "BUSY"
+        ? "另一个写入正在进行"
+        : failure === "TIMEOUT"
+          ? "设备操作超时"
+          : "保存结果未知",
     );
     await expect(page.getByText("归档草稿尚未保存")).toBeVisible();
     await expect(
@@ -308,7 +317,7 @@ for (const failure of ["BUSY", "RESULT_UNKNOWN", "NO_RECEIPT"] as const) {
     const release = store.holdRead();
     await page.getByRole("button", { name: "刷新设备归档" }).click();
     release(store.text());
-    if (failure === "BUSY")
+    if (failure === "BUSY" || failure === "TIMEOUT")
       await expect(
         page.getByRole("button", { name: "检查并确认保存" }),
       ).toBeEnabled();

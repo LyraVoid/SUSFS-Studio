@@ -108,7 +108,7 @@ export function RuleArchive({
           </Alert>
         )}
         {state.verified && receipt && (
-          <Alert color="green" role="status">
+          <Alert color="green" role="status" className={styles.change}>
             {t("ruleSaved", {
               revision: receipt.revision,
               bytes: receipt.bytes,
