@@ -15,6 +15,8 @@ import {
 } from "../../features/config/preview";
 import type { useRuleArchive } from "../../features/config/useRuleArchive";
 import type { Message, Translate } from "../../i18n/messages";
+import { demoApps, demoSlots } from "../../transport/demoArchive";
+import type { Provider } from "../../transport/mock";
 import {
   DialogActions,
   DialogChoiceGroup,
@@ -39,11 +41,23 @@ const tri = {
 const triValue = (value: unknown) =>
   value === true ? "true" : value === false ? "false" : "unset";
 
-export function BasicArchive({ state, t }: { state: State; t: Translate }) {
+export function BasicArchive({
+  state,
+  workflow,
+  provider,
+  t,
+}: {
+  state: State;
+  workflow: boolean;
+  provider?: Provider;
+  t: Translate;
+}) {
   const [dialog, setDialog] = useState<
     (typeof settingsKeys)[number] | "apps" | "stopUid" | "uname" | "cmdline"
   >();
   const [query, setQuery] = useState("");
+  const [selectedApps, setSelectedApps] = useState<string[]>([]);
+  const [sourceTab, setSourceTab] = useState<string | null>("manual");
   const [releaseInput, setReleaseInput] = useState("");
   const [versionInput, setVersionInput] = useState("");
   const [cmdlineInput, setCmdlineInput] = useState("");
@@ -67,6 +81,7 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
   const close = () => {
     setDialog(undefined);
     setQuery("");
+    setSourceTab("manual");
   };
   const disabled = !state.canEdit || !value;
   const key =
@@ -82,9 +97,9 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
         : dialog === "uname"
           ? "controlUname"
           : "controlCmdline";
-  const filtered = names?.filter((name) =>
-    name.toLowerCase().includes(query.trim().toLowerCase()),
-  );
+  const filtered = (
+    workflow ? [...new Set([...demoApps, ...(names ?? [])])] : names
+  )?.filter((name) => name.toLowerCase().includes(query.trim().toLowerCase()));
   const validUname = validText(releaseInput, 65) && validText(versionInput, 65);
   const validCmdline =
     cmdlineInput === "" || validText(cmdlineInput, 8192, true);
@@ -106,17 +121,28 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
           />
         ))}
       </SegmentedSection>
-      <SegmentedSection title={t("controlUid")}>
+      <SegmentedSection title={t("controlUidSection")}>
         <SettingsRow
-          title={t("controlUid")}
-          detail={
+          title={t("controlProtectedApps")}
+          detail={[
+            !workflow &&
+              (provider?.capabilities.priorityUidFilter === "unavailable"
+                ? t("controlUidUnavailable")
+                : provider?.capabilities.priorityUidFilter !== "available"
+                  ? t("controlUidUnknown")
+                  : t("controlNoAppSource")),
             names
               ? names.length
                 ? t("controlUidCount", { count: names.length })
                 : t("controlUidEmpty")
-              : t("controlUnmanaged")
-          }
-          action={() => setDialog("apps")}
+              : t("controlUnmanaged"),
+          ]
+            .filter(Boolean)
+            .join("\n")}
+          action={() => {
+            setSelectedApps(names ?? []);
+            setDialog("apps");
+          }}
         />
         {names && (
           <SettingsRow
@@ -137,8 +163,8 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
           action={editUname}
         />
         <SettingsRow
-          title={t("controlArchiveReset")}
-          detail={t("controlArchiveResetHint")}
+          title={t("controlResetUname")}
+          detail={t("controlResetUnameHint")}
           action={() =>
             updateBootDraft("uname", {
               ...uname,
@@ -163,8 +189,8 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
           }}
         />
         <SettingsRow
-          title={t("controlArchiveReset")}
-          detail={t("controlArchiveResetHint")}
+          title={t("controlResetCmdline")}
+          detail={t("controlResetCmdlineHint")}
           action={() => updateBootDraft("cmdline", "")}
           disabled={disabled}
         />
@@ -202,19 +228,31 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
                 value={query}
                 onChange={(e) => setQuery(e.currentTarget.value)}
               />
-              <p>{t("controlNoAppSource")}</p>
+              <p>{t(workflow ? "workflowNotice" : "controlNoAppSource")}</p>
               {filtered?.map((name) => (
-                <Checkbox key={name} label={name} checked disabled />
+                <Checkbox
+                  key={name}
+                  label={name}
+                  checked={selectedApps.includes(name)}
+                  disabled={!workflow || disabled}
+                  onChange={(event) =>
+                    setSelectedApps(
+                      event.currentTarget.checked
+                        ? [...selectedApps, name]
+                        : selectedApps.filter((item) => item !== name),
+                    )
+                  }
+                />
               ))}
               {names?.length === 0 && <p>{t("controlUidEmpty")}</p>}
-              {Boolean(names?.length) && !filtered?.length && (
+              {(workflow || Boolean(names?.length)) && !filtered?.length && (
                 <p>{t("controlUidNoMatches")}</p>
               )}
             </>
           ) : (
             <>
               <p>{t("controlBootArbitration")}</p>
-              <Tabs defaultValue="manual">
+              <Tabs value={sourceTab} onChange={setSourceTab}>
                 <Tabs.List>
                   <Tabs.Tab value="manual">{t("controlManual")}</Tabs.Tab>
                   <Tabs.Tab value="source">{t("controlBootSlots")}</Tabs.Tab>
@@ -264,7 +302,41 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
                   </Stack>
                 </Tabs.Panel>
                 <Tabs.Panel value="source" pt="sm">
-                  <p>{t("controlNoBootFacts")}</p>
+                  {workflow ? (
+                    demoSlots.map((slot) => (
+                      <div key={slot.label}>
+                        <SettingsRow
+                          title={t("workflowSlot", { slot: slot.label })}
+                          detail={
+                            dialog === "uname" ? slot.release : slot.cmdline
+                          }
+                          disabled={disabled}
+                          action={() => {
+                            if (dialog === "uname") {
+                              setReleaseInput(slot.release);
+                              setVersionInput(slot.version);
+                            } else setCmdlineInput(slot.cmdline);
+                            setSourceTab("manual");
+                          }}
+                        />
+                        {dialog === "cmdline" && (
+                          <SettingsRow
+                            title={t("workflowBootconfig", {
+                              slot: slot.label,
+                            })}
+                            detail={slot.bootconfig}
+                            disabled={disabled}
+                            action={() => {
+                              setCmdlineInput(slot.bootconfig);
+                              setSourceTab("manual");
+                            }}
+                          />
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p>{t("controlNoBootFacts")}</p>
+                  )}
                 </Tabs.Panel>
               </Tabs>
             </>
@@ -275,7 +347,8 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
             </Button>
             {(dialog === "uname" ||
               dialog === "cmdline" ||
-              dialog === "stopUid") && (
+              dialog === "stopUid" ||
+              (workflow && dialog === "apps")) && (
               <Button
                 variant="subtle"
                 disabled={
@@ -284,7 +357,7 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
                     ? !validUname
                     : dialog === "cmdline"
                       ? !validCmdline
-                      : !names)
+                      : dialog === "stopUid" && !names)
                 }
                 onClick={() => {
                   const changed =
@@ -294,16 +367,23 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
                           key: "priorityUidFilter",
                           before: names,
                         })
-                      : updateBootDraft(
-                          dialog,
-                          dialog === "uname"
-                            ? {
-                                ...uname,
-                                release: releaseInput,
-                                version: versionInput,
-                              }
-                            : cmdlineInput,
-                        );
+                      : dialog === "apps"
+                        ? state.edit({
+                            section: "settings",
+                            key: "priorityUidFilter",
+                            before: names,
+                            after: [...selectedApps].sort(),
+                          })
+                        : updateBootDraft(
+                            dialog,
+                            dialog === "uname"
+                              ? {
+                                  ...uname,
+                                  release: releaseInput,
+                                  version: versionInput,
+                                }
+                              : cmdlineInput,
+                          );
                   if (changed) close();
                 }}
               >
@@ -405,6 +485,27 @@ export function LkmArchive({
                 detail={t(title)}
                 disabled={disabled}
                 action={() => open(groupKey, entries, index)}
+                endAction={
+                  !disabled && (
+                    <Button
+                      variant="subtle"
+                      color="danger"
+                      aria-label={t("ruleRemoveNamed", { path: entry })}
+                      onClick={() => {
+                        setInvalid(false);
+                        setDialog({
+                          key: groupKey,
+                          entries,
+                          before: settings[key],
+                          index,
+                          removing: true,
+                        });
+                      }}
+                    >
+                      {t("ruleRemoveEntry")}
+                    </Button>
+                  )
+                }
               />
             ))}
             {entries.length === 0 &&

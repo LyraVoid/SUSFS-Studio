@@ -1,11 +1,4 @@
-import {
-  Button,
-  NativeSelect,
-  SimpleGrid,
-  Stack,
-  Switch,
-  TextInput,
-} from "@mantine/core";
+import { Button, SimpleGrid, Stack, Switch, TextInput } from "@mantine/core";
 import { useState } from "react";
 import {
   object,
@@ -25,7 +18,7 @@ import {
   type Translate,
 } from "../../i18n/messages";
 import type { Provider } from "../../transport/mock";
-import { DialogActions } from "./M3eDialog";
+import { DialogActions, DialogChoiceGroup } from "./M3eDialog";
 
 export const modeLabels = {
   normal: "ruleNormal",
@@ -139,20 +132,17 @@ export function RuleForm({
                   : undefined
               }
             />
-            <NativeSelect
+            <DialogChoiceGroup
               label={t("ruleUid")}
-              size="md"
               value={field("uidScheme")}
               disabled={readOnly}
-              onChange={(event) =>
-                change("uidScheme", event.currentTarget.value)
-              }
-              description={t("controlArchiveSchemes")}
-              data={redirectSchemeLabels.map((label, value) => ({
+              onChange={(value) => change("uidScheme", value)}
+              options={redirectSchemeLabels.map((label, value) => ({
                 value: String(value),
                 label: `${value} · ${t(label)}`,
               }))}
             />
+            <p>{t("controlArchiveSchemes")}</p>
             <p>
               {schemes
                 ? t("controlReportedSchemes", {
@@ -163,19 +153,16 @@ export function RuleForm({
           </>
         )}
         {group === "kstats" && !isStatic && (
-          <NativeSelect
-            label={t("ruleMode")}
-            size="md"
-            value={field("mode")}
+          <Switch
+            label={t("ruleClone")}
+            checked={field("mode") === "fullClone"}
             disabled={readOnly}
-            onChange={(event) => change("mode", event.currentTarget.value)}
-            data={Object.entries({
-              normal: modeLabels.normal,
-              fullClone: modeLabels.fullClone,
-            }).map(([value, key]) => ({
-              value,
-              label: t(key),
-            }))}
+            onChange={(event) =>
+              change(
+                "mode",
+                event.currentTarget.checked ? "fullClone" : "normal",
+              )
+            }
           />
         )}
         {isStatic && (

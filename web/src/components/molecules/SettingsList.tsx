@@ -26,6 +26,7 @@ export function SettingsRow({
   id,
   detail,
   trailing,
+  endAction,
   action,
   disabled,
   dataAvailability,
@@ -38,6 +39,7 @@ export function SettingsRow({
   id?: string;
   detail?: string;
   trailing?: ReactNode;
+  endAction?: ReactNode;
   action?: () => void;
   disabled?: boolean;
   dataAvailability?: "available" | "unavailable" | "unknown" | "loading";
@@ -70,8 +72,8 @@ export function SettingsRow({
       {trailing}
     </>
   );
-  if (action || disabled || trigger.onClick)
-    return (
+  if (action || disabled || trigger.onClick) {
+    const button = (
       <button
         className={`${styles.row} ${styles.action} ${icon ? "" : styles.noIcon} ${className ?? ""}`}
         type="button"
@@ -86,6 +88,15 @@ export function SettingsRow({
         {content}
       </button>
     );
+    return endAction ? (
+      <div className={styles.split}>
+        {button}
+        {endAction}
+      </div>
+    ) : (
+      button
+    );
+  }
   return (
     <div
       className={`${styles.row} ${icon ? "" : styles.noIcon}`}

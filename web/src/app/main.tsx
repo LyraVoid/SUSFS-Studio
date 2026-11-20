@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createRoot } from "react-dom/client";
+import type { WorkflowReport } from "../components/organisms/RulesOverview";
 import { useRuleArchive } from "../features/config/useRuleArchive";
 import { useStatus } from "../features/status/useStatus";
 import { type Locale, translator } from "../i18n/messages";
@@ -22,6 +23,7 @@ import {
   saveColorProfile,
 } from "../theme/colorProfile";
 import { colorSchemeManager, createThemeColors, theme } from "../theme/theme";
+import { createDemoArchive } from "../transport/demoArchive";
 import { diagnosticSource } from "../transport/host";
 import type { Scenario } from "../transport/mock";
 import { resolveRoute } from "./routes";
@@ -58,7 +60,14 @@ function App() {
   );
   const { status, stale } = useStatus(selection, request, source);
   const bridge = source.kind === "host" ? source.archive : undefined;
-  const rules = useRuleArchive(bridge, route?.startsWith("/rules/") === true);
+  const workflow = demo && selection.scenario === "workflow";
+  const [sampleArchive] = useState(createDemoArchive);
+  const [report, setReport] = useState<WorkflowReport>();
+  const activeArchive = workflow ? sampleArchive : bridge;
+  const onRules = route?.startsWith("/rules/") === true;
+  const deviceRules = useRuleArchive(bridge, onRules && !demo);
+  const sampleRules = useRuleArchive(sampleArchive, onRules && workflow);
+  const rules = workflow ? sampleRules : deviceRules;
   const t = translator(locale);
   useEffect(() => {
     const host = window.ksu as
@@ -118,10 +127,13 @@ function App() {
             route={route}
             status={status}
             demo={demo}
+            workflow={workflow}
+            report={report}
+            setReport={setReport}
             stale={stale}
             archive={rules}
-            bridge={bridge}
-            connected={Boolean(bridge)}
+            bridge={activeArchive}
+            connected={Boolean(activeArchive)}
             refresh={() => setRequest((id) => id + 1)}
             t={t}
           />

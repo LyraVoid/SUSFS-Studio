@@ -1,5 +1,6 @@
 export const scenarios = [
   "lkm23",
+  "workflow",
   "builtin24",
   "unknownImplementation",
   "loading",
@@ -112,11 +113,13 @@ const fixtures = {
   missing: { kind: "missing", device: baseDevice },
   unknownProtocol: { kind: "unknownProtocol", device: baseDevice },
   failed: { kind: "failed" },
-} satisfies Record<Exclude<Scenario, "loading">, Status>;
+} satisfies Record<Exclude<Scenario, "loading" | "workflow">, Status>;
 
 export class MockTransport {
   async status(scenario: Exclude<Scenario, "loading">): Promise<Status> {
     await new Promise((resolve) => setTimeout(resolve, 260));
-    return fixtures[scenario];
+    return scenario === "workflow"
+      ? { ...fixtures.lkm23, archiveImport: true }
+      : fixtures[scenario];
   }
 }

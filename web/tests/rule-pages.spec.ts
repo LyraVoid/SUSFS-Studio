@@ -18,6 +18,83 @@ async function openOverview(page: Page) {
     .click();
 }
 
+test("explicit sample scenario closes the workflow without a host bridge", async ({
+  page,
+}) => {
+  await page.goto("/#/settings");
+  await page.getByRole("button", { name: "演示场景", exact: true }).click();
+  await page
+    .getByRole("menuitemradio", { name: "完整流程案例（模拟）" })
+    .click();
+  await page.getByRole("link", { name: "规则", exact: true }).click();
+  await page.getByRole("link", { name: "基础设置", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await page.getByRole("button", { name: "受保护的应用", exact: true }).click();
+  await dialog.getByRole("textbox").fill("reader");
+  await dialog.getByRole("checkbox", { name: "org.example.reader" }).check();
+  await dialog.getByRole("button", { name: "更新草稿" }).click();
+  await page.getByRole("button", { name: "伪装 uname", exact: true }).click();
+  await dialog.getByRole("tab", { name: "启动槽来源" }).click();
+  await dialog.getByRole("button", { name: "案例启动槽 B" }).click();
+  await expect(dialog.getByLabel("uname release")).toHaveValue("6.6.0-demo-b");
+  await dialog.getByRole("button", { name: "更新草稿" }).click();
+  await page
+    .getByRole("button", { name: "伪装 cmdline / bootconfig", exact: true })
+    .click();
+  await dialog.getByRole("tab", { name: "启动槽来源" }).click();
+  await dialog
+    .getByRole("button", { name: "案例启动槽 A · bootconfig", exact: true })
+    .click();
+  await expect(dialog.getByLabel("伪装 cmdline / bootconfig")).toHaveValue(
+    "example.bootconfig=a",
+  );
+  await dialog.getByRole("button", { name: "更新草稿" }).click();
+  await openOverview(page);
+  const apply = page.getByRole("button", { name: "模拟应用" });
+  await expect(apply).toBeDisabled();
+  await page.getByRole("button", { name: "检查并确认保存" }).click();
+  await expect(dialog).toContainText("/settings");
+  await expect(dialog).toContainText("/uname");
+  await expect(dialog).toContainText("/cmdline");
+  await dialog.getByRole("button", { name: "确认保存", exact: true }).click();
+  for (const outcome of [
+    "模拟：部分成功",
+    "模拟：已拒绝",
+    "模拟：结果未知",
+    "模拟：已受理",
+  ]) {
+    await apply.click();
+    await dialog.getByRole("radio", { name: outcome, exact: true }).click();
+    await dialog.getByRole("button", { name: "确认模拟" }).click();
+    await expect(
+      page.getByTestId("settings-row").filter({ hasText: outcome }).first(),
+    ).toBeVisible();
+  }
+  await expect(page.getByText("未验证", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "模拟效果验证" }).click();
+  await expect(page.getByText("模拟：已独立观察")).toBeVisible();
+  await page.getByRole("link", { name: "基础设置", exact: true }).click();
+  await openOverview(page);
+  await expect(page.getByText("模拟：已独立观察")).toBeVisible();
+  const exportLabel = "导出案例归档";
+  await page.getByRole("button", { name: exportLabel, exact: true }).click();
+  const download = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: exportLabel, exact: true }).click();
+  const exported = await download;
+  expect(exported.suggestedFilename()).toMatch(/\.json$/);
+  const filePath = await exported.path();
+  if (!filePath) throw new Error("Missing sample export");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "恢复备份", exact: true }).click();
+  await dialog.locator('input[type="file"]').first().setInputFiles(filePath);
+  await dialog.getByRole("button", { name: "检查并确认恢复" }).click();
+  await dialog.getByRole("button", { name: "确认恢复", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("恢复完成");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "模拟应用" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "应用到设备" })).toBeDisabled();
+});
+
 test("manual basic settings and stopping UID management remain archive drafts until confirmed", async ({
   context,
   page,
@@ -32,21 +109,28 @@ test("manual basic settings and stopping UID management remain archive drafts un
   const session = await host(context, initial);
   await page.goto("/#/rules/basic");
   const dialog = page.getByRole("dialog");
-  await page.getByRole("button", { name: "uname 替代值", exact: true }).click();
+  await page.getByRole("button", { name: "伪装 uname", exact: true }).click();
   const release = dialog.getByLabel("uname release");
   await release.fill("字".repeat(22));
   await expect(dialog.getByRole("button", { name: "更新草稿" })).toBeDisabled();
   await release.fill("example-new");
   await dialog.getByRole("button", { name: "更新草稿" }).click();
-  await page.getByRole("button", { name: "内核命令行", exact: true }).click();
-  await dialog.getByLabel("内核命令行").fill("   ");
+  await page
+    .getByRole("button", { name: "伪装 cmdline / bootconfig", exact: true })
+    .click();
+  await dialog.getByLabel("伪装 cmdline / bootconfig").fill("   ");
   await expect(dialog.getByRole("button", { name: "更新草稿" })).toBeDisabled();
-  await dialog.getByLabel("内核命令行").fill("example=value");
+  await dialog.getByLabel("伪装 cmdline / bootconfig").fill("example=value");
   await dialog.getByRole("button", { name: "更新草稿" }).click();
   await expect(
-    page.getByRole("button", { name: "内核命令行", exact: true }),
+    page.getByRole("button", {
+      name: "伪装 cmdline / bootconfig",
+      exact: true,
+    }),
   ).toContainText("example=value");
-  await page.getByRole("button", { name: "将重置加入草稿" }).last().click();
+  await page
+    .getByRole("button", { name: "恢复真实 cmdline / bootconfig" })
+    .click();
   await page.getByRole("button", { name: "停止管理", exact: true }).click();
   await dialog.getByRole("button", { name: "停止管理", exact: true }).click();
   expect(session.text()).toBe(initial);
@@ -101,7 +185,9 @@ test("imports only after confirmation and edits Schema 2 settings and extensions
   await page.keyboard.press("Escape");
   await expect(exchange).toBeFocused();
   await page.goto("/#/rules/basic");
-  const apps = page.getByRole("button", { name: "优先 UID 过滤" });
+  const apps = page.getByRole("button", { name: "受保护的应用" });
+  await expect(apps).toContainText("设备未报告此能力");
+  await expect(apps).toContainText("不管理");
   await apps.click();
   await expect(
     dialog.getByText("没有经验证的应用 UID 列表，仅可查看归档值。"),
@@ -145,11 +231,8 @@ test("imports only after confirmation and edits Schema 2 settings and extensions
   await entry.click();
   await dialog.getByLabel("隐藏模块名").fill("updated_module");
   await update.click();
-  await page
-    .getByRole("button", { name: "updated_module", exact: true })
-    .click();
-  const remove = dialog.getByRole("button", {
-    name: "移除已保存规则",
+  const remove = page.getByRole("button", {
+    name: "移除条目：updated_module",
     exact: true,
   });
   await remove.click();
@@ -419,8 +502,15 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
     }
     await name("仅保存").click();
     await group.getByRole("button", { name: "添加规则", exact: true }).click();
+    if (title === "kstat 规则")
+      await expect(
+        dialog.getByRole("switch", { name: "完整克隆" }),
+      ).not.toBeChecked();
     await dialog.getByLabel("源路径").fill(next);
     if (route === "redirect") {
+      await expect(
+        dialog.getByRole("radiogroup").getByRole("radio"),
+      ).toHaveCount(5);
       await dialog.getByLabel("目标路径").fill(next);
       await expect(name("仅保存")).toBeDisabled();
       await dialog.getByLabel("目标路径").fill("/safe-target");
@@ -429,8 +519,14 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
     await expect(dialog.getByRole("alert")).toContainText("路径重复");
     await dialog.getByLabel("源路径").fill(added);
     await name("仅保存").click();
-    await group.getByRole("button", { name: added, exact: true }).click();
-    await name("移除已保存规则").click();
+    const remove = group.getByRole("button", {
+      name: `移除条目：${added}`,
+      exact: true,
+    });
+    await remove.click();
+    await name("取消").click();
+    await expect(remove).toBeVisible();
+    await remove.click();
     await name("移除已保存规则").click();
     await expect(
       group.getByRole("button", { name: added, exact: true }),
@@ -455,7 +551,7 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
     .getByRole("link", { name: "重定向" })
     .click();
   await expect(
-    page.getByRole("button", { name: "/changed-redirect" }),
+    page.getByRole("button", { name: "/changed-redirect", exact: true }),
   ).toBeVisible();
   await openOverview(page);
   await page.getByRole("button", { name: "设备导出" }).click();
@@ -490,8 +586,12 @@ test("Map batches preserve the entire draft on invalid or duplicate paths", asyn
   await group.getByRole("button", { name: "批量添加规则" }).click();
   await input.fill("/fixture-a\n/fixture-b");
   await submit.click();
-  await expect(group.getByRole("button", { name: "/fixture-a" })).toBeVisible();
-  await expect(group.getByRole("button", { name: "/fixture-b" })).toBeVisible();
+  await expect(
+    group.getByRole("button", { name: "/fixture-a", exact: true }),
+  ).toBeVisible();
+  await expect(
+    group.getByRole("button", { name: "/fixture-b", exact: true }),
+  ).toBeVisible();
   expect(store.text()).toBe(original);
 });
 

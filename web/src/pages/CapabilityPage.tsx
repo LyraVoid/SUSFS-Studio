@@ -10,6 +10,7 @@ import { RuleArchive } from "../components/organisms/RuleArchive";
 import {
   RulesOverview,
   RulesOverviewLead,
+  type WorkflowReport,
 } from "../components/organisms/RulesOverview";
 import type { RuleGroup } from "../features/config/ruleEdits";
 import type { useRuleArchive } from "../features/config/useRuleArchive";
@@ -37,6 +38,9 @@ export function CapabilityPage({
   route,
   status,
   demo,
+  workflow,
+  report,
+  setReport,
   stale,
   archive,
   bridge,
@@ -47,6 +51,9 @@ export function CapabilityPage({
   route: RuleRoute;
   status: Status;
   demo: boolean;
+  workflow: boolean;
+  report?: WorkflowReport;
+  setReport: (report: WorkflowReport) => void;
   stale: boolean;
   archive: ReturnType<typeof useRuleArchive>;
   bridge?: ArchiveBridge;
@@ -56,7 +63,7 @@ export function CapabilityPage({
 }) {
   const overview = route === "/rules/overview";
   const lkm =
-    !demo &&
+    (!demo || workflow) &&
     !stale &&
     status.kind === "active" &&
     status.provider.implementation === "lkm";
@@ -126,6 +133,7 @@ export function CapabilityPage({
         }}
       >
         <div className={pageStyles.scrollBody}>
+          {workflow && <p>{t("workflowNotice")}</p>}
           <RuleArchive
             key={route}
             mode={overview ? "overview" : "rules"}
@@ -145,13 +153,23 @@ export function CapabilityPage({
               <RulesOverview
                 status={status}
                 demo={demo}
+                workflow={workflow}
+                report={report}
+                setReport={setReport}
                 stale={stale}
                 archive={archive}
                 bridge={bridge}
                 t={t}
               />
             )}
-            {route === "/rules/basic" && <BasicArchive state={archive} t={t} />}
+            {route === "/rules/basic" && (
+              <BasicArchive
+                state={archive}
+                workflow={workflow}
+                provider={provider}
+                t={t}
+              />
+            )}
             {route === "/rules/extensions" && (
               <LkmArchive state={archive} lkm={lkm} t={t} />
             )}

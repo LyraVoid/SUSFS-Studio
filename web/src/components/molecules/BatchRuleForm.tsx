@@ -1,4 +1,4 @@
-import { Button, NativeSelect, Stack, Switch, Textarea } from "@mantine/core";
+import { Button, Stack, Switch, Textarea } from "@mantine/core";
 import { useState } from "react";
 import { path } from "../../features/config/preview";
 import {
@@ -8,7 +8,7 @@ import {
 } from "../../features/config/ruleEdits";
 import { redirectSchemeLabels, type Translate } from "../../i18n/messages";
 import type { Provider } from "../../transport/mock";
-import { DialogActions } from "./M3eDialog";
+import { DialogActions, DialogChoiceGroup } from "./M3eDialog";
 
 export function BatchRuleForm({
   group,
@@ -91,16 +91,16 @@ export function BatchRuleForm({
         )}
         {redirect && (
           <>
-            <NativeSelect
+            <DialogChoiceGroup
               label={t("ruleUid")}
-              description={t("controlArchiveSchemes")}
               value={uid}
-              onChange={(event) => setUid(event.currentTarget.value)}
-              data={redirectSchemeLabels.map((label, value) => ({
+              onChange={setUid}
+              options={redirectSchemeLabels.map((label, value) => ({
                 value: String(value),
                 label: `${value} · ${t(label)}`,
               }))}
             />
+            <p>{t("controlArchiveSchemes")}</p>
             <p>
               {schemes
                 ? t("controlReportedSchemes", {

@@ -33,6 +33,21 @@
 .noIcon {
   grid-template-columns: minmax(0, 1fr) auto;
 }
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding-inline-end: var(--s8);
+  background: var(--settings-row-surface);
+}
+.split > .row {
+  border-radius: inherit;
+}
+.split > button:last-child {
+  min-height: var(--hit);
+  max-width: 7rem;
+  white-space: normal;
+}
 .icon {
   display: grid;
   color: var(--on-muted);
@@ -45,6 +60,7 @@
 }
 .detail {
   display: block;
+  white-space: pre-line;
   color: var(--on-muted);
   font-size: var(--settings-row-detail-size, 0.875rem);
   line-height: var(--settings-row-detail-line-height, 1.25rem);

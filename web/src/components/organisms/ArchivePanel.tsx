@@ -96,11 +96,13 @@ export function ArchivePanel({
   t,
   archive,
   archiveImport,
+  workflow,
   onSaved,
 }: {
   t: Translate;
   archive?: ArchiveBridge;
   archiveImport: boolean;
+  workflow: boolean;
   onSaved?: () => void;
 }) {
   const [opened, setOpened] = useState(false);
@@ -339,22 +341,28 @@ export function ArchivePanel({
         />
         <SettingsRow
           icon="save"
-          title={t("save")}
+          title={t(workflow ? "workflowSaveArchive" : "save")}
           detail={
-            hasWriter
-              ? t("archiveSaveDetail")
-              : archive
-                ? t("archiveStreamUnavailable")
-                : t("archiveHostUnavailable")
+            workflow
+              ? t("workflowNotice")
+              : hasWriter
+                ? t("archiveSaveDetail")
+                : archive
+                  ? t("archiveStreamUnavailable")
+                  : t("archiveHostUnavailable")
           }
           disabled={!hasWriter}
           action={hasWriter ? () => open() : undefined}
         />
         <SettingsRow
           icon="export"
-          title={t("export")}
+          title={t(workflow ? "workflowExportArchive" : "export")}
           detail={
-            archive ? t("archiveExportDetail") : t("archiveHostUnavailable")
+            workflow
+              ? t("workflowNotice")
+              : archive
+                ? t("archiveExportDetail")
+                : t("archiveHostUnavailable")
           }
           disabled={!archive}
           action={archive ? () => open() : undefined}
@@ -386,6 +394,7 @@ export function ArchivePanel({
         }
       >
         <Stack>
+          {workflow && <p>{t("workflowNotice")}</p>}
           {!confirming ? (
             <>
               <p>{t(restoring ? "archiveRestoreDetail" : "previewPending")}</p>
@@ -651,7 +660,13 @@ export function ArchivePanel({
                     disabled={saved?.kind !== "saved"}
                     onClick={() => void exportSaved(importing)}
                   >
-                    {t(importing ? "archiveExportConfig" : "export")}
+                    {t(
+                      importing
+                        ? "archiveExportConfig"
+                        : workflow
+                          ? "workflowExportArchive"
+                          : "export",
+                    )}
                   </Button>
                   <Button
                     variant="subtle"

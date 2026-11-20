@@ -13,7 +13,6 @@ import {
   type Translate,
 } from "../../i18n/messages";
 import type { Provider } from "../../transport/mock";
-import { Icon } from "../atoms/Icon";
 import { BatchRuleForm } from "../molecules/BatchRuleForm";
 import { DialogActions, M3eDialog } from "../molecules/M3eDialog";
 import { modeLabels, RuleForm } from "../molecules/RuleForm";
@@ -268,7 +267,7 @@ export function RuleArchive({
                       ? t(modeLabels[rule.mode as keyof typeof modeLabels])
                       : group === "redirects"
                         ? `→ ${rule.destination}\n${String(rule.uidScheme)} · ${t(redirectSchemeLabels[Number(rule.uidScheme)] ?? "unknown")}`
-                        : t("mapRules");
+                        : t("ruleMapHint");
                 return (
                   <SettingsRow
                     key={rule.id}
@@ -276,7 +275,20 @@ export function RuleArchive({
                     title={rule.path}
                     detail={detail}
                     action={() => setDialog({ kind: "edit", group, rule })}
-                    trailing={<Icon name="chevron" />}
+                    endAction={
+                      canEdit && (
+                        <Button
+                          variant="subtle"
+                          color="danger"
+                          aria-label={t("ruleRemoveNamed", { path: rule.path })}
+                          onClick={() =>
+                            setDialog({ kind: "remove", group, rule })
+                          }
+                        >
+                          {t("ruleRemoveEntry")}
+                        </Button>
+                      )
+                    }
                   />
                 );
               })}

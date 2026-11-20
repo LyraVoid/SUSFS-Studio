@@ -64,11 +64,13 @@ export function DialogActions({
 }
 
 export function DialogChoiceGroup({
+  label,
   value,
   options,
   disabled = false,
   onChange,
 }: {
+  label?: string;
   value: string;
   options: readonly { value: string; label: string }[];
   disabled?: boolean;
@@ -76,7 +78,7 @@ export function DialogChoiceGroup({
 }) {
   const name = useId();
   return (
-    <div className={styles.choices} role="radiogroup">
+    <div className={styles.choices} role="radiogroup" aria-label={label}>
       {options.map((option) => (
         <label
           key={option.value}
