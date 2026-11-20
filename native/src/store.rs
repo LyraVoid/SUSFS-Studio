@@ -38,6 +38,14 @@ pub struct Prepared {
     pub revision: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CandidatePlan {
+    baseline_revision: Option<String>,
+    candidate_revision: String,
+    changes: Vec<crate::archive::Change>,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Backup {
@@ -546,6 +554,27 @@ impl Store {
 
     pub fn save_staged(&self, token: &str) -> Result<Receipt, SaveError> {
         self.save_staged_with_backup(token, false)
+    }
+
+    pub fn plan_staged(&self, token: &str) -> io::Result<CandidatePlan> {
+        if !valid_token(token) {
+            return Err(io::ErrorKind::InvalidInput.into());
+        }
+        let _lock = self.lock()?;
+        let current = self.read_archive_unlocked()?;
+        let (expected, input) = self.read_stage(&self.staging()?, token)?;
+        if current != expected {
+            return Err(io::ErrorKind::AlreadyExists.into());
+        }
+        let text = |bytes| std::str::from_utf8(bytes).map_err(|_| io::ErrorKind::InvalidData);
+        Ok(CandidatePlan {
+            baseline_revision: current.as_deref().map(revision),
+            candidate_revision: revision(&input),
+            changes: crate::archive::changes(
+                current.as_deref().map(text).transpose()?,
+                text(&input)?,
+            ),
+        })
     }
 
     pub fn restore_staged(&self, token: &str) -> Result<Receipt, SaveError> {
@@ -1228,6 +1257,29 @@ mod tests {
                 SaveError::ResultUnknown(error) => panic!("unexpected result: {error}"),
             },
             io::ErrorKind::NotFound
+        );
+        drop(store);
+        cleanup(dir);
+    }
+
+    #[test]
+    fn planning_checks_current_baseline_without_consuming_the_stage() {
+        let (dir, store) = test_store("plan");
+        let prepared = store.prepare().unwrap();
+        assert_eq!(
+            store.plan_staged(&prepared.token).unwrap_err().kind(),
+            io::ErrorKind::InvalidInput
+        );
+        fs::write(&prepared.upload_path, fixture()).unwrap();
+        let plan = store.plan_staged(&prepared.token).unwrap();
+        assert_eq!(plan.baseline_revision, None);
+        assert_eq!(plan.candidate_revision, revision(fixture()));
+        assert!(store.read().unwrap().is_none());
+        assert!(Path::new(&prepared.upload_path).exists());
+        store.save(None, fixture()).unwrap();
+        assert_eq!(
+            store.plan_staged(&prepared.token).unwrap_err().kind(),
+            io::ErrorKind::AlreadyExists
         );
         drop(store);
         cleanup(dir);

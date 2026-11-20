@@ -11,6 +11,7 @@ The device archive commands are:
 | Command | Effect |
 | --- | --- |
 | `studioctl stage` | Captures the current archive baseline and creates one empty, `0600`, token-named input below the private staging directory. It returns the token, upload path, baseline text, and revision. |
+| `studioctl plan <token>` | Revalidates the staged bytes and current baseline under the archive lock without consuming the stage. Returns a read-only candidate plan; does not authorize or execute operations. |
 | `studioctl save <token>` | Validates and consumes the staged bytes, checks the baseline under the write lock, then atomically stores the archive and receipt. The token is a fixed 32-character lowercase hexadecimal value. |
 | `studioctl import <token>` | Same transaction as save. Accepts only staged Studio archive bytes, not a configuration from another manager. |
 | `studioctl restore <token>` | Checks the staged candidate and baseline, durably preserves the current archive in a new private backup, then replaces the archive and receipt. |
@@ -21,6 +22,8 @@ The device archive commands are:
 | `studioctl apply`, `studioctl verify` | Rejects with `PROVIDER_NOT_AUTHORIZED` and an empty rule result set. Neither command opens a provider write channel or reports an observed effect. |
 
 The host adapter constructs `stage` and `read` as fixed commands. For `save`, it accepts only a token returned by that adapter's own successful `stage` call and embeds only the validated hexadecimal token. Selected file names, JSON, and form values are never incorporated into a root shell command.
+
+The candidate plan (`planVersion: 1`) includes the exact baseline and candidate revisions, redacted category/index/intent descriptors, and a separate snapshot of the provider diagnostic result. Indices are zero-based in the candidate for additions and updates, or in the baseline for removals. An absent baseline revision is `null`. Rule identifiers, paths, and setting values are not returned. All plans are blocked; they are neither execution tickets nor receipts and are not yet consumed by the WebUI. A later save still validates the stage independently.
 
 Version 1 responses contain `protocol`, `requestId`, `ok`, and `data`. The command name is the response's `requestId`. `hello` returns `"studioctl"` as its data. A `status` response uses `data.kind` for the diagnostic result, including when the query itself fails. Rust serialization and WebUI status parsing share the [version 1 fixtures](../contracts/diagnostic-v1.json).
 

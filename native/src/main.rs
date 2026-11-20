@@ -427,7 +427,7 @@ fn main() {
         (
             Some("hello" | "status" | "preview" | "stage" | "read" | "export" | "apply" | "verify"),
             1
-        ) | (Some("save" | "import" | "restore" | "backup"), 2)
+        ) | (Some("save" | "import" | "restore" | "backup" | "plan"), 2)
             | (Some("backups"), 1)
     ) {
         std::process::exit(2);
@@ -465,6 +465,25 @@ fn main() {
                 },
             )),
             Err(error) => serde_json::to_string(&io_failure("stage", error)),
+        },
+        Some("plan") => match archive_store().and_then(|store| store.plan_staged(&args[1])) {
+            Ok(plan) => {
+                let status = status();
+                let reason = match &status {
+                    Status::Missing => "PROVIDER_MISSING",
+                    Status::UnknownProtocol => "PROVIDER_UNKNOWN_PROTOCOL",
+                    Status::Failed => "PROVIDER_DIAGNOSTIC_FAILED",
+                    Status::Active { .. } => "PROVIDER_NOT_AUTHORIZED",
+                };
+                serde_json::to_string(&response(
+                    "plan",
+                    serde_json::json!({
+                        "planVersion": 1, "archive": plan, "status": "blocked", "reason": reason,
+                        "providerStatus": status,
+                    }),
+                ))
+            }
+            Err(error) => serde_json::to_string(&io_failure("plan", error)),
         },
         Some("save" | "import") => {
             let id = if action == Some("save") {
