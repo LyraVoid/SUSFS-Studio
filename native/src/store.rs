@@ -443,7 +443,9 @@ impl Store {
             let current = current.ok_or_else(|| {
                 io::Error::new(io::ErrorKind::NotFound, "no current archive to preserve")
             })?;
-            let name = format!("backup-{}.json", random_token()?);
+            let token = random_token()?;
+            let name = format!(".backup-{token}.tmp");
+            let target = format!("backup-{token}.json");
             let mut backup = open_name(
                 &self.dir,
                 &name,
@@ -453,6 +455,23 @@ impl Store {
             trusted(&backup, false)?;
             backup.write_all(&current)?;
             backup.sync_all()?;
+            let old = CString::new(name).unwrap();
+            let new = CString::new(target).unwrap();
+            if unsafe {
+                libc::linkat(
+                    self.dir.as_raw_fd(),
+                    old.as_ptr(),
+                    self.dir.as_raw_fd(),
+                    new.as_ptr(),
+                    0,
+                )
+            } != 0
+            {
+                return Err(io::Error::last_os_error().into());
+            }
+            if unsafe { libc::unlinkat(self.dir.as_raw_fd(), old.as_ptr(), 0) } != 0 {
+                return Err(io::Error::last_os_error().into());
+            }
             self.dir.sync_all()?;
         }
         self.remove_stage(&staging, token)?;
