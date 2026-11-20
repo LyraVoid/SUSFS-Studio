@@ -438,8 +438,11 @@ test("three-item main navigation and six SUSFS tabs", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("status")).toContainText("已激活");
   await expect(page.locator("main h2").allTextContents()).resolves.toEqual([
-    "设备",
+    "信息",
   ]);
+  await expect(
+    page.getByRole("button", { name: "SUSFS Studio 版本" }),
+  ).toContainText("0.1.0-beta.1");
   await expect(page.locator("main [data-availability]")).toHaveCount(0);
   const status = page.getByRole("button", { name: /状态/ });
   await status.click();
@@ -478,6 +481,34 @@ test("three-item main navigation and six SUSFS tabs", async ({ page }) => {
   ).toHaveCount(0);
   await menu.getByRole("link", { name: "设置" }).click();
   await expect(page.getByRole("heading", { name: "设置" })).toBeVisible();
+});
+
+test("settings follows the manager by default and shows developer credits", async ({
+  page,
+}) => {
+  await page.goto("/#/settings");
+  const theme = page.getByRole("button", { name: "主题", exact: true });
+  await expect(theme).toContainText("跟随管理器");
+  await theme.click();
+  const menu = page.getByRole("menu", { name: "主题" });
+  await expect(menu.getByRole("menuitemradio")).toHaveText([
+    "跟随管理器",
+    "深色",
+    "浅色",
+  ]);
+  await expect(
+    menu.getByRole("menuitemradio", { name: "跟随管理器" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await page.keyboard.press("Escape");
+
+  const developers = page.getByRole("region", { name: "开发者" });
+  await expect(developers).toContainText("LyraVoid 团队");
+  await expect(developers).toContainText("Matsuzaka Yuki");
+  await expect(developers.locator("img")).toHaveAttribute(
+    "src",
+    "https://q.qlogo.cn/headimg_dl?dst_uin=3231515355&spec=640&img_type=jpg",
+  );
+  await expect(page.getByText("内核", { exact: true })).toHaveCount(0);
 });
 
 test("touch feedback, keyboard focus and safe diagnostic dialog", async ({
@@ -1451,7 +1482,10 @@ test("mobile and desktop breakpoint, persisted preferences and axe", async ({
 }) => {
   const external: string[] = [];
   page.on("request", (request) => {
-    if (!request.url().startsWith("http://127.0.0.1:5177"))
+    if (
+      !request.url().startsWith("http://127.0.0.1:5177") &&
+      !request.url().startsWith("https://q.qlogo.cn/")
+    )
       external.push(request.url());
   });
   await page.goto("/");
@@ -1464,6 +1498,7 @@ test("mobile and desktop breakpoint, persisted preferences and axe", async ({
   await page.setViewportSize({ width: 840, height: 805 });
   expect((await nav.boundingBox())?.width).toBe(192);
   await nav.getByRole("link", { name: "设置" }).click();
+  await choose(page, "主题", "深色");
   const darkSurface = await page
     .locator("body")
     .evaluate((body) => getComputedStyle(body).backgroundColor);
@@ -1488,6 +1523,7 @@ test("Material profiles update all pages and dialogs, persist, and reset indepen
 }) => {
   await page.goto("/#/settings");
   const root = page.locator("html");
+  await choose(page, "主题", "深色");
   await expect(root).toHaveAttribute("data-mantine-color-scheme", "dark");
   const nav = page.getByRole("navigation", { name: "主导航" });
   const spec = page.getByRole("button", { name: "配色规范", exact: true });
@@ -1627,12 +1663,20 @@ test("Material profiles update all pages and dialogs, persist, and reset indepen
   await choose(page, "语言", "English");
   const reset = page.getByRole("button", { name: "Restore default colors" });
   await expect(reset).toContainText(
-    "Dark · Slate · 2025 · Tonal Spot · Standard",
+    "Follow manager · Slate · 2025 · Tonal Spot · Standard",
   );
   await reset.click();
   await expect(root).toHaveAttribute("lang", "en");
-  await expect(root).toHaveAttribute("data-mantine-color-scheme", "dark");
-  await expect(shell).toHaveCSS("background-color", originalSurface);
+  const automaticScheme = await page.evaluate(() =>
+    matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+  );
+  await expect(root).toHaveAttribute(
+    "data-mantine-color-scheme",
+    automaticScheme,
+  );
+  await expect(
+    page.getByRole("button", { name: "Theme", exact: true }),
+  ).toContainText("Follow manager");
   await expect(
     page.getByRole("button", { name: "Demo scenario", exact: true }),
   ).toContainText(translator("en")("builtin24"));

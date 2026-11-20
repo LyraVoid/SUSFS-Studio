@@ -5,15 +5,17 @@ import styles from "./DeviceFactsGroup.module.css";
 
 export function DeviceFactsGroup({
   device,
+  studioVersion,
   t,
 }: {
   device: Status["device"];
+  studioVersion: string;
   t: Translate;
 }) {
   return (
     <section aria-labelledby="device-title">
       <h2 className={styles.title} id="device-title">
-        {t("device")}
+        {t("information")}
       </h2>
       <div className={styles.rows}>
         {(["model", "system", "kernel"] as const).map((field) => (
@@ -25,6 +27,12 @@ export function DeviceFactsGroup({
             interactive
           />
         ))}
+        <FactRow
+          icon="tag"
+          label={t("studioVersion")}
+          detail={studioVersion}
+          interactive
+        />
       </div>
     </section>
   );

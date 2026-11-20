@@ -7,6 +7,8 @@ import type { HostChannel } from "../transport/host";
 import type { Status } from "../transport/mock";
 import styles from "./Home.module.css";
 
+declare const __STUDIO_VERSION__: string;
+
 export function Home({
   status,
   demo,
@@ -40,7 +42,11 @@ export function Home({
             t={t}
           />
         </div>
-        <DeviceFactsGroup device={status.device} t={t} />
+        <DeviceFactsGroup
+          device={status.device}
+          studioVersion={__STUDIO_VERSION__}
+          t={t}
+        />
       </div>
     </>
   );

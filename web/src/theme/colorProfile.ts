@@ -30,6 +30,7 @@ export type ColorProfile = {
 };
 
 export const defaultAppearance = "dark";
+export const defaultColorScheme = "auto";
 export const defaultColorProfile: ColorProfile = {
   seed: "slate",
   specVersion: "2025",

@@ -18,7 +18,7 @@ import { CapabilityPage } from "../pages/CapabilityPage";
 import { Home } from "../pages/Home";
 import { Settings } from "../pages/Settings";
 import {
-  defaultAppearance,
+  defaultColorScheme,
   readColorProfile,
   saveColorProfile,
 } from "../theme/colorProfile";
@@ -92,7 +92,7 @@ function App() {
     <MantineProvider
       theme={theme}
       cssVariablesResolver={resolver}
-      defaultColorScheme={defaultAppearance}
+      defaultColorScheme={defaultColorScheme}
       colorSchemeManager={colorSchemeManager}
     >
       <Shell route={route} t={t}>
@@ -119,7 +119,6 @@ function App() {
             }
             locale={locale}
             setLocale={setLocale}
-            status={status}
             t={t}
           />
         ) : route ? (

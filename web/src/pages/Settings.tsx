@@ -1,6 +1,6 @@
 import { useComputedColorScheme, useMantineColorScheme } from "@mantine/core";
 import { hexFromArgb } from "@material/material-color-utilities";
-import { useId, useMemo } from "react";
+import { useId, useMemo, useState } from "react";
 import { ChoiceMenu } from "../components/atoms/ChoiceMenu";
 import type { IconName } from "../components/atoms/Icon";
 import { FlexiblePageHeader } from "../components/molecules/FlexiblePageHeader";
@@ -14,16 +14,44 @@ import {
   contrasts,
   defaultAppearance,
   defaultColorProfile,
+  defaultColorScheme,
   type Seed,
   schemes,
   seeds,
   specVersions,
 } from "../theme/colorProfile";
 import { createColorScheme } from "../theme/theme";
-import { type Scenario, type Status, scenarios } from "../transport/mock";
+import { type Scenario, scenarios } from "../transport/mock";
 import styles from "./Settings.module.css";
 
 const seedOptions = Object.keys(seeds) as Seed[];
+const developerAvatar =
+  "https://q.qlogo.cn/headimg_dl?dst_uin=3231515355&spec=640&img_type=jpg";
+
+function DeveloperCard({ t }: { t: Translate }) {
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  return (
+    <div className={styles.developer} data-testid="developer-card">
+      <span className={styles.avatar} aria-hidden="true">
+        <span>LY</span>
+        {!avatarFailed && (
+          <img
+            src={developerAvatar}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={() => setAvatarFailed(true)}
+          />
+        )}
+      </span>
+      <span className={styles.developerCopy}>
+        <span className={styles.developerName}>{t("developerTeam")}</span>
+        <span className={styles.developerDetail}>{t("developerName")}</span>
+      </span>
+    </div>
+  );
+}
 
 function ChoiceRow<T extends Message>({
   icon,
@@ -68,7 +96,6 @@ export function Settings({
   setScenario,
   locale,
   setLocale,
-  status,
   t,
 }: {
   profile: ColorProfile;
@@ -79,10 +106,9 @@ export function Settings({
   setScenario: (value: Scenario) => void;
   locale: Locale;
   setLocale: (value: Locale) => void;
-  status: Status;
   t: Translate;
 }) {
-  const { setColorScheme } = useMantineColorScheme();
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
   const appearance = useComputedColorScheme(defaultAppearance);
   const seedGroup = useId();
   const { specVersion, contrast } = profile;
@@ -102,7 +128,7 @@ export function Settings({
     [specVersion, contrast, appearance],
   );
   const defaults = t("themeDefaults", {
-    appearance: t(defaultAppearance),
+    appearance: t(defaultColorScheme),
     seed: t(defaultColorProfile.seed),
     version: t(defaultColorProfile.specVersion),
     scheme: t(defaultColorProfile.scheme),
@@ -115,8 +141,8 @@ export function Settings({
         <ChoiceRow
           icon="palette"
           label="theme"
-          value={appearance}
-          options={["dark", "light"]}
+          value={colorScheme}
+          options={["auto", "dark", "light"]}
           change={setColorScheme}
           t={t}
         />
@@ -176,7 +202,7 @@ export function Settings({
           title={t("resetTheme")}
           detail={defaults}
           action={() => {
-            setColorScheme(defaultAppearance);
+            setColorScheme(defaultColorScheme);
             setProfile(defaultColorProfile);
           }}
         />
@@ -203,12 +229,8 @@ export function Settings({
           />
         </SettingsList>
       )}
-      <SettingsList label={t("diagnostics")}>
-        <SettingsRow
-          icon="kernel"
-          title={t("kernel")}
-          detail={status.device?.kernel ?? t("absent")}
-        />
+      <SettingsList label={t("developers")}>
+        <DeveloperCard t={t} />
       </SettingsList>
     </>
   );

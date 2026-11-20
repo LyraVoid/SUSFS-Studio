@@ -5,7 +5,9 @@ import { expect, test } from "@playwright/test";
 test("built WebUI denies embedded frames", async ({ page }) => {
   const html = await readFile(resolve("dist/index.html"), "utf8");
   expect(html).toContain("frame-src &#39;none&#39;");
-  expect(html).toContain("img-src &#39;self&#39; data: ksu:");
+  expect(html).toContain(
+    "img-src &#39;self&#39; data: ksu: https://q.qlogo.cn",
+  );
   await page.route("http://studio.test/**", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
     if (pathname === "/index.html") {

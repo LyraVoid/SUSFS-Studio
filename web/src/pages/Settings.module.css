@@ -6,6 +6,50 @@
   line-height: 1.25rem;
   text-align: end;
 }
+.developer {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s16);
+  min-height: 5.5rem;
+  padding: var(--s16);
+  background: var(--settings-row-surface);
+}
+.avatar {
+  display: grid;
+  position: relative;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  overflow: hidden;
+  border-radius: var(--r-full);
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.developerCopy {
+  display: grid;
+  gap: var(--s4);
+  min-width: 0;
+}
+.developerName {
+  color: var(--on-surface);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.developerDetail {
+  color: var(--on-muted);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
 .seedField {
   min-width: 0;
   margin: 0;
