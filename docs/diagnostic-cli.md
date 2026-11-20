@@ -74,6 +74,8 @@ The two-writer race starts independent processes with distinct candidates staged
 
 The restore fault matrix injects a storage error or sends `SIGKILL` at ten boundaries from backup writing through receipt rename. It checks the archive bytes and digest, receipt association, backup bytes, and stage consumption, then verifies that a subsequent save still works. The Linux and isolated Android arm64 runs passed. Observations after process exit reflect the running filesystem; a visible rename is not proof of persistence across power loss.
 
+The staging test injects a storage error or ends the child after creating the empty input and after writing its baseline. A returned error cleans up the failed stage; a killed process can leave unreturned staging files. Neither case changes the current archive or receipt, and another stage can be prepared without reusing those files. This test also passed on Linux and isolated Android arm64 storage.
+
 On 2026-11-20, the arm64 debug test executable ran these serial tests and `restore_preserves_current_archive_before_replacement` as the shell UID with `TMPDIR=/data/local/tmp` on the PKX110 device described in [host integration](host-integration.md). The test directories and executable were removed. This does not exercise the installed manager or its privileged store.
 
 ## Package the development artifacts

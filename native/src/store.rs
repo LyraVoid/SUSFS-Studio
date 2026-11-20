@@ -425,6 +425,8 @@ impl Store {
             baseline.extend_from_slice(&metadata.ino().to_le_bytes());
             baseline.extend_from_slice(archive.as_deref().unwrap_or_default());
             Self::write_stage_file(&staging, &base_name, &baseline)?;
+            #[cfg(test)]
+            checkpoint("stage-baseline")?;
             staging.sync_all()?;
             Ok(Prepared {
                 token: token.clone(),
@@ -995,6 +997,14 @@ mod tests {
         };
         let point = std::env::var("STUDIO_FAULT_POINT").unwrap();
         let store = Store::open(Path::new(&path)).unwrap();
+        if let Some(point) = ["stage-input", "stage-baseline"]
+            .into_iter()
+            .find(|name| *name == point)
+        {
+            set_fault(Some((point, true)));
+            let _ = store.prepare();
+            panic!("stage checkpoint not reached");
+        }
         let prepared = store.prepare().unwrap();
         fs::write(&prepared.upload_path, fixture()).unwrap();
         set_fault(Some((
@@ -1006,6 +1016,49 @@ mod tests {
         )));
         let _ = store.restore_staged(&prepared.token);
         panic!("checkpoint not reached");
+    }
+
+    #[test]
+    #[ignore = "run process tests serially"]
+    fn preparation_faults_preserve_current_and_allow_another_stage() {
+        use std::os::unix::process::ExitStatusExt;
+        for (point, remaining) in [("stage-input", 1), ("stage-baseline", 2)] {
+            let (dir, store) = test_store(point);
+            let receipt = store.save(None, fixture()).unwrap();
+            set_fault(Some((point, false)));
+            assert_eq!(
+                store.prepare().err().unwrap().raw_os_error(),
+                Some(libc::ENOSPC)
+            );
+            set_fault(None);
+            let staging = dir.join(".staging");
+            assert_eq!(fs::read_dir(&staging).unwrap().count(), 0);
+            let child = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "store::tests::restore_fault_child"])
+                .env("STUDIO_FAULT_STORE", &dir)
+                .env("STUDIO_FAULT_POINT", point)
+                .status()
+                .unwrap();
+            assert_eq!(child.signal(), Some(libc::SIGKILL));
+            let files: Vec<_> = fs::read_dir(&staging)
+                .unwrap()
+                .map(|entry| entry.unwrap().path())
+                .collect();
+            assert_eq!(files.len(), remaining);
+            assert!(
+                files
+                    .iter()
+                    .filter(|path| path.extension().is_some_and(|ext| ext == "input"))
+                    .all(|path| fs::read(path).unwrap().is_empty())
+            );
+            let current = store.read().unwrap().unwrap();
+            assert_eq!(current.bytes, fixture());
+            assert_eq!(current.receipt, Some(receipt));
+            let fresh = store.prepare().unwrap();
+            assert_eq!(fresh.revision.as_deref(), Some(current.revision.as_str()));
+            assert!(files.iter().all(|path| path.exists()));
+            cleanup(dir);
+        }
     }
 
     #[test]
