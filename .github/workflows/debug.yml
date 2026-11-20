@@ -15,14 +15,14 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 12.21.0
           run_install: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26.13.0
           cache: pnpm
@@ -81,7 +81,7 @@ jobs:
           printf 'ASSET=%s\n' "$asset" >> "$GITHUB_ENV"
 
       - name: Upload debug module
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: susfs-studio-debug-${{ github.run_number }}
           path: |
