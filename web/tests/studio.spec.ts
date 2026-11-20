@@ -412,8 +412,9 @@ test("an uncertain archive save keeps the draft and requires verification", asyn
     rules: { paths: [], maps: [], kstats: [], redirects: [] },
   });
   await page.addInitScript(
-    ({ hello, active }) => {
+    ({ hello, active, archive }) => {
       const token = "fedcba9876543210fedcba9876543210";
+      let committed = false;
       const reply = (requestId: string, data: unknown, ok = true) =>
         JSON.stringify({
           protocol: 1,
@@ -423,6 +424,7 @@ test("an uncertain archive save keeps the draft and requires verification", asyn
         });
       window.ksu = {
         exec: (command: string, _options: string, callback: string) => {
+          if (command.endsWith(` save ${token}`)) committed = true;
           const output = command.endsWith(" hello")
             ? JSON.stringify(hello)
             : command.endsWith(" status")
@@ -441,7 +443,10 @@ test("an uncertain archive save keeps the draft and requires verification", asyn
                       false,
                     )
                   : reply("read", {
-                      kind: "empty",
+                      kind: committed ? "saved" : "empty",
+                      ...(committed
+                        ? { text: archive, revision: "a".repeat(64) }
+                        : {}),
                       receiptStatus: "missing",
                     });
           (
@@ -461,7 +466,7 @@ test("an uncertain archive save keeps the draft and requires verification", asyn
         }),
       };
     },
-    { hello: fixtures.hello, active: fixtures.active },
+    { hello: fixtures.hello, active: fixtures.active, archive },
   );
   await page.goto("/#/settings");
   await page.getByRole("button", { name: "设备保存" }).click();
@@ -488,6 +493,8 @@ test("an uncertain archive save keeps the draft and requires verification", asyn
     dialog.getByRole("button", { name: "检查并确认保存" }),
   ).toBeEnabled();
   await expect(dialog).toContainText("uncertain.json");
+  await expect(dialog).toContainText("归档内容可读，但持久化回执缺失");
+  await expect(dialog).toContainText("未发现差异");
 });
 
 test("mobile and desktop breakpoint, persisted preferences and axe", async ({

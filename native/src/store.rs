@@ -1425,4 +1425,26 @@ mod tests {
         assert!(store.read().unwrap().is_none());
         cleanup(dir);
     }
+
+    #[test]
+    fn incomplete_upload_cannot_be_consumed_or_change_the_current_archive() {
+        let (dir, store) = test_store("partial-upload");
+        let receipt = store.save(None, fixture()).unwrap();
+        let stage = store.prepare().unwrap();
+        fs::write(&stage.upload_path, &fixture()[..fixture().len() / 2]).unwrap();
+        assert!(
+            matches!(store.save_staged(&stage.token), Err(SaveError::BeforeCommit(error)) if error.kind() == io::ErrorKind::InvalidInput)
+        );
+        let current = store.read().unwrap().unwrap();
+        assert_eq!(current.bytes, fixture());
+        assert_eq!(current.receipt, Some(receipt));
+        assert!(store.backups().unwrap().is_empty());
+        assert!(Path::new(&stage.upload_path).exists());
+        fs::write(&stage.upload_path, fixture()).unwrap();
+        store.save_staged(&stage.token).unwrap();
+        assert!(
+            matches!(store.save_staged(&stage.token), Err(SaveError::BeforeCommit(error)) if error.kind() == io::ErrorKind::NotFound)
+        );
+        cleanup(dir);
+    }
 }
