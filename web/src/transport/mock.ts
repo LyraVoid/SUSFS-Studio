@@ -37,7 +37,7 @@ export type Control = {
 export type BootField = {
   value: string;
   source: string;
-  confidence: "current-runtime" | "inactive-image";
+  confidence: "current-runtime" | "boot-image";
 };
 export type BootFacts = {
   parser: string;
@@ -53,6 +53,11 @@ export type BootFacts = {
     id: string;
     current: boolean;
     source: "current-runtime" | "inactive-image";
+    status:
+      | "current-runtime"
+      | "parsed-image"
+      | "empty-image"
+      | "invalid-image";
     release?: BootField;
     version?: BootField;
     cmdline: BootField[];
@@ -111,6 +116,7 @@ const bootFacts = {
       id: "a",
       current: true,
       source: "current-runtime",
+      status: "current-runtime",
       release: {
         value: "6.6.0-demo-a",
         source: "/proc/sys/kernel/osrelease",
@@ -140,6 +146,7 @@ const bootFacts = {
       id: "b",
       current: false,
       source: "inactive-image",
+      status: "empty-image",
       cmdline: [],
       bootconfig: [],
       note: "The inactive boot image requires booting this slot for runtime values.",

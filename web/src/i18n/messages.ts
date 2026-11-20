@@ -277,8 +277,6 @@ export const zh = {
   builtin24: "GKI 内建 · SUSFS 2.4",
   unknownImplementation: "接口响应 · 实现未知",
   diagnostics: "设备诊断",
-  scope: "应用范围",
-  localOnly: "Studio 本地诊断偏好",
   archive: "配置归档",
   archiveNote: "归档与设备状态独立。预览只在当前浏览器会话读取 JSON。",
   archiveHostNote: "可在预览后保存到 Studio 私有目录，不会应用 SUSFS 规则。",
@@ -374,9 +372,12 @@ export const zh = {
   controlBootCurrent: "启动槽 {slot} · 当前",
   controlBootInactive: "启动槽 {slot} · 非当前启动",
   controlBootNoValues: "该启动槽没有可用的运行时字段；需要启动此槽后重新读取。",
+  controlBootEmptyImage:
+    "该槽的 boot 镜像头部为空，无法读取 uname 或 cmdline。",
+  controlBootInvalidImage: "该槽的 boot 镜像格式无效或无法解析。",
   controlBootUseHint: "选择后只更新草稿，不会立即写入设备。",
   controlCurrentRuntime: "当前运行实例",
-  controlInactiveImage: "非当前启动镜像",
+  controlBootImage: "启动镜像",
   controlUseCmdlineSource: "使用 cmdline 来源",
   controlUseBootconfigSource: "使用 bootconfig 来源",
   controlResetUname: "恢复真实内核信息",
@@ -822,8 +823,6 @@ export const en = {
   builtin24: "GKI built-in · SUSFS 2.4",
   unknownImplementation: "Responding · unknown implementation",
   diagnostics: "Device diagnostics",
-  scope: "Scope",
-  localOnly: "Local Studio diagnostic preferences",
   archive: "Configuration archive",
   archiveNote:
     "Archives are separate from device status. Preview reads JSON in this browser session.",
@@ -940,10 +939,14 @@ export const en = {
   controlBootInactive: "Boot slot {slot} · inactive",
   controlBootNoValues:
     "This slot has no available runtime fields. Boot it and refresh before using its values.",
+  controlBootEmptyImage:
+    "This slot's boot image header is empty, so uname and cmdline values cannot be read.",
+  controlBootInvalidImage:
+    "This slot's boot image is invalid or cannot be parsed.",
   controlBootUseHint:
     "Selecting a value updates only the draft and does not write to the device.",
   controlCurrentRuntime: "Active runtime",
-  controlInactiveImage: "Inactive boot image",
+  controlBootImage: "Boot image",
   controlUseCmdlineSource: "Use cmdline source",
   controlUseBootconfigSource: "Use bootconfig source",
   controlResetUname: "Restore actual kernel information",

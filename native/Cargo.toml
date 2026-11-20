@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+android-bootimg = { git = "https://github.com/5ec1cff/android_bootimg", rev = "150425b027c76ea104c82e408571651f2181b2c2" }
 libc = "0.2"
+memmap2 = "0.9"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["arbitrary_precision"] }
 sha2 = "0.10"

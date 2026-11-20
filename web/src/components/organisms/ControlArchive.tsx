@@ -61,13 +61,19 @@ function BootSlotSource({
             slot: slotName,
           },
         );
+        const missingReason =
+          slot.status === "empty-image"
+            ? t("controlBootEmptyImage")
+            : slot.status === "invalid-image"
+              ? t("controlBootInvalidImage")
+              : t("controlBootNoValues");
         if (dialog === "uname") {
           if (!slot.release || !slot.version) {
             return (
               <SettingsRow
                 key={slot.id}
                 title={title}
-                detail={t("controlBootNoValues")}
+                detail={missingReason}
                 dataAvailability="unavailable"
               />
             );
@@ -77,7 +83,7 @@ function BootSlotSource({
           const confidence = t(
             slot.release.confidence === "current-runtime"
               ? "controlCurrentRuntime"
-              : "controlInactiveImage",
+              : "controlBootImage",
           );
           return (
             <SettingsRow
@@ -101,7 +107,7 @@ function BootSlotSource({
             <SettingsRow
               key={slot.id}
               title={title}
-              detail={t("controlBootNoValues")}
+              detail={missingReason}
               dataAvailability="unavailable"
             />
           );
@@ -123,7 +129,7 @@ function BootSlotSource({
               detail={`${value.value}\n${value.source} · ${t(
                 value.confidence === "current-runtime"
                   ? "controlCurrentRuntime"
-                  : "controlInactiveImage",
+                  : "controlBootImage",
               )}`}
               disabled={disabled}
               action={() => onSelect(value.value)}

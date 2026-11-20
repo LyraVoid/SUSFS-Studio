@@ -178,6 +178,11 @@ test("manual basic settings and stopping UID management remain archive drafts un
   await expect(
     dialog.getByText("启动槽 B · 非当前启动", { exact: true }),
   ).toBeVisible();
+  await expect(
+    dialog.getByText("该槽的 boot 镜像头部为空，无法读取 uname 或 cmdline。", {
+      exact: true,
+    }),
+  ).toBeVisible();
   await currentSlot.click();
   await expect(release).toHaveValue("6.6.118-demo");
   await expect(dialog.getByLabel("uname version")).toHaveValue("Demo kernel");

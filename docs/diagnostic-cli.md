@@ -16,7 +16,7 @@
 
 Version 1 responses contain `protocol`, `requestId`, `ok`, and `data`. The status kinds are `active`, `missing`, `unknownProtocol`, and `failed`. An active result keeps implementation identity, raw evidence, capabilities, proc nodes, and authorization separate. A malformed or duplicate feature report is an unknown protocol. An unfamiliar version may remain active for inspection but is not audited.
 
-Boot facts use `studio-boot-facts/1`. The current slot is identified from `ro.boot.slot_suffix`. Release, version, cmdline, and bootconfig values are bounded reads from the active Linux runtime and carry `current-runtime` provenance. An inactive Android boot partition is listed as image evidence only; Studio does not infer its runtime values. Missing or malformed fields are omitted rather than guessed. Selecting a source changes only the WebUI draft.
+Boot facts use `studio-boot-facts/1`. The current slot is identified from `ro.boot.slot_suffix`. Release, version, cmdline, and bootconfig values are bounded reads from the active Linux runtime and carry `current-runtime` provenance. Studio also reads the inactive `boot`, `init_boot`, and `vendor_boot` images without writing them. Image-derived fields carry `boot-image` provenance, and an empty or invalid image is reported explicitly. Missing or malformed fields are omitted rather than guessed. Selecting a source changes only the WebUI draft.
 
 The native status control advertises `archiveImport`, `providerWrite`, `effectVerification`, and `adapter`. Write and effect authorization are true only after a recognized Provider snapshot and confirmed protocol-1 adapter. They do not replace per-item capability, ABI, proc-node, stage, and UID checks.
 

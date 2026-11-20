@@ -25,7 +25,7 @@ function bootField(value: unknown, limit: number): BootField | false {
     !value.source ||
     value.source.length > 128 ||
     (value.confidence !== "current-runtime" &&
-      value.confidence !== "inactive-image")
+      value.confidence !== "boot-image")
   )
     return false;
   return {
@@ -90,6 +90,10 @@ function bootFacts(value: unknown): BootFacts | false {
       ids.has(item.id) ||
       typeof item.current !== "boolean" ||
       (item.source !== "current-runtime" && item.source !== "inactive-image") ||
+      (item.status !== "current-runtime" &&
+        item.status !== "parsed-image" &&
+        item.status !== "empty-image" &&
+        item.status !== "invalid-image") ||
       !Array.isArray(item.cmdline) ||
       item.cmdline.length > 8 ||
       !Array.isArray(item.bootconfig) ||
@@ -123,6 +127,7 @@ function bootFacts(value: unknown): BootFacts | false {
       id: item.id,
       current: item.current,
       source: item.source,
+      status: item.status,
       ...(release !== undefined && { release }),
       ...(version !== undefined && { version }),
       cmdline,

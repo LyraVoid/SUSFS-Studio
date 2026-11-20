@@ -205,11 +205,6 @@ export function Settings({
       )}
       <SettingsList label={t("diagnostics")}>
         <SettingsRow
-          icon="extensions"
-          title={t("scope")}
-          detail={t("localOnly")}
-        />
-        <SettingsRow
           icon="kernel"
           title={t("kernel")}
           detail={status.device?.kernel ?? t("absent")}

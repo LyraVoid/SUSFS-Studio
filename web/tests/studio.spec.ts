@@ -948,6 +948,7 @@ test("Home and Settings keep their large app bars pinned while scrolling", async
   await nav.getByRole("link", { name: "设置" }).click();
   await expect(title).toHaveText("设置");
   await expect(header).toHaveCSS("height", "144px");
+  await expect(page.getByText("应用范围", { exact: true })).toHaveCount(0);
   await main.evaluate((element) => {
     element.scrollTop = 400;
   });

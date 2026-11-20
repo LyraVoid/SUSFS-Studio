@@ -94,6 +94,14 @@ describe("status response boundary", () => {
       slots: [
         {
           ...fixtures.active.data.provider.bootFacts.slots[0],
+          status: "trusted-image",
+        },
+      ],
+    },
+    {
+      slots: [
+        {
+          ...fixtures.active.data.provider.bootFacts.slots[0],
           release: {
             value: "x".repeat(65),
             source: "/proc/sys/kernel/osrelease",
