@@ -12,16 +12,21 @@ The device archive commands are:
 | --- | --- |
 | `studioctl stage` | Captures the current archive baseline and creates one empty, `0600`, token-named input below the private staging directory. It returns the token, upload path, baseline text, and revision. |
 | `studioctl save <token>` | Validates and consumes the staged bytes, checks the baseline under the write lock, then atomically stores the archive and receipt. The token is a fixed 32-character lowercase hexadecimal value. |
+| `studioctl import <token>` | Same transaction as save. Accepts only staged Studio archive bytes, not a configuration from another manager. |
 | `studioctl restore <token>` | Checks the staged candidate and baseline, durably preserves the current archive in a new private backup, then replaces the archive and receipt. |
 | `studioctl read` | Returns the trusted archive file's bounded UTF-8 text and SHA-256 revision. It includes a receipt only for valid content with a matching persisted receipt. Invalid or unknown JSON remains inspectable without becoming writable. |
+| `studioctl export` | Same read result as `read`, with an `export` request ID. |
 | `studioctl backups` | Lists up to 32 newest trusted automatic backups, with ID, modification time, byte count, revision, and validation state. |
 | `studioctl backup <id>` | Reads and validates one private backup. The identifier is exactly 32 lowercase hexadecimal characters; the command does not accept paths. |
+| `studioctl apply`, `studioctl verify` | Rejects with `PROVIDER_NOT_AUTHORIZED` and an empty rule result set. Neither command opens a provider write channel or reports an observed effect. |
 
 The host adapter constructs `stage` and `read` as fixed commands. For `save`, it accepts only a token returned by that adapter's own successful `stage` call and embeds only the validated hexadecimal token. Selected file names, JSON, and form values are never incorporated into a root shell command.
 
 Version 1 responses contain `protocol`, `requestId`, `ok`, and `data`. The command name is the response's `requestId`. `hello` returns `"studioctl"` as its data. A `status` response uses `data.kind` for the diagnostic result, including when the query itself fails. Rust serialization and WebUI status parsing share the [version 1 fixtures](../contracts/diagnostic-v1.json).
 
 The status result distinguishes a complete recognized response (`active`), an absent response (`missing`), a malformed or unrecognized response (`unknownProtocol`), and an indeterminate or unauthorized query (`failed`). An active response includes the version, implementation, kernel type, and capability indications. Capability indications report interface features, not verified effects or permission to change device state.
+
+An optional `data.control` advertises `archiveImport`, `providerWrite` and `effectVerification`. Studio currently advertises import support and reports the other two as false. An older tool without this advertisement is not offered a converted import and may only accept Schema 1.
 
 The implementation is reported as LKM only when both the variant and feature marker agree. Conflicting evidence leaves the implementation unknown. An implementation badge must not be inferred from the kernel type alone.
 

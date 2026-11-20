@@ -1,6 +1,6 @@
 # Rule Operation Boundary
 
-Studio's provider is read-only. Archive validation and comparison are not device application, and feature markers are not permission to write or evidence of effect. The current interface does not offer a device-rule confirmation or per-rule receipt. No rule operation is sent to the provider.
+Studio's provider is read-only. Archive validation and comparison are not device application, and feature markers are not permission to write or evidence of effect. The Home application action is disabled, and the CLI apply and verify commands return a structured rejection without sending a rule operation to the provider. No per-rule result is fabricated.
 
 ## Review matrix
 
@@ -29,3 +29,5 @@ The inspected LKM dispatch requires UID 0 and leaves the caller's result field u
 The source review found both module `post-fs-data` loading and an optional earlier loader in reference artifacts. The current live provider's response does not identify when it was loaded. A late UI session cannot establish that a pre-mount kstat snapshot was captured or schedule a future stage simply by displaying “pending reboot.” Studio does not register any such task.
 
 Provider writes remain disabled for every combination. Before enabling one, verify the exact device build, authorization and complete return semantics, startup stage, independent effect and rollback. Confirmations and receipts must distinguish accepted, failed, unknown, and independently verified effects; they must not be merged into archive save or restore.
+
+An ownership flag that disables a host's internal implementation is not a grant to Studio. Studio does not switch ownership, invoke another manager's mutation commands, or use a lower-level interface to bypass that boundary.

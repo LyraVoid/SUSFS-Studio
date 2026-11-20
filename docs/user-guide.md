@@ -29,11 +29,15 @@ Use **Settings → Demo scenario** to switch between simulated outcomes. The def
 3. Review the source file, declared numeric schema, rule count, unknown-field warning, original JSON text, and structural validation result.
 4. Compare the selection with the archive already saved on the device. Optionally select a second archive for a separate comparison. The dialog lists added, removed, and changed JSON Pointer paths. Arrays are compared by position and numeric formatting differences count as changes. Both original texts remain unchanged.
 
-Previewing validates file size, encoding, JSON syntax, the complete [Studio version-1 rule structure](archive-format.md), duplicate keys, path boundaries, redirect constraints, and exact static kstat strings. It does not apply rules or prove device compatibility. Unknown fields and exact numeric tokens remain in the original text.
+Previewing validates file size, encoding, JSON syntax, [Studio schema 1 or 2](archive-format.md), duplicate keys, path boundaries, redirect constraints, and exact static kstat strings. It does not apply rules or prove device compatibility. Unknown fields and exact numeric tokens remain in the original text.
+
+In archive preview, **Preview upgrade to Schema 2** prepares a candidate from a compatible saved version-1 archive. Review the difference before confirming the save. **SUSFS configuration exchange** converts supported configurations independently of the current provider. Review the original, mapped archive, and device diff before confirming an import. Configuration export refuses values that cannot be represented in the exchange format.
 
 ## Save and export a device archive
 
-Open **Rules → Paths**, **Disguise**, or **Redirect** to edit the saved archive without selecting a file. Disguise separates Map and kstat rules. Select a path to view or edit it, or use the add action. **Update draft** and **Remove rule** affect only the session draft. **Cancel** closes the form without applying its changes; **Discard draft** removes all pending edits. The draft follows you between the three rule pages but is not kept across a WebUI reload.
+Open **Rules → Paths**, **Disguise**, or **Redirect** to edit the saved archive without selecting a file. Disguise separates Map and kstat rules. Select a path to view or edit it, or use the add action. **Update draft** and **Remove rule** affect only the session draft. **Cancel** closes the form without applying its changes; **Discard draft** removes all pending edits. The draft follows you between rule and extension pages but is not kept across a WebUI reload.
+
+**Rules → Basic settings** edits the Schema 2 tri-state values and the archived automatic-apply preference. Priority UID, uname and command-line values are read-only without a verified application or boot-slot source. **Extensions** edits module names and mount prefixes only with a confirmed live LKM result. Even then, edits affect the archive only. **Home** keeps archive preference, device application and effect verification separate; application is disabled without verified write authorization.
 
 Paths, Map, and Redirect also support batch entry. Enter one absolute path per line, or one `source -> destination` pair per line for redirects. A rejected line, duplicate, or archive limit rejects the whole batch without changing the draft. Choose the looping flag or UID scheme once for the batch where applicable. kstat entries are edited individually.
 

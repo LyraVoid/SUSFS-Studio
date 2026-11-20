@@ -12,6 +12,7 @@ Route definitions live in [`web/src/app/routes.ts`](../web/src/app/routes.ts). T
 | Rules → Paths | `#/rules/paths` |
 | Rules → Disguise | `#/rules/disguise` |
 | Rules → Redirect | `#/rules/redirect` |
+| Rules → Basic settings | `#/rules/basic` |
 | Extensions | `#/extensions` |
 | Settings | `#/settings` |
 

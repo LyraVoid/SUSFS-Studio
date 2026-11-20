@@ -1,6 +1,6 @@
 # Studio Archive Format
 
-Studio archive version 1 is an offline JSON representation of four SUSFS rule categories. It is a Studio-owned storage format. Saving an archive does not call SUSFS, change the provider, apply a rule, or change another manager's state.
+Studio archives are an offline JSON representation of four SUSFS rule categories and, in version 2, optional settings. Saving an archive does not call SUSFS, change the provider, apply a rule, or change another manager's state.
 
 The representative fixture is [archive-v1.json](../contracts/archive-v1.json). Positive and negative boundary cases shared by Rust and TypeScript are in [archive-envelope-cases.json](../contracts/archive-envelope-cases.json).
 
@@ -21,9 +21,25 @@ The root must be a JSON object with these required fields:
 }
 ```
 
-`schema` must be the numeric token `1`. A quoted string, `1.0`, a missing schema, another number, or a different `format` value is unknown. Unknown schemas remain available as original text and are never converted or overwritten. If a known version-1 document has malformed structure or fields, it is invalid instead.
+`schema` must be the numeric token `1` or `2`. A quoted string, `1.0`, a missing schema, another number, or a different `format` value is unknown. Unknown schemas remain available as original text and are never converted or overwritten. If a known schema has malformed structure or fields, it is invalid instead.
 
 The four `rules` arrays are required. Unknown object fields are allowed at the envelope, rules, and individual-rule levels. They remain in the original text, including their original number tokens and ordering. They are not interpreted as device operations.
+
+### Version 2 fields
+
+- `settings`: optional object. `hideMounts`, `logging`, and `avcSpoof` are optional booleans or `null` (unmanaged). `priorityUidFilter` is an optional list of distinct package names, each 1–255 ASCII letters, digits, dots or underscores, excluding `.` and `..`. The sum of each name's byte length plus one must be at most 65,535. An explicitly empty list differs from an omitted filter.
+- `uname`: optional `null` or object with `release` and `version`, each a nonblank single-line string of at most 64 UTF-8 bytes and no control characters.
+- `cmdline`: optional `null` or a string shorter than 8,192 UTF-8 bytes. An empty string is allowed; a non-empty string must not be blank or contain controls other than newline and tab.
+- `lkm`: optional object with optional `hiddenModules` (up to 16 distinct names of 1–63 ASCII letters, digits or underscores) and `mountPrefixes` (up to eight distinct paths following the path rules below).
+- `automatic`: optional boolean preference. Studio does not register a boot task or apply any saved preference.
+
+Version 1 remains readable and editable without migration. A version upgrade is a previewed and separately confirmed save that changes only the schema token. The upgrade is unavailable if the old archive already uses any of the new keys as unknown metadata; Studio does not silently reinterpret them.
+
+### Configuration exchange
+
+The exchange view converts a separate SUSFS configuration format to or from Studio JSON. It never passes the original configuration to native storage or sends a command to another manager. Import accepts foreign schemas 1 and 2, with static kstat available only in foreign schema 2. Export writes foreign schema 2. Static values use exact JSON integer tokens in the exchange format and decimal strings in Studio. Redirect scopes 3 and 4 remain valid Studio values but are refused by this exchange profile. Unknown fields, rule kinds or versions are not approximated.
+
+The formats differ in presentation: import creates Studio IDs and groups rules by category while preserving within-category order; export does not carry Studio IDs. Omitted tri-state settings and unset static fields use the target format's equivalent unset representation. Missing automatic and extension values export as disabled and empty lists; an omitted UID filter remains omitted. Studio's original archive and the selected foreign file remain unchanged by conversion. Saving a converted preview requires reviewing its difference from the current archive.
 
 ## Common constraints
 
@@ -106,9 +122,9 @@ Decimal strings use `0` or a non-zero digit followed by digits. Negative signed 
 
 The browser and `studioctl preview` use the same classification cases:
 
-- `valid`: version 1 and all known structural and field constraints pass.
+- `valid`: a supported schema and all known structural and field constraints pass.
 - `invalid`: malformed JSON, invalid UTF-8, input or nesting overflow, duplicate keys, or a known version with invalid structure or fields.
-- `unknown`: a well-formed document that is not the exact Studio version-1 envelope.
+- `unknown`: a well-formed document without the Studio format and a supported schema token.
 
 Malformed input, invalid UTF-8, an oversized file, excessive depth, and damaged JSON all produce a stable invalid result. A duplicate-key document remains available for inspection but cannot be saved.
 
@@ -155,6 +171,6 @@ Export rereads `archive.json` and returns the exact UTF-8 text. Unknown fields a
 
 A trusted archive file within the size limit can be read for inspection even if its UTF-8 JSON text is invalid or uses an unknown schema. It receives no valid receipt, and native staging still refuses to overwrite it. Unsafe file types, untrusted permissions, oversized files, and undecodable bytes are not exposed through the text interface.
 
-Restore accepts a selected version-1 archive through the same staging path and baseline check as save. Under the same lock, it writes the current archive to an exclusive `0600` temporary file, synchronizes it, publishes it with an atomic no-replace rename, and synchronizes the directory before consuming the stage and replacing the archive and receipt. If the filesystem cannot publish without replacement, restore fails closed. It refuses restore when no current archive exists. An interrupted attempt can leave a temporary file or backup; neither is automatically deleted. A backup write or sync failure leaves the current archive unchanged. After archive replacement, an unconfirmed sync or receipt is result unknown: refresh and inspect before another attempt. The revision is the digest of the restored bytes and may match an earlier revision. A receipt returned by `read` is associated with those bytes, not with an individual browser request. This operation does not change kernel runtime state.
+Restore accepts a selected supported Studio archive through the same staging path and baseline check as save. Under the same lock, it writes the current archive to an exclusive `0600` temporary file, synchronizes it, publishes it with an atomic no-replace rename, and synchronizes the directory before consuming the stage and replacing the archive and receipt. If the filesystem cannot publish without replacement, restore fails closed. It refuses restore when no current archive exists. An interrupted attempt can leave a temporary file or backup; neither is automatically deleted. A backup write or sync failure leaves the current archive unchanged. After archive replacement, an unconfirmed sync or receipt is result unknown: refresh and inspect before another attempt. The revision is the digest of the restored bytes and may match an earlier revision. A receipt returned by `read` is associated with those bytes, not with an individual browser request. This operation does not change kernel runtime state.
 
 Automatic backups are the prior archives preserved by restore; normal saves do not create backups. The list returns up to 32 newest trusted files with an opaque identifier, filesystem modification time in Unix seconds, size, validation state, and SHA-256 revision for valid content. Unsafe file types, links, and permissions are excluded; malformed, unknown-schema, and oversized archives are marked unavailable. Backup reading validates the archive again and never accepts a filesystem path. The WebUI compares the returned revision with the selection and previews the exact returned text. Restoring those bytes still requires separate confirmation and validation against the latest reviewed current-archive revision.

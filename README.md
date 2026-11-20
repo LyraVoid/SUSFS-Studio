@@ -16,7 +16,7 @@ Open [SUSFS Studio](http://127.0.0.1:5176/#/).
 ## Documentation
 
 - [User guide](docs/user-guide.md) covers diagnostic states, local archive previews, and browser preferences.
-- [Archive format](docs/archive-format.md) defines version-1 validation, comparison, private storage, receipts, and export behavior.
+- [Archive format](docs/archive-format.md) defines schema validation, comparison, configuration exchange, private storage, receipts, and export behavior.
 - [WebUI maintenance guide](docs/webui-maintenance.md) covers routing, source ownership, and verification.
 - [Diagnostic CLI](docs/diagnostic-cli.md) describes the experimental read-only Android executable and its build commands.
 - [Host integration](docs/host-integration.md) records the verified bridge boundary and remaining host requirements.
