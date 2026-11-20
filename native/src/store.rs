@@ -715,6 +715,127 @@ mod tests {
     }
 
     #[test]
+    fn staged_writer_child() {
+        let Ok(path) = std::env::var("STUDIO_TEST_STORE") else {
+            return;
+        };
+        let token = std::env::var("STUDIO_TEST_TOKEN").unwrap();
+        let expected = std::env::var("STUDIO_TEST_RESULT").unwrap();
+        let store = Store::open(Path::new(&path)).unwrap();
+        match store.save_staged(&token) {
+            Ok(_) => assert_eq!(expected, "saved"),
+            Err(SaveError::BeforeCommit(error)) => {
+                assert_eq!(expected, "conflict");
+                assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+            }
+            Err(error) => panic!("unexpected result: {error:?}"),
+        }
+    }
+
+    #[test]
+    #[ignore = "run process tests serially"]
+    fn independent_processes_do_not_overwrite_a_newer_revision() {
+        let (dir, store) = test_store("process-conflict");
+        store.save(None, fixture()).unwrap();
+        let first = store.prepare().unwrap();
+        let second = store.prepare().unwrap();
+        let newer = br#"{"format":"susfs-studio","schema":1,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]},"newer":true}"#;
+        fs::write(&first.upload_path, newer).unwrap();
+        fs::write(&second.upload_path, fixture()).unwrap();
+        for (token, result) in [(&first.token, "saved"), (&second.token, "conflict")] {
+            let status = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "store::tests::staged_writer_child"])
+                .env("STUDIO_TEST_STORE", &dir)
+                .env("STUDIO_TEST_TOKEN", token)
+                .env("STUDIO_TEST_RESULT", result)
+                .status()
+                .unwrap();
+            assert!(status.success());
+        }
+        let stored = store.read().unwrap().unwrap();
+        assert_eq!(stored.bytes, newer);
+        assert_eq!(stored.receipt.unwrap().revision, revision(newer));
+        assert!(!Path::new(&first.upload_path).exists());
+        assert!(!Path::new(&second.upload_path).exists());
+        drop(store);
+        cleanup(dir);
+    }
+
+    #[test]
+    fn interrupted_writer_child() {
+        let Ok(path) = std::env::var("STUDIO_CRASH_STORE") else {
+            return;
+        };
+        let phase = std::env::var("STUDIO_CRASH_PHASE").unwrap();
+        let store = Store::open(Path::new(&path)).unwrap();
+        let _lock = store.lock().unwrap();
+        let _ = store.commit_file_with(
+            "archive.json",
+            fixture(),
+            |file, input| {
+                file.write_all(input)?;
+                if phase == "write" {
+                    std::process::exit(71);
+                }
+                Ok(())
+            },
+            |file| {
+                file.sync_all()?;
+                if phase == "file-sync" {
+                    std::process::exit(72);
+                }
+                Ok(())
+            },
+            &|dir| {
+                if phase == "rename" {
+                    std::process::exit(73);
+                }
+                dir.sync_all()
+            },
+        );
+        panic!("interruption not reached");
+    }
+
+    #[test]
+    #[ignore = "run process tests serially"]
+    fn interrupted_process_preserves_old_or_complete_new_archive() {
+        let old = br#"{"format":"susfs-studio","schema":1,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]}}"#;
+        for (phase, code) in [("write", 71), ("file-sync", 72), ("rename", 73)] {
+            let (dir, store) = test_store(phase);
+            store.save(None, old).unwrap();
+            let old_receipt = fs::read(dir.join("receipt.json")).unwrap();
+            let status = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "store::tests::interrupted_writer_child"])
+                .env("STUDIO_CRASH_STORE", &dir)
+                .env("STUDIO_CRASH_PHASE", phase)
+                .status()
+                .unwrap();
+            assert_eq!(status.code(), Some(code));
+            let stored = store.read().unwrap().unwrap();
+            assert_eq!(
+                stored.bytes,
+                if phase == "rename" { fixture() } else { old }
+            );
+            assert_eq!(fs::read(dir.join("receipt.json")).unwrap(), old_receipt);
+            assert_eq!(stored.receipt.is_some(), phase != "rename");
+            let temps = fs::read_dir(&dir)
+                .unwrap()
+                .filter(|entry| {
+                    entry
+                        .as_ref()
+                        .unwrap()
+                        .file_name()
+                        .to_string_lossy()
+                        .ends_with(".tmp")
+                })
+                .count();
+            assert_eq!(temps, usize::from(phase != "rename"));
+            drop(store);
+            cleanup(dir);
+        }
+    }
+
+    #[test]
     fn staged_round_trip_consumes_input_and_preserves_unknown_fields() {
         let (dir, store) = test_store("staged");
         let prepared = store.prepare().unwrap();

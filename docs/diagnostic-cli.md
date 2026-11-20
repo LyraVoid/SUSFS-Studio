@@ -58,11 +58,14 @@ From the repository root, with an Android NDK, the Rust Android target, and `car
 
 ```bash
 cargo test --manifest-path native/Cargo.toml --locked
+cargo test --manifest-path native/Cargo.toml --locked -- --ignored --test-threads=1
 cargo clippy --manifest-path native/Cargo.toml --locked --all-targets -- -D warnings
 (cd native && cargo ndk -t arm64-v8a -P 26 build --locked)
 ```
 
 The debug executable is written to `native/target/aarch64-linux-android/debug/studioctl`. Validate the host transport and device ABI separately before distributing it.
+
+The separate serial tests run writers in child processes against ordinary-permission temporary directories. They check a stale staged baseline and process exits after archive write, file sync, and rename. They do not simulate power loss, storage hardware failure, or every transaction boundary.
 
 ## Package the development artifacts
 
