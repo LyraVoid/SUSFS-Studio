@@ -200,12 +200,52 @@ export const zh = {
   archiveWriteFailed: "写入 native 创建的临时文件失败；设备归档未提交。",
   archiveTimeout: "设备操作超时；请刷新核对当前归档。",
   preview: "离线预览",
+  archiveInterchange: "SUSFS 配置交换",
+  archiveInterchangeNote:
+    "仅转换文件，不操作宿主。导出不包含 Studio 条目 ID；导入会重新生成 ID。",
+  archiveImportUnavailable:
+    "当前只能预览；保存转换结果需要支持归档导入的设备工具和文件桥。",
+  archiveImportFile: "选择 SUSFS 配置",
+  archiveImportOriginal: "查看未改动的配置原文",
+  archiveExportConfig: "导出 SUSFS 配置",
+  archiveInterchangeInvalid:
+    "此配置包含无效或无法无损转换的字段，或转换后的文件超过大小限制。原文未改动。",
+  archiveUpgrade: "预览升级至 Schema 2",
+  archiveUpgradeStale: "归档已变化；请关闭预览并重新检查升级。",
+  controlBasic: "基础设置",
+  controlHideMounts: "挂载隐藏",
+  controlLogging: "日志记录",
+  controlAvcSpoof: "AVC 伪装",
+  controlUnmanaged: "未管理",
+  controlOn: "开",
+  controlOff: "关",
+  controlUid: "优先 UID 过滤",
+  controlUnameRelease: "uname release",
+  controlUnameVersion: "uname version",
+  controlCmdline: "内核命令行",
+  controlNoAppSource: "没有经验证的应用 UID 列表，仅可查看归档值。",
+  controlNoBootFacts: "没有经验证的启动槽数据，仅可查看归档值。",
+  controlArchiveOnly: "编辑仅改变 Studio 归档；接口报告的能力不代表写入授权。",
+  controlNeedsUpgrade: "请先在设置的归档预览中检查并确认升级至 Schema 2。",
+  controlModules: "隐藏模块名",
+  controlPrefixes: "挂载路径前缀",
+  controlInvalidEntry: "值的格式无效、重复，或列表已达到上限。",
+  controlAddEntry: "添加：{label}",
+  controlRemoveEntry: "移除：{entry}",
+  controlNeedsLkm:
+    "扩展编辑需要当前设备确认使用 LKM；演示和过期结果不会启用编辑。",
+  controlOverview: "设备应用",
+  controlOwnerUnknown: "未验证 Studio 拥有设备配置的写入权限。",
+  controlApplyBlocked: "当前没有可授权 Studio 写入的已验证接口。",
+  controlApply: "应用到设备",
+  controlNotVerified: "归档保存与设备应用分开；当前未应用，也没有效果验证。",
+  controlAutomatic: "归档中的自动应用偏好（不会注册启动任务）",
+  controlNoReceipt: "没有设备应用回执。",
   previewPending: "当前仅预览本地 JSON 原文，解析后不保存。",
   archiveSchema: "声明的 Schema",
   archiveSchemaUnknown: "未声明或格式未知",
   archiveSchemaNote: "版本标签仅供参考；尚未验证格式兼容性或规则内容。",
-  archiveFormatValid:
-    "Studio 归档结构及部分字段通过检查；规则完整性和设备兼容性尚未验证。",
+  archiveFormatValid: "Studio 归档格式通过检查；设备兼容性与规则效果尚未验证。",
   archiveFormatInvalid: "归档内容无效或存在重复字段；原文仍保留供查看。",
   archiveAmbiguous: "检测到重复字段；对比使用解析后的值，原文未改变。",
   archiveRuleCount: "规则条目：{count}",
@@ -469,6 +509,57 @@ export const en = {
   archiveTimeout:
     "The device operation timed out. Refresh and verify the current archive.",
   preview: "Offline preview",
+  archiveInterchange: "SUSFS configuration exchange",
+  archiveInterchangeNote:
+    "File conversion only. Export omits Studio rule IDs; import generates new IDs.",
+  archiveImportUnavailable:
+    "Preview only. Saving the conversion requires a device tool with archive import support and a file bridge.",
+  archiveImportFile: "Select a SUSFS configuration",
+  archiveImportOriginal: "View the unchanged source configuration",
+  archiveExportConfig: "Export SUSFS configuration",
+  archiveInterchangeInvalid:
+    "The configuration has invalid or unrepresentable fields, or conversion exceeds the file size limit. The source is unchanged.",
+  archiveUpgrade: "Preview upgrade to Schema 2",
+  archiveUpgradeStale:
+    "The archive changed. Close the preview and review the upgrade again.",
+  controlBasic: "Basic settings",
+  controlHideMounts: "Hide mounts",
+  controlLogging: "Logging",
+  controlAvcSpoof: "AVC spoofing",
+  controlUnmanaged: "Unmanaged",
+  controlOn: "On",
+  controlOff: "Off",
+  controlUid: "Priority UID filter",
+  controlUnameRelease: "uname release",
+  controlUnameVersion: "uname version",
+  controlCmdline: "Kernel command line",
+  controlNoAppSource:
+    "No verified application UID list. Only the archived value can be viewed.",
+  controlNoBootFacts:
+    "No verified boot-slot facts. Only the archived value can be viewed.",
+  controlArchiveOnly:
+    "Edits change the Studio archive only. Reported capabilities are not write authorization.",
+  controlNeedsUpgrade:
+    "Review and confirm an upgrade to Schema 2 in the archive preview in Settings.",
+  controlModules: "Hidden module names",
+  controlPrefixes: "Mount path prefixes",
+  controlInvalidEntry:
+    "The value is invalid or duplicated, or the list is full.",
+  controlAddEntry: "Add: {label}",
+  controlRemoveEntry: "Remove: {entry}",
+  controlNeedsLkm:
+    "Editing extensions requires a confirmed live LKM provider. Demo and stale results do not enable editing.",
+  controlOverview: "Device application",
+  controlOwnerUnknown:
+    "Studio has no verified write authorization for the device configuration.",
+  controlApplyBlocked:
+    "No verified interface can authorize Studio to apply changes.",
+  controlApply: "Apply to device",
+  controlNotVerified:
+    "Saving an archive is separate from applying it. Studio has not applied changes or verified their effects.",
+  controlAutomatic:
+    "Archived automatic apply preference (does not register startup tasks)",
+  controlNoReceipt: "No device application receipt.",
   previewPending:
     "This previews local JSON only. The parsed result is not saved.",
   archiveSchema: "Declared schema",

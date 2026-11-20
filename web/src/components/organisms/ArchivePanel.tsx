@@ -13,7 +13,13 @@ import {
   hasArchiveWriter,
   writeArchive,
 } from "../../features/config/archiveSave";
-import { compareArchives, previewArchive } from "../../features/config/preview";
+import { exportConfig, importConfig } from "../../features/config/interchange";
+import {
+  compareArchives,
+  inspectArchive,
+  previewArchive,
+} from "../../features/config/preview";
+import { upgradeArchive } from "../../features/config/ruleEdits";
 import type { Message, Translate } from "../../i18n/messages";
 import {
   type ArchiveBackup,
@@ -72,13 +78,13 @@ export function ArchiveDifference({
   );
 }
 
-function download(text: string, revision?: string) {
+function download(text: string, revision?: string, filename?: string) {
   const suffix = revision?.slice(0, 12) ?? "archive";
   const link = document.createElement("a");
   link.href = URL.createObjectURL(
     new Blob([text], { type: "application/json" }),
   );
-  link.download = `susfs-studio-${suffix}.json`;
+  link.download = filename ?? `susfs-studio-${suffix}.json`;
   link.hidden = true;
   document.body.append(link);
   link.click();
@@ -89,9 +95,11 @@ function download(text: string, revision?: string) {
 export function ArchivePanel({
   t,
   archive,
+  archiveImport,
 }: {
   t: Translate;
   archive?: ArchiveBridge;
+  archiveImport: boolean;
 }) {
   const [opened, setOpened] = useState(false);
   const [result, setResult] = useState<Preview>();
@@ -101,6 +109,9 @@ export function ArchivePanel({
   const [source, setSource] = useState<string>();
   const [confirming, setConfirming] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [original, setOriginal] = useState<string>();
+  const [upgradeBase, setUpgradeBase] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [loadingSaved, setLoadingSaved] = useState(false);
@@ -185,8 +196,9 @@ export function ArchivePanel({
     }
   };
 
-  const open = (restore = false) => {
+  const open = (restore = false, interchange = false) => {
     setRestoring(restore);
+    setImporting(interchange);
     setOpened(true);
     setOperationError(undefined);
     setReceipt(undefined);
@@ -210,13 +222,15 @@ export function ArchivePanel({
     setSaved(undefined);
     setComparison(undefined);
     setSource(undefined);
+    setOriginal(undefined);
+    setUpgradeBase(undefined);
     setConfirming(false);
     setOperationError(undefined);
     setReceipt(undefined);
     setNeedsVerification(false);
   };
 
-  const exportSaved = async () => {
+  const exportSaved = async (interchange = false) => {
     const id = savedRequest.current;
     setOperationError(undefined);
     try {
@@ -226,7 +240,11 @@ export function ArchivePanel({
         setOperationError("archiveNoSaved");
         return;
       }
-      download(current.text, current.revision);
+      if (interchange) {
+        const text = exportConfig(current.text);
+        if (!text) setOperationError("archiveInterchangeInvalid");
+        else download(text, undefined, "susfs-config.json");
+      } else download(current.text, current.revision);
     } catch (error) {
       if (id === savedRequest.current)
         setOperationError(archiveErrorMessage(error));
@@ -245,7 +263,14 @@ export function ArchivePanel({
       !saved ||
       (saved.kind === "saved" && savedResult?.formatStatus !== "valid") ||
       result.error ||
-      result.formatStatus !== "valid"
+      result.formatStatus !== "valid" ||
+      result.unrepresentable ||
+      (upgradeBase !== undefined && saved.text !== upgradeBase) ||
+      (importing &&
+        (!archiveImport ||
+          !archive.import ||
+          !savedResult?.value ||
+          compareArchives(savedResult.value, result.value).truncated))
     )
       return;
     committing.current = true;
@@ -254,11 +279,28 @@ export function ArchivePanel({
     setOperationError(undefined);
     setReceipt(undefined);
     try {
-      const next = await writeArchive(archive, saved, result.bytes, restoring);
+      const next = await writeArchive(
+        archive,
+        saved,
+        result.bytes,
+        restoring ? "restore" : importing ? "import" : "save",
+      );
+      const persisted = await archive.read().catch(() => undefined);
+      if (
+        persisted?.text !== result.text ||
+        persisted.revision !== next.revision ||
+        persisted.receiptStatus !== "available" ||
+        persisted.receipt?.revision !== next.revision ||
+        persisted.receipt.bytes !== result.bytes.length ||
+        persisted.receipt.savedAt !== next.savedAt ||
+        next.bytes !== result.bytes.length
+      )
+        throw new ArchiveCommandError("RESULT_UNKNOWN");
       setReceipt(next);
+      setSaved(persisted);
+      setSavedResult(result);
       setConfirming(false);
       setNeedsVerification(false);
-      await refreshSaved();
       if (restoring) void refreshBackups();
     } catch (error) {
       const message = archiveErrorMessage(error);
@@ -282,8 +324,13 @@ export function ArchivePanel({
   const hasWriter = hasArchiveWriter(archive);
   const canSave =
     hasWriter &&
+    (!importing || (archiveImport && !!archive?.import)) &&
     (saved?.kind === "empty" || savedResult?.formatStatus === "valid");
   const valid = result && !result.error && result.formatStatus === "valid";
+  const upgrade =
+    !restoring && !importing && !result && saved?.text
+      ? upgradeArchive(saved.text)
+      : undefined;
 
   return (
     <>
@@ -324,6 +371,13 @@ export function ArchivePanel({
           disabled={!hasWriter || !archive?.restore}
           action={hasWriter && archive?.restore ? () => open(true) : undefined}
         />
+        <SettingsRow
+          icon="archive"
+          title={t("archiveInterchange")}
+          detail={t("archiveInterchangeNote")}
+          action={() => open(false, true)}
+          trailing={<Icon name="chevron" />}
+        />
       </SettingsList>
       <Modal
         opened={opened}
@@ -333,7 +387,7 @@ export function ArchivePanel({
         title={
           confirming
             ? t(restoring ? "archiveConfirmRestore" : "archiveConfirmSave")
-            : t("preview")
+            : t(importing ? "archiveInterchange" : "preview")
         }
         classNames={{ content: styles.dialog, header: styles.dialogHeader }}
         closeButtonProps={{ "aria-label": t("close") }}
@@ -342,6 +396,9 @@ export function ArchivePanel({
           {!confirming ? (
             <>
               <p>{t(restoring ? "archiveRestoreDetail" : "previewPending")}</p>
+              {importing && (!archiveImport || !archive?.import) && (
+                <p>{t("archiveImportUnavailable")}</p>
+              )}
               <section aria-label={t("archiveDeviceState")}>
                 <strong>{t("archiveDeviceState")}:</strong>{" "}
                 {loadingSaved
@@ -366,6 +423,18 @@ export function ArchivePanel({
                     </Alert>
                   )}
               </section>
+              {upgrade && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setResult(inspectArchive(upgrade));
+                    setSource(t("archiveUpgrade"));
+                    setUpgradeBase(saved?.text);
+                  }}
+                >
+                  {t("archiveUpgrade")}
+                </Button>
+              )}
               {restoring && (
                 <NativeSelect
                   size="md"
@@ -415,7 +484,7 @@ export function ArchivePanel({
               <FileInput
                 size="md"
                 classNames={{ input: styles.file }}
-                label={t("archiveFile")}
+                label={t(importing ? "archiveImportFile" : "archiveFile")}
                 value={file}
                 accept=".json,application/json"
                 clearable
@@ -427,18 +496,31 @@ export function ArchivePanel({
                   compareRequest.current++;
                   setComparison(undefined);
                   setResult(undefined);
+                  setOriginal(undefined);
+                  setUpgradeBase(undefined);
                   setSource(undefined);
                   setOperationError(undefined);
                   setReceipt(undefined);
                   if (!file) return;
                   const preview = await previewArchive(file);
                   if (id === request.current) {
-                    setResult(preview);
                     setSource(file.name);
+                    if (importing && !preview.error) {
+                      setOriginal(preview.text);
+                      const mapped = importConfig(preview.text);
+                      if (mapped) setResult(inspectArchive(mapped));
+                      else setOperationError("archiveInterchangeInvalid");
+                    } else setResult(preview);
                   }
                 }}
               />
               {result?.error && <p role="alert">{t(result.error)}</p>}
+              {original !== undefined && (
+                <details>
+                  <summary>{t("archiveImportOriginal")}</summary>
+                  <pre className={styles.preview}>{original}</pre>
+                </details>
+              )}
               {result && !result.error && (
                 <>
                   <section aria-label={t("archiveSource")}>
@@ -535,6 +617,9 @@ export function ArchivePanel({
                   {t(operationError)}
                 </Alert>
               )}
+              {upgradeBase !== undefined &&
+                saved?.text !== upgradeBase &&
+                !receipt && <p role="alert">{t("archiveUpgradeStale")}</p>}
               <Group justify="space-between">
                 <Button
                   variant="subtle"
@@ -549,14 +634,21 @@ export function ArchivePanel({
                   <Button
                     variant="outline"
                     disabled={saved?.kind !== "saved"}
-                    onClick={() => void exportSaved()}
+                    onClick={() => void exportSaved(importing)}
                   >
-                    {t("export")}
+                    {t(importing ? "archiveExportConfig" : "export")}
                   </Button>
                   <Button
                     disabled={
                       !canSave ||
                       !valid ||
+                      result.unrepresentable ||
+                      (upgradeBase !== undefined &&
+                        saved?.text !== upgradeBase) ||
+                      (importing &&
+                        (!savedResult?.value ||
+                          compareArchives(savedResult.value, result.value)
+                            .truncated)) ||
                       needsVerification ||
                       (restoring && saved?.kind !== "saved")
                     }

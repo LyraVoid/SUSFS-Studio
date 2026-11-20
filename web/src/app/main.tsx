@@ -41,7 +41,10 @@ function App() {
   );
   const { status, stale } = useStatus(selection, request, source);
   const archive = source.kind === "host" ? source.archive : undefined;
-  const rules = useRuleArchive(archive, route?.startsWith("/rules/") ?? false);
+  const rules = useRuleArchive(
+    archive,
+    route !== undefined && route !== "/settings",
+  );
   const t = translator(locale);
   useEffect(() => {
     document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
@@ -60,6 +63,7 @@ function App() {
           bridgeUnavailable={source.kind === "unavailable"}
           stale={stale}
           refresh={() => setRequest((id) => id + 1)}
+          archive={rules.base}
           t={t}
         />
       ) : route === "/settings" ? (

@@ -1,5 +1,9 @@
 import type { RuleRoute } from "../app/routes";
 import { Capabilities } from "../components/organisms/Capabilities";
+import {
+  BasicArchive,
+  LkmArchive,
+} from "../components/organisms/ControlArchive";
 import styles from "../components/organisms/Panels.module.css";
 import { RuleArchive } from "../components/organisms/RuleArchive";
 import type { RuleGroup } from "../features/config/ruleEdits";
@@ -13,6 +17,7 @@ const rules: Record<
   RuleRoute,
   { label: Message; fields: Capability[]; groups: RuleGroup[] }
 > = {
+  "/rules/basic": { label: "controlBasic", fields: [], groups: [] },
   "/rules/paths": { label: "paths", fields: ["paths"], groups: ["paths"] },
   "/rules/disguise": {
     label: "disguise",
@@ -44,6 +49,12 @@ export function CapabilityPage({
   t: Translate;
 }) {
   const rule = route === "/extensions" ? undefined : rules[route];
+  const lkm =
+    route === "/extensions" &&
+    !demo &&
+    !stale &&
+    status.kind === "active" &&
+    status.provider.implementation === "lkm";
   return (
     <>
       <header className={page.header}>
@@ -63,32 +74,38 @@ export function CapabilityPage({
           ))}
         </nav>
       )}
-      {rule && (
+      {(rule || lkm) && (
         <RuleArchive
           key={route}
-          groups={rule.groups}
+          groups={rule?.groups ?? []}
           state={archive}
           demo={demo}
           connected={connected}
           t={t}
-        />
+        >
+          {route === "/rules/basic" && <BasicArchive state={archive} t={t} />}
+          {lkm && <LkmArchive state={archive} t={t} />}
+        </RuleArchive>
       )}
-      <section className={styles.panel}>
-        <h2>{t("compatibility")}</h2>
-        <Capabilities
-          status={status}
-          demo={demo}
-          stale={stale}
-          fields={rule?.fields ?? ["extensions"]}
-          t={t}
-        />
-        <p className={styles.muted}>
-          {t(demo ? "fixtureOnly" : "hostCapabilities")}
-        </p>
-        {route === "/rules/disguise" && (
-          <p className={styles.muted}>{t("stage")}</p>
-        )}
-      </section>
+      {route === "/extensions" && !lkm && <p>{t("controlNeedsLkm")}</p>}
+      {route !== "/rules/basic" && (
+        <section className={styles.panel}>
+          <h2>{t("compatibility")}</h2>
+          <Capabilities
+            status={status}
+            demo={demo}
+            stale={stale}
+            fields={rule?.fields ?? ["extensions"]}
+            t={t}
+          />
+          <p className={styles.muted}>
+            {t(demo ? "fixtureOnly" : "hostCapabilities")}
+          </p>
+          {route === "/rules/disguise" && (
+            <p className={styles.muted}>{t("stage")}</p>
+          )}
+        </section>
+      )}
       <p className={styles.muted}>
         {t(rule ? "ruleReadOnly" : "extensionNote")}
       </p>

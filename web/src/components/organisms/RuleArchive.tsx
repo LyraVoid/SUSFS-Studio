@@ -1,5 +1,5 @@
 import { Alert, Button, Group, Modal, Stack } from "@mantine/core";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { compareArchives } from "../../features/config/preview";
 import {
   type Rule,
@@ -43,12 +43,14 @@ export function RuleArchive({
   state,
   demo,
   connected,
+  children,
   t,
 }: {
   groups: RuleGroup[];
   state: ReturnType<typeof useRuleArchive>;
   demo: boolean;
   connected: boolean;
+  children?: ReactNode;
   t: Translate;
 }) {
   const [dialog, setDialog] = useState<Dialog>();
@@ -139,6 +141,7 @@ export function RuleArchive({
           </Button>
         )}
       </section>
+      {children}
       {groups.map((group) => {
         const entries = current ? readRules(current, group) : [];
         return (

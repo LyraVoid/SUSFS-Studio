@@ -139,7 +139,11 @@ export function Settings({
           detail={status.device?.kernel ?? t("absent")}
         />
       </SettingsList>
-      <ArchivePanel archive={archive} t={t} />
+      <ArchivePanel
+        archive={archive}
+        archiveImport={status.archiveImport === true}
+        t={t}
+      />
     </>
   );
 }

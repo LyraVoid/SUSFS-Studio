@@ -3,6 +3,7 @@ export const routes = [
   "/rules/paths",
   "/rules/disguise",
   "/rules/redirect",
+  "/rules/basic",
   "/extensions",
   "/settings",
 ] as const;

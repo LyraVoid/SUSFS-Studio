@@ -11,9 +11,14 @@ import {
   writeArchive,
 } from "./archiveSave";
 import { inspectArchive } from "./preview";
-import { applyRuleEdit, emptyArchive, type RuleEdit } from "./ruleEdits";
+import {
+  applyRuleEdit,
+  emptyArchive,
+  type RuleEdit,
+  type SettingsEdit,
+} from "./ruleEdits";
 
-type Draft = { text: string; edits: RuleEdit[] };
+type Draft = { text: string; edits: (RuleEdit | SettingsEdit)[] };
 
 export function useRuleArchive(
   archive: ArchiveBridge | undefined,
@@ -42,7 +47,7 @@ export function useRuleArchive(
     !rebaseBlocked &&
     !loading &&
     !saving;
-  const edit = (change: RuleEdit | RuleEdit[]) => {
+  const edit = (change: RuleEdit | SettingsEdit | RuleEdit[]) => {
     if (!canEdit || !current) return false;
     const edits = Array.isArray(change) ? change : [change];
     let text = current.text;
