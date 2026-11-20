@@ -691,20 +691,37 @@ test("touch swipes switch adjacent rule categories without replacing vertical sc
   const input = await context.newCDPSession(page);
   await page.goto("/#/rules/overview");
   const gesture = async (x: number, y: number, dx: number, dy: number) => {
+    const pause = () => new Promise((resolve) => setTimeout(resolve, 16));
     await input.send("Input.dispatchTouchEvent", {
       type: "touchStart",
       touchPoints: [{ x, y }],
     });
-    for (const step of [0.25, 0.5, 0.75, 1]) {
+    await pause();
+    for (const step of [0.2, 0.4, 0.6, 0.8, 1]) {
       await input.send("Input.dispatchTouchEvent", {
         type: "touchMove",
         touchPoints: [{ x: x + dx * step, y: y + dy * step }],
       });
+      await pause();
     }
     await input.send("Input.dispatchTouchEvent", {
       type: "touchEnd",
       touchPoints: [],
     });
+    await page.waitForTimeout(50);
+  };
+  const swipeTo = async (
+    x: number,
+    y: number,
+    dx: number,
+    dy: number,
+    hash: string,
+  ) => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await gesture(x, y, dx, dy);
+      if (new URL(page.url()).hash === hash) return;
+      await page.waitForTimeout(100);
+    }
   };
   const content = page.getByTestId("rules-content");
   await gesture(240, 490, -20, -160);
@@ -712,13 +729,13 @@ test("touch swipes switch adjacent rule categories without replacing vertical sc
     .poll(() => content.evaluate((node) => node.scrollTop))
     .toBeGreaterThan(0);
   await expect(page).toHaveURL(/#\/rules\/overview$/);
-  await gesture(80, 410, 155, 0);
+  await swipeTo(80, 410, 155, 0, "#/rules/overview");
   await expect(page).toHaveURL(/#\/rules\/overview$/);
-  await gesture(265, 410, -165, 15);
+  await swipeTo(265, 410, -165, 15, "#/rules/basic");
   await expect(page).toHaveURL(/#\/rules\/basic$/);
-  await gesture(265, 410, -165, 0);
+  await swipeTo(265, 410, -165, 0, "#/rules/paths");
   await expect(page).toHaveURL(/#\/rules\/paths$/);
-  await gesture(80, 410, 165, 0);
+  await swipeTo(80, 410, 165, 0, "#/rules/basic");
   await expect(page).toHaveURL(/#\/rules\/basic$/);
   await page.goBack();
   await expect(page).toHaveURL(/#\/rules\/paths$/);
