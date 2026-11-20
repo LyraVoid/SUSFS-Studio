@@ -71,6 +71,9 @@ export function CapabilityPage({
     !stale && status.kind === "active" ? status.provider : undefined;
   const chrome = useRef<HTMLDivElement>(null);
   const navigation = useRef<HTMLElement>(null);
+  const swipe = useRef<{ id: number; x: number; y: number } | undefined>(
+    undefined,
+  );
   useLayoutEffect(() => {
     const nav = navigation.current;
     const active = nav?.querySelector<HTMLElement>(`a[href="#${route}"]`);
@@ -127,6 +130,48 @@ export function CapabilityPage({
       <div
         className={pageStyles.rulesContent}
         data-testid="rules-content"
+        onTouchStart={(event) => {
+          swipe.current = undefined;
+          const touch = event.touches[0];
+          if (
+            event.touches.length !== 1 ||
+            !touch ||
+            !(event.target instanceof Element) ||
+            !event.currentTarget.contains(event.target) ||
+            event.target.closest(
+              "input, textarea, select, [contenteditable]",
+            ) ||
+            touch.clientX < 24 ||
+            touch.clientX > window.innerWidth - 24
+          )
+            return;
+          swipe.current = {
+            id: touch.identifier,
+            x: touch.clientX,
+            y: touch.clientY,
+          };
+        }}
+        onTouchCancel={() => {
+          swipe.current = undefined;
+        }}
+        onTouchEnd={(event) => {
+          const start = swipe.current;
+          swipe.current = undefined;
+          if (!start || event.touches.length) return;
+          const end = Array.from(event.changedTouches).find(
+            (touch) => touch.identifier === start.id,
+          );
+          if (!end) return;
+          const dx = end.clientX - start.x;
+          if (
+            Math.abs(dx) < 56 ||
+            Math.abs(dx) < Math.abs(end.clientY - start.y) * 1.5
+          )
+            return;
+          const index = tabs.findIndex(([path]) => path === route);
+          const next = tabs[index + (dx < 0 ? 1 : -1)];
+          if (next) window.location.hash = next[0];
+        }}
         onScroll={(event) => {
           if (chrome.current)
             syncAppBar(chrome.current, event.currentTarget.scrollTop);

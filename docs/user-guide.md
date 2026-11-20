@@ -10,6 +10,8 @@ Follow the [browser preview instructions](../README.md#browser-preview) to open 
 
 Open **Rules** for the complete SUSFS surface. Its six tabs are **Overview**, **Basic settings**, **Path hiding**, **File disguise**, **Redirect**, and **Extensions**. The global **Refresh** action rereads diagnostics and the private archive.
 
+Swipe left or right across the Rules content to move to the next or previous category. Vertical scrolling, edge gestures, and controls inside dialogs are unaffected.
+
 | Home state | Meaning |
 | --- | --- |
 | Active | The current diagnostic result reports a confirmed interface response. The SUSFS version is shown below the label. |

@@ -107,6 +107,7 @@
   outline-color: var(--on-secondary-container);
 }
 .rulesContent {
+  touch-action: pan-y pinch-zoom;
   grid-row: 1;
   grid-column: 1;
   min-height: 0;

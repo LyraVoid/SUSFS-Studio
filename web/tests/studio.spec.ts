@@ -396,6 +396,51 @@ test("settings menu follows different touch positions on the same row", async ({
   await context.close();
 });
 
+test("touch swipes switch adjacent rule categories without replacing vertical scroll", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    viewport: { width: 360, height: 805 },
+  });
+  const page = await context.newPage();
+  const input = await context.newCDPSession(page);
+  await page.goto("/#/rules/overview");
+  const gesture = async (x: number, y: number, dx: number, dy: number) => {
+    await input.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x, y }],
+    });
+    for (const step of [0.25, 0.5, 0.75, 1]) {
+      await input.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: x + dx * step, y: y + dy * step }],
+      });
+    }
+    await input.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+  };
+  const content = page.getByTestId("rules-content");
+  await gesture(240, 490, -20, -160);
+  await expect
+    .poll(() => content.evaluate((node) => node.scrollTop))
+    .toBeGreaterThan(0);
+  await expect(page).toHaveURL(/#\/rules\/overview$/);
+  await gesture(80, 410, 155, 0);
+  await expect(page).toHaveURL(/#\/rules\/overview$/);
+  await gesture(265, 410, -165, 15);
+  await expect(page).toHaveURL(/#\/rules\/basic$/);
+  await gesture(265, 410, -165, 0);
+  await expect(page).toHaveURL(/#\/rules\/paths$/);
+  await gesture(80, 410, 165, 0);
+  await expect(page).toHaveURL(/#\/rules\/basic$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/rules\/paths$/);
+  await context.close();
+});
+
 test("Rules tabs keep the selected category visible", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 805 });
   await page.goto("/#/rules/extensions");
