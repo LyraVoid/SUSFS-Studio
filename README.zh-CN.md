@@ -2,6 +2,8 @@
 
 # SUSFS Studio
 
+由 **LyraVoid 和 matsuzaka-yuki** 开发。
+
 [English](README.md) · 简体中文
 
 SUSFS Studio 是面向已提供 SUSFS 的 Android 设备的独立 WebUI。它无需修改宿主管理器，即可查看设备能力、管理配置归档，并审阅受支持的操作及其结果。
@@ -41,13 +43,19 @@ SUSFS Studio 是面向已提供 SUSFS 的 Android 设备的独立 WebUI。它无
 
 ## 兼容性与安全
 
-目前已在特定的 **GKI-LKM SUSFS 2.3.0** 和 **GKI 内建 SUSFS 2.4.0** 组合上验证部分操作。这不代表所有内核、管理器、Provider 版本或操作均受支持。具体环境、已测项目和缺口见[兼容性证据矩阵](docs/host-integration.md#compatibility-evidence-matrix)。
+Studio 已实现 SUSFS 2.3 与 2.4 协议的主要功能：普通与循环路径、Map、动态／全克隆／静态 kstat、重定向、隐藏挂载／日志／AVC 三态设置、uname、cmdline／bootconfig、LKM 模块隐藏、挂载前缀和 Priority UID 过滤。每项操作仍受 Provider 报告的能力、实现类型、proc 扩展和启动阶段限制。
+
+设备验证覆盖了特定的 **GKI-LKM SUSFS 2.3.0** 和 **GKI 内建 SUSFS 2.4.0** 组合。其他 Provider 构建使用同一套协议，但在实测前仍标记为未验证；不支持的能力和阶段会被拦截，而不是默认可用。具体环境、已测项目和缺口见[兼容性证据矩阵](docs/host-integration.md#compatibility-evidence-matrix)。
 
 部分宿主 WebUI 桥提供通用的高权限命令和文件接口。Studio 会限制自己的调用，但无法保证宿主对导航或来源进行了隔离。使用前请阅读[安全模型](docs/security-model.md)和[宿主集成说明](docs/host-integration.md)。
 
-## 开发
+## 技术栈
 
-WebUI 使用 React、TypeScript、Vite、pnpm 和 Mantine；Android arm64 诊断与事务工具使用 Rust。
+**WebUI**：React 19、严格模式 TypeScript，使用 Vite 7 与 pnpm 12 构建。Mantine 8 提供可访问控件，最终外观由 CSS Modules 与项目令牌控制；Material Color Utilities 按 HCT 生成浅色与深色配色；`lossless-json` 精确保留数字文本。路由采用哈希路径，运行时资源全部随包分发，界面提供简体中文与英文。检查工具为 Biome、TypeScript、Vitest、Playwright 与 axe。
+
+**用户态与原生层**：单个 Rust 2024 编写的 `studioctl` 可执行文件，使用 `cargo-ndk` 交叉编译到 Android arm64（API 26 及以上）。依赖包括支持任意精度数字的 `serde`/`serde_json`、用于归档修订摘要的 `sha2`、`memmap2`，以及处理启动镜像的 `android-bootimg`。程序实现 protocol-1 诊断查询，以及 protocol-2 的操作计划、预写日志、执行、效果与恢复命令。模块脚本（`customize.sh`、`post-fs-data.sh`、`service.sh`）只负责准备模块、运行 Studio 自己的启动阶段，并把配置保存在私有目录 `/data/adb/susfs-studio/`。后台不常驻守护进程，也不开启网络监听。
+
+## 开发
 
 使用 Node.js 22.12 或更高版本、pnpm 12.21.0 启动浏览器预览：
 
@@ -71,4 +79,5 @@ pnpm --dir web dev --host 127.0.0.1 --port 5176 --strictPort
 
 ## 致谢
 
-由 **LyraVoid 和 matsuzaka-yuki** 开发。
+- [Shirone](https://github.com/LyraVoid/Shirone)：前端工程结构与部分 Material 3 Expressive 组件设计的参考。
+- [susfs4ksu-module](https://github.com/sidex15/susfs4ksu-module)：独立 SUSFS 管理模块思路的参考。Studio 不分发、也不调用它的用户态工具。

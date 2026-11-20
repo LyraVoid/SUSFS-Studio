@@ -2,6 +2,8 @@
 
 # SUSFS Studio
 
+Developed by **LyraVoid and matsuzaka-yuki**.
+
 English · [简体中文](README.zh-CN.md)
 
 SUSFS Studio is an independent WebUI for Android devices with SUSFS. It shows device capabilities, manages configuration archives, and lets you review supported operations and their results without modifying the host manager.
@@ -41,13 +43,19 @@ Match the full kernel/KMI and provider build, check the provider's compatibility
 
 ## Compatibility and security
 
-Device testing has covered specific **GKI-LKM SUSFS 2.3.0** and **GKI Built-In SUSFS 2.4.0** combinations and operations. This does not establish support for every kernel, manager, provider version, or operation. See the [compatibility evidence matrix](docs/host-integration.md#compatibility-evidence-matrix) for exact environments, tested operations, and gaps.
+Studio implements the SUSFS 2.3 and 2.4 protocol surfaces: regular and looping paths, Map, dynamic/full-clone/static kstat, redirects, hide-mount/logging/AVC tri-state settings, uname, cmdline/bootconfig, hidden LKM modules, mount prefixes, and Priority UID filtering. Each operation is still gated by the Provider's reported capability, implementation type, proc extensions, and boot stage.
+
+Device testing has covered specific **GKI-LKM SUSFS 2.3.0** and **GKI Built-In SUSFS 2.4.0** combinations. Other Provider builds use the same protocol layers but remain unaudited until tested; unsupported features and stages are blocked rather than assumed. See the [compatibility evidence matrix](docs/host-integration.md#compatibility-evidence-matrix) for exact environments, tested operations, and gaps.
 
 Some host WebUI bridges expose general-purpose privileged command and file interfaces. Studio restricts its own calls, but cannot guarantee the host's navigation or origin isolation. Review the [security model](docs/security-model.md) and [host integration notes](docs/host-integration.md) before use.
 
-## Development
+## Tech stack
 
-The WebUI uses React, TypeScript, Vite, pnpm, and Mantine. The Android arm64 diagnostic and transaction executable is written in Rust.
+**WebUI** — React 19 and strict TypeScript, built with Vite 7 and pnpm 12. Mantine 8 supplies accessible controls while CSS Modules and project tokens control the final appearance. Material Color Utilities generates the HCT-based light and dark palettes. `lossless-json` preserves numeric tokens exactly. Routing is hash-based, and all runtime assets are bundled for offline use. The interface ships in Simplified Chinese and English. Biome, TypeScript, Vitest, Playwright, and axe form the check suite.
+
+**Userspace and native layer** — a single Rust 2024 `studioctl` binary cross-compiled with `cargo-ndk` for Android arm64 (API 26+). It uses `serde`/`serde_json` with arbitrary-precision numbers, `sha2` for archive revisions, `memmap2`, and `android-bootimg` for boot-image handling. The executable implements the protocol-1 diagnostic query and the protocol-2 plan, write-ahead journal, operation, effect, and recovery commands. Module scripts (`customize.sh`, `post-fs-data.sh`, `service.sh`) only prepare the module, run Studio-owned boot stages, and keep configuration under the private `/data/adb/susfs-studio/` store. No daemon or network listener runs in the background.
+
+## Development
 
 To run the browser preview with Node.js 22.12 or later and pnpm 12.21.0:
 
@@ -69,6 +77,7 @@ Open [the local preview](http://127.0.0.1:5176/#/). It uses simulated data and d
 - [Module releases](docs/releases.md) — build and release procedures.
 - [Design specification](DESIGN.md) — visual tokens and layout requirements.
 
-## Credits
+## Acknowledgements
 
-Developed by **LyraVoid and matsuzaka-yuki**.
+- [Shirone](https://github.com/LyraVoid/Shirone) — reference for frontend engineering structure and parts of the Material 3 Expressive component design.
+- [susfs4ksu-module](https://github.com/sidex15/susfs4ksu-module) — reference for the independent SUSFS management module approach. Studio does not bundle or call its userspace tools.
