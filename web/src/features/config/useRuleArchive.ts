@@ -42,12 +42,17 @@ export function useRuleArchive(
     !rebaseBlocked &&
     !loading &&
     !saving;
-  const edit = (change: RuleEdit) => {
+  const edit = (change: RuleEdit | RuleEdit[]) => {
     if (!canEdit || !current) return false;
-    const text = applyRuleEdit(current.text, change);
-    if (text === undefined) return false;
+    const edits = Array.isArray(change) ? change : [change];
+    let text = current.text;
+    for (const entry of edits) {
+      const next = applyRuleEdit(text, entry);
+      if (next === undefined) return false;
+      text = next;
+    }
     if (text !== current?.text) {
-      setDraft({ text, edits: [...(draft?.edits ?? []), change] });
+      setDraft({ text, edits: [...(draft?.edits ?? []), ...edits] });
       setVerified(false);
       setError(undefined);
     }

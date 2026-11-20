@@ -9,6 +9,7 @@ import {
 import type { useRuleArchive } from "../../features/config/useRuleArchive";
 import type { Message, Translate } from "../../i18n/messages";
 import { Icon } from "../atoms/Icon";
+import { BatchRuleForm } from "../molecules/BatchRuleForm";
 import { modeLabels, RuleForm } from "../molecules/RuleForm";
 import { SettingsList, SettingsRow } from "../molecules/SettingsList";
 import { ArchiveDifference } from "./ArchivePanel";
@@ -21,10 +22,16 @@ const groupLabels = {
   kstats: "kstatRules",
   redirects: "redirectRules",
 } satisfies Record<RuleGroup, Message>;
+const groupHints = {
+  paths: "rulePathHint",
+  maps: "ruleMapHint",
+  kstats: "ruleKstatHint",
+  redirects: "ruleRedirectHint",
+} satisfies Record<RuleGroup, Message>;
 
 type Dialog =
   | {
-      kind: "edit" | "remove";
+      kind: "edit" | "remove" | "batch";
       group: RuleGroup;
       rule?: Rule;
       staticMode?: boolean;
@@ -84,15 +91,17 @@ export function RuleArchive({
   const title =
     dialog?.kind === "discard"
       ? "ruleDiscard"
-      : dialog?.kind === "remove"
-        ? "ruleDelete"
-        : dialog?.rule
-          ? canEdit
-            ? "ruleEdit"
-            : "ruleView"
-          : dialog?.staticMode
-            ? "ruleAddStatic"
-            : "ruleAdd";
+      : dialog?.kind === "batch"
+        ? "ruleBatchAdd"
+        : dialog?.kind === "remove"
+          ? "ruleDelete"
+          : dialog?.rule
+            ? canEdit
+              ? "ruleEdit"
+              : "ruleView"
+            : dialog?.staticMode
+              ? "ruleAddStatic"
+              : "ruleAdd";
   const receipt = saved?.receipt;
   return (
     <>
@@ -140,7 +149,7 @@ export function RuleArchive({
                 <SettingsRow
                   icon="add"
                   title={t("ruleAddStatic")}
-                  detail={reason && t(reason)}
+                  detail={t("ruleStaticAddHint")}
                   disabled={!canEdit}
                   action={() =>
                     setDialog({ kind: "edit", group, staticMode: true })
@@ -150,10 +159,23 @@ export function RuleArchive({
               <SettingsRow
                 icon="add"
                 title={t("ruleAdd")}
-                detail={reason && t(reason)}
+                detail={t(groupHints[group])}
                 disabled={!canEdit}
                 action={() => setDialog({ kind: "edit", group })}
               />
+              {group !== "kstats" && (
+                <SettingsRow
+                  icon="batch"
+                  title={t("ruleBatchAdd")}
+                  detail={t(
+                    group === "redirects"
+                      ? "ruleBatchRedirects"
+                      : "ruleBatchPaths",
+                  )}
+                  disabled={!canEdit}
+                  action={() => setDialog({ kind: "batch", group })}
+                />
+              )}
               {entries.map((rule) => {
                 const detail =
                   group === "paths"
@@ -301,7 +323,15 @@ export function RuleArchive({
             )}
           </Stack>
         )}
-        {dialog && dialog.kind !== "edit" && (
+        {dialog?.kind === "batch" && canEdit && (
+          <BatchRuleForm
+            group={dialog.group}
+            onEdit={state.edit}
+            onClose={close}
+            t={t}
+          />
+        )}
+        {dialog && (dialog.kind === "remove" || dialog.kind === "discard") && (
           <Stack>
             <p className={styles.change}>
               {dialog.kind === "discard"

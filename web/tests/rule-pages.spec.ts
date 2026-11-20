@@ -205,7 +205,7 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
       await dialog.getByLabel("inode 编号").fill("18446744073709551614");
     }
     await name("更新草稿").click();
-    await group.getByRole("button", { name: "新增规则" }).click();
+    await group.getByRole("button", { name: "新增规则", exact: true }).click();
     await dialog.getByLabel("源路径").fill(next);
     if (route === "redirect") {
       await dialog.getByLabel("目标路径").fill(next);
@@ -247,6 +247,35 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
   expect((await download).suggestedFilename()).toContain(
     digest(store.text() ?? "").slice(0, 12),
   );
+});
+
+test("Map batches preserve the entire draft on invalid or duplicate paths", async ({
+  context,
+  page,
+}) => {
+  const store = await host(context, original);
+  await page.goto("/#/rules/disguise");
+  const group = page.getByRole("region", { name: "Map 规则" });
+  const dialog = page.getByRole("dialog");
+  await group.getByRole("button", { name: "批量新增规则" }).click();
+  const input = dialog.getByLabel("规则列表");
+  const submit = dialog.getByRole("button", { name: "更新草稿" });
+  await input.fill("/fixture-a\nrelative");
+  await expect(dialog).toContainText("第 2 行无效");
+  await expect(submit).toBeDisabled();
+  await input.fill("/fixture-a\n/data/local/tmp/example");
+  await submit.click();
+  await expect(dialog.getByRole("alert")).toContainText("路径重复");
+  await dialog.getByRole("button", { name: "取消" }).click();
+  await expect(group.getByRole("button", { name: "/fixture-a" })).toHaveCount(
+    0,
+  );
+  await group.getByRole("button", { name: "批量新增规则" }).click();
+  await input.fill("/fixture-a\n/fixture-b");
+  await submit.click();
+  await expect(group.getByRole("button", { name: "/fixture-a" })).toBeVisible();
+  await expect(group.getByRole("button", { name: "/fixture-b" })).toBeVisible();
+  expect(store.text()).toBe(original);
 });
 
 test("two rule sessions rebase only nonconflicting edits and require new review", async ({
@@ -298,7 +327,7 @@ for (const failure of [
     store.failure(failure);
     await page.goto("/#/rules/paths");
     await expect(page.getByText("设备上尚无 Studio 归档")).toBeVisible();
-    await page.getByRole("button", { name: "新增规则" }).click();
+    await page.getByRole("button", { name: "新增规则", exact: true }).click();
     await page.getByLabel("源路径").fill("/new-safe-rule");
     await page.getByRole("button", { name: "更新草稿" }).click();
     await page.getByRole("button", { name: "检查并确认保存" }).click();
@@ -334,7 +363,9 @@ test("no host, read-only host and unsupported archives do not expose device save
 }) => {
   await page.goto("/#/rules/paths");
   await expect(page.getByText("演示数据", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "新增规则" })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "新增规则", exact: true }),
+  ).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "检查并确认保存" }),
   ).toBeDisabled();
@@ -352,7 +383,9 @@ test("no host, read-only host and unsupported archives do not expose device save
     await tab.goto("/#/rules/paths");
     await tab.getByText("设备归档原文").click();
     await expect(tab.locator("pre")).toHaveText(text);
-    await expect(tab.getByRole("button", { name: "新增规则" })).toBeDisabled();
+    await expect(
+      tab.getByRole("button", { name: "新增规则", exact: true }),
+    ).toBeDisabled();
     if (!writable) {
       await tab.getByRole("button", { name: "/example", exact: true }).click();
       await expect(

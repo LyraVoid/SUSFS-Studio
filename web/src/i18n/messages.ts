@@ -59,6 +59,20 @@ export const zh = {
   redirectRules: "重定向规则",
   ruleArchiveOnly: "这里编辑 Studio 私有归档，不读取或应用内核规则。",
   ruleAdd: "新增规则",
+  ruleBatchAdd: "批量新增规则",
+  ruleBatchInput: "规则列表",
+  ruleBatchPaths: "每行一个绝对路径。全部通过校验后一次加入草稿。",
+  ruleBatchRedirects:
+    "每行填写「源路径 -> 目标路径」。全部通过校验后一次加入草稿。",
+  ruleBatchInvalid: "第 {line} 行无效或与批次中另一条规则重复。",
+  ruleBatchCount: "待加入草稿：{count} 条",
+  ruleBatchLimit: "一次最多加入 128 条；归档上限仍适用。",
+  rulePathHint: "记录普通或循环路径。只编辑归档，不改变设备上的路径。",
+  ruleMapHint:
+    "记录目标文件的映射规则，与路径规则分开。保存后不会修改进程映射。",
+  ruleKstatHint: "记录普通快照或完整克隆模式。归档不采集设备快照。",
+  ruleStaticAddHint: "填写一个或多个元数据字段；留空的字段不写入归档。",
+  ruleRedirectHint: "记录不同的源路径与目标路径，并选择 UID 方案。",
   ruleAddStatic: "新增静态 kstat",
   ruleView: "规则详情",
   ruleEdit: "编辑规则",
@@ -283,6 +297,27 @@ export const en = {
   ruleArchiveOnly:
     "Edit Studio’s private archive here. Studio does not read or apply kernel rules.",
   ruleAdd: "Add rule",
+  ruleBatchAdd: "Add rules in bulk",
+  ruleBatchInput: "Rule list",
+  ruleBatchPaths:
+    "Enter one absolute path per line. All rows must pass validation before they enter the draft.",
+  ruleBatchRedirects:
+    "Enter one source -> destination pair per line. All rows must pass validation before they enter the draft.",
+  ruleBatchInvalid:
+    "Line {line} is invalid or duplicates a rule in this batch.",
+  ruleBatchCount: "Rules to add to the draft: {count}",
+  ruleBatchLimit:
+    "Add at most 128 rules at a time. The archive limit still applies.",
+  rulePathHint:
+    "Record a regular or looping path. Editing the archive does not change device paths.",
+  ruleMapHint:
+    "Record a file mapping rule separately from path rules. Saving does not change process mappings.",
+  ruleKstatHint:
+    "Record a normal snapshot or full clone mode. The archive does not capture device snapshots.",
+  ruleStaticAddHint:
+    "Enter one or more metadata fields. Blank fields are omitted from the archive.",
+  ruleRedirectHint:
+    "Record distinct source and destination paths and select a UID scheme.",
   ruleAddStatic: "Add static kstat",
   ruleView: "Rule details",
   ruleEdit: "Edit rule",

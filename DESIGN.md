@@ -119,3 +119,5 @@ The dark home palette uses `#0F1012` for the canvas, `#16191E` for standard card
 ## Rule pages
 
 Keep the rule subnavigation above the archive status and segmented lists. Group Map and kstat separately under Disguise. Lead with the add actions, then list each rule by source path with mode or destination underneath. Use a dialog for details, field edits, and destructive draft actions. Confirm the archive difference separately from field edits. Long paths and revisions wrap; the static fields stack on phones. Keep provider availability below the archive controls and do not imply application from an archive receipt.
+
+For Paths, Map, and Redirect, place the batch action directly below single add. In kstat, place static add before normal add and omit batch add. Keep supporting text in the connected rows and show the empty state only once the archive has actually been read.
