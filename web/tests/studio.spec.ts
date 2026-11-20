@@ -483,21 +483,21 @@ test("three-item main navigation and six SUSFS tabs", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "设置" })).toBeVisible();
 });
 
-test("settings follows the manager by default and shows developer credits", async ({
+test("settings follows the system by default and shows developer credits", async ({
   page,
 }) => {
   await page.goto("/#/settings");
   const theme = page.getByRole("button", { name: "主题", exact: true });
-  await expect(theme).toContainText("跟随管理器");
+  await expect(theme).toContainText("跟随系统");
   await theme.click();
   const menu = page.getByRole("menu", { name: "主题" });
   await expect(menu.getByRole("menuitemradio")).toHaveText([
-    "跟随管理器",
+    "跟随系统",
     "深色",
     "浅色",
   ]);
   await expect(
-    menu.getByRole("menuitemradio", { name: "跟随管理器" }),
+    menu.getByRole("menuitemradio", { name: "跟随系统" }),
   ).toHaveAttribute("aria-checked", "true");
   await page.keyboard.press("Escape");
 
@@ -1663,7 +1663,7 @@ test("Material profiles update all pages and dialogs, persist, and reset indepen
   await choose(page, "语言", "English");
   const reset = page.getByRole("button", { name: "Restore default colors" });
   await expect(reset).toContainText(
-    "Follow manager · Slate · 2025 · Tonal Spot · Standard",
+    "Follow system · Slate · 2025 · Tonal Spot · Standard",
   );
   await reset.click();
   await expect(root).toHaveAttribute("lang", "en");
@@ -1676,7 +1676,7 @@ test("Material profiles update all pages and dialogs, persist, and reset indepen
   );
   await expect(
     page.getByRole("button", { name: "Theme", exact: true }),
-  ).toContainText("Follow manager");
+  ).toContainText("Follow system");
   await expect(
     page.getByRole("button", { name: "Demo scenario", exact: true }),
   ).toContainText(translator("en")("builtin24"));
