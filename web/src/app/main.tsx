@@ -44,6 +44,16 @@ function App() {
   const rules = useRuleArchive(bridge, route?.startsWith("/rules/") === true);
   const t = translator(locale);
   useEffect(() => {
+    const host = window.ksu as
+      | { enableEdgeToEdge?: (enabled?: boolean) => void }
+      | undefined;
+    try {
+      host?.enableEdgeToEdge?.(true);
+    } catch {
+      // A host may expose an older bridge without viewport support.
+    }
+  }, []);
+  useEffect(() => {
     document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
     try {
       localStorage.setItem("studio-locale", locale);
@@ -78,6 +88,7 @@ function App() {
         />
       ) : route ? (
         <CapabilityPage
+          key={route}
           route={route}
           status={status}
           demo={demo}

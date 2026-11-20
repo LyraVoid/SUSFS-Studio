@@ -1,5 +1,6 @@
 .category {
   display: grid;
+  align-content: start;
   gap: var(--s20);
   min-width: 0;
 }

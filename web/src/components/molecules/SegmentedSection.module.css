@@ -1,5 +1,6 @@
 .section {
   display: grid;
+  align-content: start;
   min-width: 0;
 }
 .section h2 {

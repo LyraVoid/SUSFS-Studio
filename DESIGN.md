@@ -85,19 +85,21 @@ The YAML color values are light-mode samples generated from the default seed. At
 
 ## Typography and Adaptive Layout
 
-- Use 32/40 for standard page titles, 17/22 for Rules row titles, 15/20 for Rules supporting text, and 14/20 for Rules section titles and navigation labels. Home uses its own typography below. Use rem units with system sans-serif and monospace fallbacks.
-- Use a 4px spacing step. On phones, keep 16px content gutters and three bottom navigation items: Home, Rules, Settings. Use left navigation from 840 CSS px. Add the bottom safe-area inset to the 74px navigation content height.
+- Use 32/40 for standard page titles, 36/44 expanded and 22/28 collapsed for the Rules flexible app-bar title, 17/22 for Rules row titles, 15/20 for Rules supporting text, and 14/20 for Rules section titles and navigation labels. Home uses its own typography below. Use rem units with system sans-serif and monospace fallbacks.
+- Use a 4px spacing step. On phones, keep 16px content gutters and three bottom navigation items: Home, Rules, Settings. Use left navigation from 840 CSS px. Add the top and bottom safe-area insets to the immersive Rules surface and the 74px navigation content height.
 
 ## Shape and Components
 
 - Use connected lists in Rules and Settings. Rules rows may omit a leading icon. Use a 14/20 primary section title with 16px start padding and 8px bottom spacing. Use 16px outer corners, 4px inner corners, and 2px gaps. Keep pending host actions visible with the reason they are unavailable.
 - Use a pill for the selected navigation indicator and 28px corners for the archive dialog. Pages and business components use the semantic tokens in `web/src/theme/`.
+- Use a Material 3 Expressive large flexible top app bar on Rules. It is 120px high with a 64px toolbar row when expanded, collapses to 64px across the first 56px of vertical scroll, and keeps the refresh action in the leading toolbar row. The title moves into that row as it collapses. Pin the app bar and six tab pills together so the title can change size without losing navigation.
 - Use the shared M3E dialog shell for every modal flow. It uses a centered 28px container, a 24/32 title, no header close icon, a scrollable body, and right-aligned sticky text actions. Choice dialogs use connected 4px-radius rows with 24px outer ends, a trailing radio indicator, and a selected tonal fill. Inputs use 16px outlined fields. Destructive actions stay textual and use the error color; dialogs do not mix filled navigation buttons with text actions.
 
 ## Interaction and Validation
 
 - Aim for interactive targets of at least 48×48 CSS px. Communicate status with text and visual indicators. Check text contrast, control boundaries, and visible keyboard focus against WCAG AA.
 - Use 120ms as the state transition baseline and 200ms as the container transition baseline. Respect `prefers-reduced-motion`. Restore focus to the trigger after a dialog closes. Verify system Back behavior and keyboard insets on the host device.
+- On a host with `ksu.enableEdgeToEdge`, request edge-to-edge layout and consume the injected `--safe-area-inset-*` values. The page background must continue through the status and gesture areas while titles, actions, content, and navigation remain inside their safe bounds.
 - Store theme and language as browser preferences. Bundle icons and styles locally. Use the [WebUI maintenance guide](docs/webui-maintenance.md#verification) to run the browser checks and verify the layout across viewport sizes, themes, and status fixtures.
 
 ## Mobile Home — Active State
@@ -118,7 +120,7 @@ The dark home palette uses `#0F1012` for the canvas, `#16191E` for standard card
 
 ## Rules surface
 
-Rules uses a large `SUSFS` title, a top-right Refresh action, and a horizontally scrollable row of six 48px pill tabs with 6px gaps and 20px inline padding. As a top-level destination in the single-page shell, Rules has no back button or synthetic secondary-page chrome. Page content is centered at a maximum 840px, uses 16px gutters and 20px section spacing. Tabs are Overview, Basic settings, Path hiding, File disguise, Redirect, and Extensions in that order.
+Rules uses a M3E large flexible top app bar with a `SUSFS` title and top-right Refresh action. The expanded bar is 120px high with a 36/44 title; the first 56px of vertical scroll collapses it to 64px with a 22/28 title in the toolbar row. The app bar and horizontally scrollable row of six 48px pill tabs remain pinned above the scrolling content. As a top-level destination in the single-page shell, Rules has no back button or synthetic secondary-page chrome. Page content is centered at a maximum 840px, uses 16px gutters and 20px section spacing. Tabs are Overview, Basic settings, Path hiding, File disguise, Redirect, and Extensions in that order.
 
 Group Map and kstat separately under File disguise. Lead each rule group with the add actions, then list each rule by source path with mode or destination underneath. Use a dialog for details, field edits, and destructive draft actions. Confirm the archive difference separately from field edits. Long paths and revisions wrap; the static fields stack on phones. Do not repeat the full capability panel on category tabs.
 

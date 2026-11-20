@@ -29,18 +29,29 @@
   overflow: auto;
   outline-offset: -2px;
 }
+.shell[data-rules="true"] .main {
+  overflow: hidden;
+}
 .main:focus {
   outline: none;
 }
 .content {
   max-width: 68rem;
   margin-inline: auto;
-  padding: calc(var(--s24) + env(safe-area-inset-top)) var(--s16) var(--s24);
+  padding: calc(var(--s24) + var(--safe-top))
+    calc(var(--s16) + var(--safe-right)) var(--s24)
+    calc(var(--s16) + var(--safe-left));
   display: grid;
   gap: var(--s16);
 }
 .shell[data-home="true"] .content {
-  padding-top: calc(6rem + env(safe-area-inset-top));
+  padding-top: calc(6rem + var(--safe-top));
+  gap: 0;
+}
+.shell[data-rules="true"] .content {
+  height: 100%;
+  padding-top: 0;
+  padding-bottom: 0;
   gap: 0;
 }
 .nav {
@@ -48,8 +59,8 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   background: var(--nav-bg);
-  min-height: calc(var(--nav-height) + env(safe-area-inset-bottom));
-  padding: var(--s8) var(--s8) calc(var(--s8) + env(safe-area-inset-bottom));
+  min-height: calc(var(--nav-height) + var(--safe-bottom));
+  padding: var(--s8) var(--s8) calc(var(--s8) + var(--safe-bottom));
 }
 .nav a {
   display: flex;
@@ -126,9 +137,10 @@
     grid-area: 1 / 2;
   }
   .content {
-    padding-inline: var(--s32);
+    padding-inline: calc(var(--s32) + var(--safe-left))
+      calc(var(--s32) + var(--safe-right));
   }
   .shell[data-home="true"] .content {
-    padding-top: var(--s32);
+    padding-top: calc(var(--s32) + var(--safe-top));
   }
 }

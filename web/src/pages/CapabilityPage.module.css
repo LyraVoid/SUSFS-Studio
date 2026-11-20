@@ -12,39 +12,57 @@
   --settings-row-detail-size: 0.9375rem;
   --settings-row-detail-line-height: 1.25rem;
   --settings-row-pressed-scale: 0.97;
+  --top-app-bar-height: 7.5rem;
+  --top-app-bar-title-top: 3rem;
+  --top-app-bar-title-size: 2.25rem;
+  --top-app-bar-title-line: 2.75rem;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
   max-width: 52.5rem;
   margin-inline: auto;
   color: var(--rules-text);
 }
+.rulesChrome {
+  z-index: 2;
+  min-width: 0;
+  background: var(--rules-bg);
+}
 .rulesHeader {
-  display: grid;
-  grid-template-rows: 64px 1fr;
-  min-height: 152px;
+  position: relative;
+  height: calc(var(--top-app-bar-height) + var(--safe-top));
   margin: 0;
   padding: 0;
+  padding-top: var(--safe-top);
 }
 .rulesToolbar {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  height: 4rem;
   min-width: 0;
 }
 .title {
+  position: absolute;
+  inset-inline-start: 0;
+  top: calc(var(--safe-top) + var(--top-app-bar-title-top));
   display: grid;
   grid-template-columns: auto auto;
-  align-content: end;
   align-items: baseline;
   justify-content: start;
   gap: var(--s8);
+  max-width: calc(100% - 6rem);
   min-width: 0;
-  padding-bottom: var(--s16);
+  pointer-events: none;
 }
 .title h1 {
   color: var(--rules-text);
-  font-size: 2rem;
-  line-height: 2.5rem;
+  font-size: var(--top-app-bar-title-size);
+  line-height: var(--top-app-bar-title-line);
   font-weight: 400;
+  letter-spacing: 0;
 }
 .title span {
   color: var(--rules-muted);
@@ -91,8 +109,18 @@
 }
 .rulesContent {
   display: grid;
+  align-content: start;
   gap: var(--s20);
+  min-height: 0;
+  padding-top: var(--s20);
+  padding-bottom: var(--s24);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   min-width: 0;
+  scrollbar-width: none;
+}
+.rulesContent::-webkit-scrollbar {
+  display: none;
 }
 @media (max-width: 839px) {
   .rulesPage {

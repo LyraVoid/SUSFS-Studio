@@ -241,14 +241,15 @@ test("Rules page keeps its layout tokens", async ({ page }) => {
   await expect(header.getByRole("link")).toHaveCount(0);
   const toolbarBox = await toolbar.boundingBox();
   const refreshBox = await refresh.boundingBox();
-  const titleBox = await title.boundingBox();
-  if (!toolbarBox || !refreshBox || !titleBox)
+  if (!toolbarBox || !refreshBox)
     throw new Error("Missing rules header bounds");
   expect(refreshBox.x + refreshBox.width).toBeCloseTo(
     toolbarBox.x + toolbarBox.width,
     0,
   );
-  expect(titleBox.y).toBeGreaterThanOrEqual(toolbarBox.y + toolbarBox.height);
+  expect(await style(header, "height")).toBe("120px");
+  expect(await style(title, "font-size")).toBe("36px");
+  expect(await style(title, "line-height")).toBe("44px");
   expect(await style(content, "gap")).toBe("20px");
   expect(await style(tabs, "gap")).toBe("6px");
   expect(await style(tabs, "flex-wrap")).toBe("nowrap");
@@ -276,6 +277,13 @@ test("Rules page keeps its layout tokens", async ({ page }) => {
   );
   await page.setViewportSize({ width: 1200, height: 805 });
   expect((await rules.boundingBox())?.width).toBe(840);
+
+  await page.getByTestId("rules-content").evaluate((element) => {
+    element.scrollTop = 120;
+  });
+  await expect.poll(() => style(header, "height")).toBe("64px");
+  expect(await style(title, "font-size")).toBe("22px");
+  expect(await style(title, "line-height")).toBe("28px");
 });
 
 test("Rules tabs keep one content width", async ({ page }) => {
@@ -291,13 +299,61 @@ test("Rules tabs keep one content width", async ({ page }) => {
   let baseline: { x: number; width: number } | undefined;
   for (const route of routes) {
     await page.goto(`/#/rules/${route}`);
+    const section = await page
+      .getByTestId("segmented-section-title")
+      .first()
+      .boundingBox();
     const box = await page.getByTestId("segmented-list").first().boundingBox();
-    if (!box) throw new Error(`Missing content bounds for ${route}`);
+    if (!section || !box)
+      throw new Error(`Missing content bounds for ${route}`);
+    expect(section.height).toBeCloseTo(20, 0);
+    expect(box.y - section.y).toBeLessThan(60);
     const next = { x: box.x, width: box.width };
     if (!baseline) baseline = next;
     expect(next.x).toBeCloseTo(baseline.x, 0);
     expect(next.width).toBeCloseTo(baseline.width, 0);
   }
+});
+
+test("asks the host for edge-to-edge layout", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.ksu = {
+      enableEdgeToEdge: (enabled?: boolean) => {
+        document.documentElement.dataset.edgeToEdge = String(enabled === true);
+      },
+    };
+  });
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-edge-to-edge",
+    "true",
+  );
+});
+
+test("flexible app bar stays stable between expanded and collapsed", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 805 });
+  await page.goto("/#/rules/overview");
+  const content = page.getByTestId("rules-content");
+  const header = page.getByTestId("rules-header");
+  await content.evaluate((element) => {
+    element.scrollTop = 28;
+  });
+  await expect
+    .poll(() => header.evaluate((element) => getComputedStyle(element).height))
+    .not.toBe("120px");
+  const height = await header.evaluate(
+    (element) => getComputedStyle(element).height,
+  );
+  const scrollTop = await content.evaluate((element) => element.scrollTop);
+  await page.waitForTimeout(300);
+  await expect(
+    header.evaluate((element) => getComputedStyle(element).height),
+  ).resolves.toBe(height);
+  await expect(content.evaluate((element) => element.scrollTop)).resolves.toBe(
+    scrollTop,
+  );
 });
 
 test("distinct demo results and confirmed implementation badges", async ({

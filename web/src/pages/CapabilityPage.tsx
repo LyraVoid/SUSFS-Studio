@@ -1,4 +1,5 @@
 import { Button } from "@mantine/core";
+import { useRef } from "react";
 import type { RuleRoute } from "../app/routes";
 import {
   BasicArchive,
@@ -60,42 +61,74 @@ export function CapabilityPage({
     status.provider.implementation === "lkm";
   const provider =
     !stale && status.kind === "active" ? status.provider : undefined;
+  const chrome = useRef<HTMLDivElement>(null);
+  const syncChrome = (scrollTop: number) => {
+    const element = chrome.current;
+    if (!element) return;
+    const progress = Math.min(1, Math.max(0, scrollTop / 56));
+    element.style.setProperty(
+      "--top-app-bar-height",
+      `${120 - 56 * progress}px`,
+    );
+    element.style.setProperty(
+      "--top-app-bar-title-top",
+      `${48 - 32 * progress}px`,
+    );
+    element.style.setProperty(
+      "--top-app-bar-title-size",
+      `${36 - 14 * progress}px`,
+    );
+    element.style.setProperty(
+      "--top-app-bar-title-line",
+      `${44 - 16 * progress}px`,
+    );
+  };
   return (
     <div className={pageStyles.rulesPage} data-testid="rules-page">
-      <header className={pageStyles.rulesHeader} data-testid="rules-header">
-        <div className={pageStyles.rulesToolbar} data-testid="rules-toolbar">
-          <Button
-            variant="subtle"
-            className={pageStyles.refresh}
-            onClick={() => {
-              refresh();
-              if (connected) void archive.refresh();
-            }}
-          >
-            {t("rulesRefresh")}
-          </Button>
-        </div>
-        <div className={pageStyles.title}>
-          <h1>{t("susfsTitle")}</h1>
-          {demo && <span>{t("demo")}</span>}
-        </div>
-      </header>
-      <nav
-        className={pageStyles.subnav}
-        aria-label={t("ruleNavigation")}
-        data-testid="rules-tabs"
+      <div
+        className={pageStyles.rulesChrome}
+        ref={chrome}
+        data-testid="rules-chrome"
       >
-        {tabs.map(([path, label]) => (
-          <a
-            key={path}
-            href={`#${path}`}
-            aria-current={route === path ? "page" : undefined}
-          >
-            {t(label)}
-          </a>
-        ))}
-      </nav>
-      <div className={pageStyles.rulesContent} data-testid="rules-content">
+        <header className={pageStyles.rulesHeader} data-testid="rules-header">
+          <div className={pageStyles.rulesToolbar} data-testid="rules-toolbar">
+            <Button
+              variant="subtle"
+              className={pageStyles.refresh}
+              onClick={() => {
+                refresh();
+                if (connected) void archive.refresh();
+              }}
+            >
+              {t("rulesRefresh")}
+            </Button>
+          </div>
+          <div className={pageStyles.title}>
+            <h1>{t("susfsTitle")}</h1>
+            {demo && <span>{t("demo")}</span>}
+          </div>
+        </header>
+        <nav
+          className={pageStyles.subnav}
+          aria-label={t("ruleNavigation")}
+          data-testid="rules-tabs"
+        >
+          {tabs.map(([path, label]) => (
+            <a
+              key={path}
+              href={`#${path}`}
+              aria-current={route === path ? "page" : undefined}
+            >
+              {t(label)}
+            </a>
+          ))}
+        </nav>
+      </div>
+      <div
+        className={pageStyles.rulesContent}
+        data-testid="rules-content"
+        onScroll={(event) => syncChrome(event.currentTarget.scrollTop)}
+      >
         <RuleArchive
           key={route}
           mode={overview ? "overview" : "rules"}

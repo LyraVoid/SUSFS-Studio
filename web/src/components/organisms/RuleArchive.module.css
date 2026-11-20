@@ -1,5 +1,6 @@
 .group {
   display: grid;
+  align-content: start;
   gap: var(--s8);
   min-width: 0;
 }
