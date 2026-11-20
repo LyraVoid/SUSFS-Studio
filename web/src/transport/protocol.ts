@@ -43,7 +43,12 @@ export function parseStatusResponse(text: string, requestId: string): Status {
       }
     }
   }
-  const facts = Object.keys(device).length ? { device } : {};
+  const facts = {
+    ...(Object.keys(device).length ? { device } : {}),
+    ...(record(data.control) && data.control.archiveImport === true
+      ? { archiveImport: true }
+      : {}),
+  };
   if (
     data.kind === "missing" ||
     data.kind === "unknownProtocol" ||

@@ -36,9 +36,9 @@ export async function writeArchive(
   archive: ArchiveBridge,
   base: SavedArchive,
   bytes: Uint8Array,
-  restore = false,
+  action: "save" | "import" | "restore" = "save",
 ) {
-  const commit = restore ? archive.restore : archive.save;
+  const commit = archive[action];
   if (!archive.writable || !archive.prepare || !archive.write || !commit)
     throw new ArchiveCommandError("STAGE_UNAVAILABLE");
   const stage = await archive.prepare();

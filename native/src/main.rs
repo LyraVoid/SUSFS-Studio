@@ -127,6 +127,24 @@ struct StatusData {
     status: Status,
     #[serde(skip_serializing_if = "Option::is_none")]
     device: Option<Device>,
+    control: Control,
+}
+
+#[derive(Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Control {
+    archive_import: bool,
+    provider_write: bool,
+    effect_verification: bool,
+}
+
+impl Control {
+    fn supported() -> Self {
+        Self {
+            archive_import: true,
+            ..Self::default()
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -381,8 +399,10 @@ fn main() {
     let action = args.first().map(String::as_str);
     if !matches!(
         (action, args.len()),
-        (Some("hello" | "status" | "preview" | "stage" | "read"), 1)
-            | (Some("save" | "restore" | "backup"), 2)
+        (
+            Some("hello" | "status" | "preview" | "stage" | "read" | "export" | "apply" | "verify"),
+            1
+        ) | (Some("save" | "import" | "restore" | "backup"), 2)
             | (Some("backups"), 1)
     ) {
         std::process::exit(2);
@@ -421,20 +441,42 @@ fn main() {
             )),
             Err(error) => serde_json::to_string(&io_failure("stage", error)),
         },
-        Some("save") => match archive_store().map(|store| store.save_staged(&args[1])) {
-            Ok(Ok(receipt)) => serde_json::to_string(&response("save", receipt)),
-            Ok(Err(error)) => serde_json::to_string(&failure("save", error)),
-            Err(error) => serde_json::to_string(&io_failure("save", error)),
-        },
+        Some("save" | "import") => {
+            let id = if action == Some("save") {
+                "save"
+            } else {
+                "import"
+            };
+            match archive_store().map(|store| store.save_staged(&args[1])) {
+                Ok(Ok(receipt)) => serde_json::to_string(&response(id, receipt)),
+                Ok(Err(error)) => serde_json::to_string(&failure(id, error)),
+                Err(error) => serde_json::to_string(&io_failure(id, error)),
+            }
+        }
         Some("restore") => match archive_store().map(|store| store.restore_staged(&args[1])) {
             Ok(Ok(receipt)) => serde_json::to_string(&response("restore", receipt)),
             Ok(Err(error)) => serde_json::to_string(&failure("restore", error)),
             Err(error) => serde_json::to_string(&io_failure("restore", error)),
         },
-        Some("read") => match read_archive() {
-            Ok(data) => serde_json::to_string(&response("read", data)),
-            Err(error) => serde_json::to_string(&failure("read", error)),
-        },
+        Some("read" | "export") => {
+            let id = if action == Some("read") {
+                "read"
+            } else {
+                "export"
+            };
+            match read_archive() {
+                Ok(data) => serde_json::to_string(&response(id, data)),
+                Err(error) => serde_json::to_string(&failure(id, error)),
+            }
+        }
+        Some("apply" | "verify") => serde_json::to_string(&response(
+            if action == Some("apply") {
+                "apply"
+            } else {
+                "verify"
+            },
+            serde_json::json!({"status":"rejected", "reason":"PROVIDER_NOT_AUTHORIZED", "rules":{}}),
+        )),
         Some("backups") => match archive_store().and_then(|store| store.backups()) {
             Ok(data) => serde_json::to_string(&response("backups", data)),
             Err(error) => serde_json::to_string(&io_failure("backups", error)),
@@ -453,6 +495,7 @@ fn main() {
             StatusData {
                 status: status(),
                 device: device(),
+                control: Control::supported(),
             },
         )),
     };
@@ -497,10 +540,25 @@ mod tests {
                 system: Some("Android 17 (API 37)".into()),
                 kernel: Some("6.6.118-demo".into()),
             });
+            let mut result = serde_json::to_value(response(
+                "status",
+                StatusData {
+                    status,
+                    device,
+                    control: Control::supported(),
+                },
+            ))
+            .unwrap();
+            let control = result["data"]
+                .as_object_mut()
+                .unwrap()
+                .remove("control")
+                .unwrap();
             assert_eq!(
-                serde_json::to_value(response("status", StatusData { status, device })).unwrap(),
-                fixtures[name]
+                control,
+                serde_json::json!({"archiveImport":true,"providerWrite":false,"effectVerification":false})
             );
+            assert_eq!(result, fixtures[name]);
         }
     }
     #[test]

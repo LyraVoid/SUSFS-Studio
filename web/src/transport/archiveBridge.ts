@@ -48,6 +48,7 @@ export type ArchiveBridge = {
   prepare?: () => Promise<PreparedArchive>;
   write?: (path: string, bytes: Uint8Array) => Promise<void>;
   save?: (token: string) => Promise<ArchiveReceipt>;
+  import?: (token: string) => Promise<ArchiveReceipt>;
   restore?: (token: string) => Promise<ArchiveReceipt>;
   backups(): Promise<ArchiveBackup[]>;
   backup(id: string): Promise<SavedArchive>;
@@ -213,7 +214,14 @@ export function createArchiveBridge(
   }
   const stagePaths = new Map<string, string>();
   const call = async (
-    requestId: "stage" | "save" | "restore" | "read" | "backups" | "backup",
+    requestId:
+      | "stage"
+      | "save"
+      | "import"
+      | "restore"
+      | "read"
+      | "backups"
+      | "backup",
     command: string,
     timeout: number,
   ) => {
@@ -225,7 +233,9 @@ export function createArchiveBridge(
     } catch (error) {
       if (error instanceof ArchiveCommandError) throw error;
       throw new ArchiveCommandError(
-        requestId === "save" || requestId === "restore"
+        requestId === "save" ||
+          requestId === "restore" ||
+          requestId === "import"
           ? "RESULT_UNKNOWN"
           : "TIMEOUT",
       );
@@ -297,7 +307,7 @@ export function createArchiveBridge(
       : undefined,
     write: io ? writeStage : undefined,
     ...Object.fromEntries(
-      (["save", "restore"] as const).map((action) => [
+      (["save", "import", "restore"] as const).map((action) => [
         action,
         io
           ? async (token: string) => {

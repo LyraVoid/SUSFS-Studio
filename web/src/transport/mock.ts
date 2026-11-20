@@ -23,8 +23,8 @@ type Result =
     }
   | { kind: "missing" | "unknownProtocol" | "failed" };
 export type Status =
-  | (Result & { device?: Device })
-  | { kind: "loading"; device?: never };
+  | (Result & { device?: Device; archiveImport?: boolean })
+  | { kind: "loading"; device?: never; archiveImport?: never };
 
 const baseDevice = {
   model: "Demo A",
