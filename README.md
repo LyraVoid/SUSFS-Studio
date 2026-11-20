@@ -77,6 +77,7 @@ Open [the local preview](http://127.0.0.1:5176/#/). It uses simulated data and d
 - [Diagnostic CLI](docs/diagnostic-cli.md) — native commands and builds.
 - [WebUI maintenance](docs/webui-maintenance.md) — routes, source ownership, and validation.
 - [Module releases](docs/releases.md) — build and release procedures.
+- [Changelog](CHANGELOG.md) — release history.
 - [Distribution notes](docs/distribution.md) — shipped files, corresponding source, and redistribution terms.
 - [Design specification](DESIGN.md) — visual tokens and layout requirements.
 

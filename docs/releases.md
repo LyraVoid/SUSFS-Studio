@@ -18,8 +18,10 @@ derive a tag from an unreviewed working tree.
 rejects a version, version code, or manifest that does not exactly match the
 checked-in files.
 
-To prepare a release, update `module/module.prop` and `update.json`, commit the
-change, and push it to `main`. The asset name is:
+Record user-facing changes in [CHANGELOG.md](../CHANGELOG.md).
+
+To prepare a release, update `module/module.prop`, `update.json`, and the
+changelog, commit the change, and push it to `main`. The asset name is:
 
 ```text
 susfs-studio-<version>-arm64.zip

@@ -77,6 +77,7 @@ pnpm --dir web dev --host 127.0.0.1 --port 5176 --strictPort
 - [诊断 CLI](docs/diagnostic-cli.md)：原生命令和构建方法。
 - [WebUI 维护指南](docs/webui-maintenance.md)：路由、源码职责和验证。
 - [模块发布](docs/releases.md)：构建与发布流程。
+- [更新日志](CHANGELOG.md)：版本记录。
 - [分发说明](docs/distribution.md)：分发内容、源码获取与再分发条款。
 - [设计规范](DESIGN.md)：视觉令牌和布局要求。
 
