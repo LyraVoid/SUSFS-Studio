@@ -1,7 +1,6 @@
 import {
   Button,
   Checkbox,
-  NativeSelect,
   Stack,
   Tabs,
   Textarea,
@@ -16,7 +15,8 @@ import {
   DialogChoiceGroup,
   M3eDialog,
 } from "../molecules/M3eDialog";
-import { SettingsList, SettingsRow } from "../molecules/SettingsList";
+import { SegmentedSection } from "../molecules/SegmentedSection";
+import { SettingsRow } from "../molecules/SettingsList";
 import styles from "./Panels.module.css";
 
 type State = ReturnType<typeof useRuleArchive>;
@@ -69,10 +69,12 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
     name.toLowerCase().includes(query.trim().toLowerCase()),
   );
   return (
-    <section className={styles.panel} aria-label={t("controlBasic")}>
-      <p>{t("controlArchiveOnly")}</p>
-      {archive?.schema === "1" && <p>{t("controlNeedsUpgrade")}</p>}
-      <SettingsList label={t("controlBasic")}>
+    <section className={styles.category} aria-label={t("controlBasic")}>
+      <p className={styles.notice}>{t("controlArchiveOnly")}</p>
+      {archive?.schema === "1" && (
+        <p className={styles.notice}>{t("controlNeedsUpgrade")}</p>
+      )}
+      <SegmentedSection title={t("controlBasic")}>
         {settingsKeys.map((key) => (
           <SettingsRow
             key={key}
@@ -83,8 +85,8 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
             action={() => setDialog(key)}
           />
         ))}
-      </SettingsList>
-      <SettingsList label={t("controlUid")}>
+      </SegmentedSection>
+      <SegmentedSection title={t("controlUid")}>
         <SettingsRow
           title={t("controlUid")}
           detail={
@@ -104,8 +106,8 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
           />
         )}
         <SettingsRow title={t("controlUidHint")} />
-      </SettingsList>
-      <SettingsList label={t("controlUname")}>
+      </SegmentedSection>
+      <SegmentedSection title={t("controlUname")}>
         <SettingsRow
           title={t("controlUname")}
           detail={
@@ -118,8 +120,8 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
           detail={t("controlResetBlocked")}
           disabled
         />
-      </SettingsList>
-      <SettingsList label={t("controlCmdline")}>
+      </SegmentedSection>
+      <SegmentedSection title={t("controlCmdline")}>
         <SettingsRow
           title={t("controlCmdline")}
           detail={
@@ -134,26 +136,7 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
           detail={t("controlResetBlocked")}
           disabled
         />
-      </SettingsList>
-      <NativeSelect
-        label={t("controlAutomatic")}
-        size="md"
-        disabled={disabled}
-        data={Object.entries(tri).map(([value, label]) => ({
-          value,
-          label: t(label),
-        }))}
-        value={triValue(value?.automatic)}
-        onChange={(event) => {
-          const selected = event.currentTarget.value;
-          state.edit({
-            section: "root",
-            key: "automatic",
-            before: value?.automatic,
-            after: selected === "unset" ? undefined : selected === "true",
-          });
-        }}
-      />
+      </SegmentedSection>
       <M3eDialog opened={dialog !== undefined} onClose={close} title={t(title)}>
         <Stack>
           {key ? (
@@ -308,17 +291,19 @@ export function LkmArchive({
   const entry =
     dialog?.index === undefined ? undefined : dialog.entries[dialog.index];
   return (
-    <section className={styles.panel} aria-label={t("extensions")}>
-      <p>{t("controlArchiveOnly")}</p>
-      {!lkm && <p>{t("controlNeedsLkm")}</p>}
-      {archive?.schema === "1" && <p>{t("controlNeedsUpgrade")}</p>}
+    <section className={styles.category} aria-label={t("extensions")}>
+      <p className={styles.notice}>{t("controlArchiveOnly")}</p>
+      {!lkm && <p className={styles.notice}>{t("controlNeedsLkm")}</p>}
+      {archive?.schema === "1" && (
+        <p className={styles.notice}>{t("controlNeedsUpgrade")}</p>
+      )}
       {Object.entries(extensionGroups).map(([key, { title, hint }]) => {
         const groupKey = key as keyof typeof extensionGroups;
         const entries = Array.isArray(settings[key])
           ? (settings[key] as string[])
           : [];
         return (
-          <SettingsList key={key} label={t(title)}>
+          <SegmentedSection key={key} title={t(title)}>
             <SettingsRow
               icon="add"
               title={t("controlAddEntry", { label: t(title) })}
@@ -342,7 +327,7 @@ export function LkmArchive({
               !state.error && (
                 <SettingsRow icon="status" title={t("controlNoEntries")} />
               )}
-          </SettingsList>
+          </SegmentedSection>
         );
       })}
       <M3eDialog

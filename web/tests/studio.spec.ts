@@ -278,6 +278,28 @@ test("Rules page keeps its layout tokens", async ({ page }) => {
   expect((await rules.boundingBox())?.width).toBe(840);
 });
 
+test("Rules tabs keep one content width", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 805 });
+  const routes = [
+    "overview",
+    "basic",
+    "paths",
+    "disguise",
+    "redirect",
+    "extensions",
+  ];
+  let baseline: { x: number; width: number } | undefined;
+  for (const route of routes) {
+    await page.goto(`/#/rules/${route}`);
+    const box = await page.getByTestId("segmented-list").first().boundingBox();
+    if (!box) throw new Error(`Missing content bounds for ${route}`);
+    const next = { x: box.x, width: box.width };
+    if (!baseline) baseline = next;
+    expect(next.x).toBeCloseTo(baseline.x, 0);
+    expect(next.width).toBeCloseTo(baseline.width, 0);
+  }
+});
+
 test("distinct demo results and confirmed implementation badges", async ({
   page,
 }) => {

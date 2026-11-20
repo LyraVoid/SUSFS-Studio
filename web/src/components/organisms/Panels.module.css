@@ -1,15 +1,13 @@
-.panel {
-  background: var(--surface-container);
-  color: var(--on-container);
-  border-radius: var(--r16);
-  padding: var(--s16);
+.category {
   display: grid;
+  gap: var(--s20);
   min-width: 0;
-  gap: var(--s12);
 }
-.panel h2 {
-  font-size: 1rem;
-  line-height: 1.5rem;
+.notice {
+  color: var(--on-muted);
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  padding-inline: var(--s16);
 }
 .muted {
   color: var(--on-muted);
