@@ -372,7 +372,7 @@ test("Rules page keeps its layout tokens", async ({ page }) => {
   expect(await style(header, "height")).toBe("120px");
   expect(await style(title, "font-size")).toBe("36px");
   expect(await style(title, "line-height")).toBe("44px");
-  expect(await style(content, "gap")).toBe("20px");
+  expect(await style(content.locator(":scope > div"), "gap")).toBe("20px");
   expect(await style(tabs, "gap")).toBe("6px");
   expect(await style(tabs, "flex-wrap")).toBe("nowrap");
   expect(await style(tabs, "overflow-x")).toBe("auto");
@@ -482,6 +482,38 @@ test("flexible app bar stays stable between expanded and collapsed", async ({
   await expect(content.evaluate((element) => element.scrollTop)).resolves.toBe(
     scrollTop,
   );
+});
+
+test("Rules header collapse does not resize its scrolling viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 805 });
+  await page.goto("/#/rules/disguise");
+  const content = page.getByTestId("rules-content");
+  const header = page.getByTestId("rules-header");
+  const measure = () =>
+    content.evaluate((element) => ({
+      height: element.clientHeight,
+      range: element.scrollHeight - element.clientHeight,
+    }));
+  await expect(page.getByRole("heading", { name: "Map 规则" })).toBeVisible();
+  const initial = await measure();
+  for (const scrollTop of [10, 28, 45, 56, 28, 0]) {
+    await content.evaluate((element, value) => {
+      element.scrollTop = value;
+    }, scrollTop);
+    await expect
+      .poll(() => content.evaluate((element) => element.scrollTop))
+      .toBe(scrollTop);
+    await expect
+      .poll(() =>
+        header.evaluate((element) =>
+          parseFloat(getComputedStyle(element).height),
+        ),
+      )
+      .toBe(120 - scrollTop);
+    expect(await measure()).toEqual(initial);
+  }
 });
 
 test("Home and Settings keep their large app bars pinned while scrolling", async ({

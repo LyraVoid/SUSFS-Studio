@@ -125,36 +125,38 @@ export function CapabilityPage({
             syncAppBar(chrome.current, event.currentTarget.scrollTop);
         }}
       >
-        <RuleArchive
-          key={route}
-          mode={overview ? "overview" : "rules"}
-          groups={groups[route] ?? []}
-          state={archive}
-          demo={demo}
-          connected={connected}
-          provider={provider}
-          leading={
-            overview && (
-              <RulesOverviewLead status={status} stale={stale} t={t} />
-            )
-          }
-          t={t}
-        >
-          {overview && (
-            <RulesOverview
-              status={status}
-              demo={demo}
-              stale={stale}
-              archive={archive}
-              bridge={bridge}
-              t={t}
-            />
-          )}
-          {route === "/rules/basic" && <BasicArchive state={archive} t={t} />}
-          {route === "/rules/extensions" && (
-            <LkmArchive state={archive} lkm={lkm} t={t} />
-          )}
-        </RuleArchive>
+        <div className={pageStyles.scrollBody}>
+          <RuleArchive
+            key={route}
+            mode={overview ? "overview" : "rules"}
+            groups={groups[route] ?? []}
+            state={archive}
+            demo={demo}
+            connected={connected}
+            provider={provider}
+            leading={
+              overview && (
+                <RulesOverviewLead status={status} stale={stale} t={t} />
+              )
+            }
+            t={t}
+          >
+            {overview && (
+              <RulesOverview
+                status={status}
+                demo={demo}
+                stale={stale}
+                archive={archive}
+                bridge={bridge}
+                t={t}
+              />
+            )}
+            {route === "/rules/basic" && <BasicArchive state={archive} t={t} />}
+            {route === "/rules/extensions" && (
+              <LkmArchive state={archive} lkm={lkm} t={t} />
+            )}
+          </RuleArchive>
+        </div>
       </div>
     </div>
   );

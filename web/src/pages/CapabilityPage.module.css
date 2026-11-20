@@ -9,14 +9,17 @@
   --top-app-bar-title-size: 2.25rem;
   --top-app-bar-title-line: 2.75rem;
   height: 100%;
+  position: relative;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   width: 100%;
   max-width: 52.5rem;
   margin-inline: auto;
 }
 .rulesChrome {
+  position: absolute;
+  inset: 0 0 auto;
   z-index: 2;
   min-width: 0;
   background: var(--canvas);
@@ -104,16 +107,22 @@
   outline-color: var(--on-secondary-container);
 }
 .rulesContent {
-  display: grid;
-  align-content: start;
-  gap: var(--s20);
+  grid-row: 1;
+  grid-column: 1;
   min-height: 0;
-  padding-top: var(--s20);
+  height: 100%;
+  padding-top: calc(var(--safe-top) + 120px + 64px + var(--s20));
   padding-bottom: var(--s24);
   overflow-y: auto;
   overscroll-behavior: contain;
   min-width: 0;
   scrollbar-width: none;
+}
+.scrollBody {
+  display: grid;
+  align-content: start;
+  gap: var(--s20);
+  min-height: calc(100% + 56px);
 }
 .rulesContent::-webkit-scrollbar {
   display: none;
