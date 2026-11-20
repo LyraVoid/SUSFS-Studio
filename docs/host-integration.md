@@ -51,6 +51,16 @@ On 2026-11-20, the updated debug module was deployed to the same PKX110 device. 
 
 This evidence covers one host build and one provider combination. It does not establish behavior for other managers, WebView versions, provider variants, concurrent UI instances, process termination at every transaction point, or hosts without the file API.
 
+### Compatibility evidence matrix
+
+| Environment | Evidence | Status |
+| --- | --- | --- |
+| PKX110, Android 17 API 37, host `v3.3.1-50-g64833c00` (32730), WebView `157.0.8103.50`, kernel `6.6.118-android15-8-g9bc34d5b0c79-abogki537459655-4k`, GKI-LKM provider `v2.3.0` | Host load and archive save/export as described above; read-only status reconfirmed on 2026-11-20. | Verified only for the stated operations; navigation isolation and restore remain unverified. |
+| Other host versions and managers | No device evidence. | Unverified. |
+| Built-in GKI provider or SUSFS 2.4 | No device evidence. | Unverified. |
+
+The bundled CSP restricts connections and frames; the static browser test confirms frame blocking. The smoke host rejects external and unknown top-level navigation, but that behavior is not evidence for the installed manager. The installed manager's general-purpose root command and file bridges are not constrained by Studio's fixed calls. External-link navigation, unknown local paths, frame bridge exposure, and file selection must be separately tested on each actual host; no general isolation claim follows from the smoke host.
+
 ## Decision
 
 When a compatible command bridge is present, the module uses it for fixed queries and Studio archive storage. A malformed or unavailable bridge reports failure instead of simulated status. The standalone browser remains in demo mode when no host interface is present. If command execution exists but the verified file stream does not, device save remains disabled and names the missing capability.
