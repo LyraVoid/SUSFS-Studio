@@ -40,6 +40,10 @@ Run **Release module** from `main` and provide the version and version code from
 5. Creates the GitHub release with the module ZIP, `update.json`, and
    `SHA256SUMS`.
 
+The module ZIP includes `LICENSE`, `THIRD_PARTY_NOTICES.md`, and the applicable
+licence texts. See [distribution notes](distribution.md) for the corresponding
+source and redistribution terms.
+
 Set `prerelease=true` for beta, development, or release-candidate tags. The
 checked-in `update.json` still points to that exact tag, so a module installed
 from a pre-release can see the next update.

@@ -163,6 +163,12 @@ def package(
         "post-fs-data.sh": read_regular(ROOT / "module/post-fs-data.sh"),
         "service.sh": read_regular(ROOT / "module/service.sh"),
         "bin/studioctl": binary,
+        "LICENSE": read_regular(ROOT / "LICENSE"),
+        "THIRD_PARTY_NOTICES.md": read_regular(ROOT / "THIRD_PARTY_NOTICES.md"),
+        **{
+            f"LICENSES/{path.name}": read_regular(path)
+            for path in sorted((ROOT / "LICENSES").glob("*.txt"))
+        },
         **{f"webroot/{name}": data for name, data in paths.items()},
     }
     output.parent.mkdir(parents=True, exist_ok=True)

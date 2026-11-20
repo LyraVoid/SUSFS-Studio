@@ -75,7 +75,17 @@ pnpm --dir web dev --host 127.0.0.1 --port 5176 --strictPort
 - [诊断 CLI](docs/diagnostic-cli.md)：原生命令和构建方法。
 - [WebUI 维护指南](docs/webui-maintenance.md)：路由、源码职责和验证。
 - [模块发布](docs/releases.md)：构建与发布流程。
+- [分发说明](docs/distribution.md)：分发内容、源码获取与再分发条款。
 - [设计规范](DESIGN.md)：视觉令牌和布局要求。
+
+## 许可证
+
+SUSFS Studio 以 **GNU Affero 通用公共许可证第 3 版（仅此版本）**
+（`AGPL-3.0-only`）发布，详见 [LICENSE](LICENSE)。第三方组件及其许可证见
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+模块 ZIP 内包含 `LICENSE`、`THIRD_PARTY_NOTICES.md` 和适用的许可证全文。
+[分发说明](docs/distribution.md) 说明了分发内容、如何获取对应版本的源码，以及修改后再分发的规则。
 
 ## 致谢
 

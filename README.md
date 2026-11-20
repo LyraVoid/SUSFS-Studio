@@ -75,7 +75,19 @@ Open [the local preview](http://127.0.0.1:5176/#/). It uses simulated data and d
 - [Diagnostic CLI](docs/diagnostic-cli.md) — native commands and builds.
 - [WebUI maintenance](docs/webui-maintenance.md) — routes, source ownership, and validation.
 - [Module releases](docs/releases.md) — build and release procedures.
+- [Distribution notes](docs/distribution.md) — shipped files, corresponding source, and redistribution terms.
 - [Design specification](DESIGN.md) — visual tokens and layout requirements.
+
+## Licence
+
+SUSFS Studio is released under the **GNU Affero General Public License, version 3
+only** (`AGPL-3.0-only`). See [LICENSE](LICENSE). Third-party components and their
+licences are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+The module ZIP includes `LICENSE`, `THIRD_PARTY_NOTICES.md`, and the applicable
+licence texts. [Distribution notes](docs/distribution.md) explain what is shipped,
+where to obtain the corresponding source for a release, and the rules for
+redistributing modified builds.
 
 ## Acknowledgements
 
