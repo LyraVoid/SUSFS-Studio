@@ -3,19 +3,22 @@ version: alpha
 name: SUSFS Studio
 description: An offline interface for device diagnostics and configuration archives, based on Material 3 Expressive.
 colors:
-  primary: "#0762a4"
-  on-primary: "#f7f9ff"
-  secondary-container: "#d0f8d9"
-  on-secondary-container: "#3d6049"
-  surface: "#f8f9ff"
-  surface-container-low: "#eef4ff"
-  surface-container: "#e5eeff"
-  surface-container-high: "#dbe9ff"
-  surface-container-highest: "#d2e4ff"
-  on-surface: "#133454"
-  on-surface-variant: "#446183"
-  outline: "#607da1"
-  error: "#ac3434"
+  primary: "#2d6581"
+  on-primary: "#f4faff"
+  secondary-container: "#d1e5f4"
+  on-secondary-container: "#415460"
+  surface: "#f7f9fd"
+  surface-bright: "#f7f9fd"
+  surface-container-low: "#f0f4f8"
+  surface-container: "#e9eef4"
+  surface-container-high: "#e3e9ee"
+  surface-container-highest: "#dce3ea"
+  on-surface: "#2c3339"
+  on-surface-variant: "#586066"
+  outline: "#747c82"
+  error: "#ba1a1a"
+  error-container: "#ffdad6"
+  on-error-container: "#410002"
 typography:
   headline-lg:
     fontFamily: 'Roboto, "Noto Sans", system-ui, sans-serif'
@@ -49,7 +52,7 @@ components:
     textColor: "{colors.on-surface}"
     typography: "{typography.headline-lg}"
   settings-row:
-    backgroundColor: "{colors.surface-container-low}"
+    backgroundColor: "{colors.surface-bright}"
     textColor: "{colors.on-surface}"
     typography: "{typography.title-md}"
     rounded: "{rounded.extra-small}"
@@ -63,6 +66,12 @@ components:
     backgroundColor: "{colors.secondary-container}"
     textColor: "{colors.on-secondary-container}"
     rounded: "{rounded.full}"
+  active-card:
+    backgroundColor: "{colors.secondary-container}"
+    textColor: "{colors.on-secondary-container}"
+  implementation-badge:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
   archive-dialog:
     backgroundColor: "{colors.surface-container-high}"
     textColor: "{colors.on-surface}"
@@ -77,11 +86,12 @@ Home summarizes interface response and device status. Rules owns the complete SU
 
 ## Color and Hierarchy
 
-The YAML color values are light-mode samples generated from the default seed. At runtime, `web/src/theme/theme.ts` computes the HCT palette using `SchemeExpressive` from Material Color Utilities. The current settings are the Studio blue-gray seed `#566579`, the 2025 specification, the phone platform, and standard contrast. Wallpaper-based colors require a seed supplied by the Android host.
+The YAML color values are reference samples for the default profile in light mode, not runtime overrides. Material Color Utilities generates the `--md-sys-color-*` roles on the phone platform. The default profile is dark, Slate (`#506775`), 2025 Tonal Spot, at standard contrast. The seven seed colors are independent of the palette style. Present them as a single scrollable row of two-tone swatches with a selection ring and a center dot. Generate swatch colors in Tonal Spot so seed hues remain recognizable even when the active style is Monochrome. Expressive, Tonal Spot, Vibrant, and Neutral support both 2021 and 2025. Monochrome, Content, Fidelity, Fruit Salad, and Rainbow use 2021; the specification row shows the effective year. Under 2021, the four accent `*-dim` tokens alias their corresponding accent roles because the library does not define accent dim roles for that specification.
 
-- Use `surface` for the canvas and `surface-container` for standard panels and navigation outside Home. The Rules page uses a dedicated dark palette: canvas `#1a2024`, group material `#21262c`, active material `#2e3d47`, primary accent `#afc1ce`, primary text `#dae1e7`, and supporting text `#9ba3a9`. Settings rows use `surface-container-low` in light mode and `surface-container-high` in dark mode. The archive dialog uses `surface-container-high`.
-- Use `on-surface` for body text and `on-surface-variant` (`--on-muted` in CSS) for supporting text and unselected icons. Pair `secondary-container` with `on-secondary-container` for selected items. Use `primary` for focus and `outline` for input boundaries.
-- Use tonal surfaces and spacing for persistent panels. Reserve shadows for overlays. The home palette is specified below and implemented in `web/src/theme/tokens.css`.
+- All routes share `surface-container` for the canvas, navigation, and pinned app bar to continue through the safe insets. Standard cards and connected rows use `surface-bright` in both appearances. Dialogs use `surface-container-high` with `scrim` and `shadow` for overlays. Use tonal fills instead of decorative separators.
+- Use `on-surface` for body text and the active navigation label on the bar. Use `on-surface-variant` (`--on-muted` in CSS) for supporting text and unselected icons. Pair `secondary-container` with `on-secondary-container` for navigation indicators, selected tabs and selected dialog choices. Use `primary` for focus except on selected tonal containers, where the paired foreground provides contrast. Use `outline` for input boundaries.
+- Map generic success to `tertiary`, warning to `secondary`, and destructive actions to the Material error family. Keep the four standard error roles fixed per appearance regardless of style or contrast. Use paired roles for notices and the deeper `on-error-container` for standalone error text on dialog surfaces. Status must remain readable without color.
+- `web/src/theme/tokens.css` maps Material roles to shared application semantics and component tokens. Pages and components consume those aliases instead of declaring private palettes. Use tonal surfaces and spacing for persistent panels; reserve shadows for overlays. Blend colors only for interaction states, overlays and similar transparency effects.
 
 ## Typography and Adaptive Layout
 
@@ -112,9 +122,9 @@ Use a viewport width of 360 CSS px as the mobile baseline. Measure top and botto
 | Activation card | Use 16px page gutters and a full-width, borderless card approximately 96px tall with 16px corners. Align the ringed checkmark with the icon column below. Stack the localized Active label above the SUSFS version. Put a verified `LKM` or `Built-In` badge in its own column on the right and center it vertically. Use approximately 20px for the title, 14px for the version, and 12px at weight 600 for the badge. |
 | Status card | Place it 16px below the activation card. Use an approximately 72px height and 16px corners. A branch icon precedes the state title and a diagnostic summary. Report facts confirmed by the current result. |
 | Device group | List model, system, and kernel in that order. Rows start at approximately 72px and can grow with content. Use gaps of approximately 2px, outer corners of 16px, and inner corners of approximately 2px. Align the device, system, and chip icons. Use approximately 16px for labels and 14px for values. Allow long kernel strings to wrap. |
-| Bottom navigation | Use three equal-width items and approximately 74px of content height plus the safe-area inset. The selected item has an approximately 64×34px blue-gray indicator, a filled icon, and a label. Other items use outline icons. Give every item an accessible name and a 48px touch target. Reserve space so the navigation does not cover content. |
+| Bottom navigation | Use three equal-width items and approximately 74px of content height plus the safe-area inset. The selected item has an approximately 64×34px tonal indicator, a filled icon, and a label. Other items use outline icons. Give every item an accessible name and a 48px touch target. Reserve space so the navigation does not cover content. |
 
-The dark home palette uses `#0F1012` for the canvas, `#16191E` for standard cards, `#2D3947` for the activation card, and `#14171C` for bottom navigation. The activation card uses `#E1E7EF` for primary text, `#B1C0D0` for the checkmark, secondary text, and badge background, and `#293543` for badge text. Light mode retains the same layout and contrast hierarchy. Keep configuration actions on their respective pages.
+The active card pairs `secondary-container` with `on-secondary-container` for its checkmark and text. Only the implementation badge uses `primary` with `on-primary`. A failed or missing interface uses `error-container` with `on-error-container`. Loading and unconfirmed protocol retain a neutral card so pending or uncertain results do not look like confirmed failures. Both appearances share this hierarchy. Keep configuration actions on their respective pages.
 
 `LKM` identifies a loadable kernel module. `Built-In` identifies an implementation compiled into the kernel. Report `GKI` separately as the kernel type in diagnostic details.
 

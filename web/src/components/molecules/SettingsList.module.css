@@ -57,9 +57,14 @@
     transform var(--fast);
 }
 .action:enabled:hover {
-  background: var(--surface-container-highest);
+  background: var(--surface-container-high);
 }
 .action:enabled:active {
+  background: color-mix(
+    in srgb,
+    var(--surface-container-high),
+    var(--on-surface) 8%
+  );
   border-radius: var(--r10);
   transform: scale(var(--settings-row-pressed-scale, 1));
 }

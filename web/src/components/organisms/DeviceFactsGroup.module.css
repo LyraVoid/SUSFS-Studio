@@ -1,6 +1,6 @@
 .title {
   padding-inline: var(--s16);
-  color: var(--activation-accent);
+  color: var(--primary);
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.125rem;

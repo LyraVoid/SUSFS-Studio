@@ -15,7 +15,7 @@ export function ActivationCard({
   return (
     <output className={styles.card} data-state={status.kind}>
       <span className={styles.mark}>
-        <Icon name={status.kind} />
+        <Icon name={status.kind} filled={status.kind === "active"} />
       </span>
       <span className={styles.copy}>
         <span className={styles.title}>{t(status.kind)}</span>

@@ -377,7 +377,7 @@ export function LkmArchive({
                 {entry && !dialog.removing && (
                   <Button
                     variant="subtle"
-                    color="red"
+                    color="danger"
                     disabled={disabled}
                     onClick={() => {
                       setInvalid(false);

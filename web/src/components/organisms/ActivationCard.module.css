@@ -4,29 +4,26 @@
   grid-template-columns: 2.5rem minmax(0, 1fr) auto;
   gap: var(--s16);
   align-items: center;
-  background: var(--dashboard-card);
-  color: var(--dashboard-text);
+  background: var(--settings-row-surface);
+  color: var(--on-surface);
   border-radius: var(--r16);
   padding: var(--s16);
 }
 .card[data-state="active"] {
-  background: var(--activation);
-  color: var(--activation-text);
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+}
+.card:is([data-state="failed"], [data-state="missing"]) {
+  background: var(--error-container);
+  color: var(--on-error-container);
 }
 .mark {
   display: grid;
   place-items: center;
-  color: var(--dashboard-muted);
-}
-.card[data-state="active"] .mark,
-.card[data-state="active"] .version {
-  color: var(--activation-accent);
-}
-.card[data-state="failed"] .mark {
-  color: var(--home-error);
+  color: var(--on-muted);
 }
 .card[data-state="unknownProtocol"] .mark {
-  color: var(--warning);
+  color: var(--status-warning);
 }
 .card[data-state="loading"] .mark {
   animation: spin 1.2s linear infinite;
@@ -52,12 +49,16 @@
 }
 .version {
   display: block;
-  color: var(--dashboard-muted);
+  color: var(--on-muted);
   line-height: 1.25rem;
 }
+.card:is([data-state="active"], [data-state="failed"], [data-state="missing"])
+  :is(.mark, .version) {
+  color: inherit;
+}
 .mode {
-  background: var(--activation-accent);
-  color: var(--mode-text);
+  background: var(--primary);
+  color: var(--on-primary);
   font-size: 0.75rem;
   font-weight: 600;
   padding: 0.125rem var(--s8);

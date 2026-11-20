@@ -65,6 +65,17 @@ export function Icon({
   name: IconName;
   filled?: boolean;
 }) {
+  if (name === "active" && filled) {
+    return (
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+        <path
+          fill="currentColor"
+          fillRule="evenodd"
+          d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm4.7 7.7a1 1 0 0 0-1.4-1.4L11 12.6l-2.3-2.3a1 1 0 1 0-1.4 1.4l3 3a1 1 0 0 0 1.4 0l5-5Z"
+        />
+      </svg>
+    );
+  }
   if (name === "home" && filled) {
     return (
       <svg

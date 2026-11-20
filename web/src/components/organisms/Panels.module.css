@@ -31,10 +31,10 @@
   color: var(--on-muted);
 }
 .facts dd[data-availability="available"] {
-  color: var(--success);
+  color: var(--status-success);
 }
 .facts dd[data-availability="unavailable"] {
-  color: var(--warning);
+  color: var(--status-warning);
 }
 .file.file {
   background: var(--surface);
@@ -64,7 +64,7 @@
   min-height: 52px;
   min-width: 0;
   border-radius: var(--r4);
-  background: var(--surface-container-high);
+  background: var(--settings-row-surface);
   color: var(--on-surface);
   overflow-wrap: anywhere;
 }

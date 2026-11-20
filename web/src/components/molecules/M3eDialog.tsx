@@ -1,4 +1,5 @@
 import { Modal } from "@mantine/core";
+import { useReducedMotion } from "@mantine/hooks";
 import { type ReactNode, useId } from "react";
 import styles from "./M3eDialog.module.css";
 
@@ -17,6 +18,7 @@ export function M3eDialog({
   closeOnClickOutside?: boolean;
   closeOnEscape?: boolean;
 }) {
+  const reduceMotion = useReducedMotion();
   return (
     <Modal
       opened={opened}
@@ -26,7 +28,7 @@ export function M3eDialog({
       withCloseButton={false}
       closeOnClickOutside={closeOnClickOutside}
       closeOnEscape={closeOnEscape}
-      transitionProps={{ transition: "pop", duration: 160 }}
+      transitionProps={{ transition: "pop", duration: reduceMotion ? 0 : 160 }}
       classNames={{
         root: styles.root,
         content: styles.dialog,

@@ -1,28 +1,14 @@
 .shell {
-  --nav-bg: var(--surface-container);
+  --nav-bg: var(--canvas);
   --nav-pill: var(--secondary-container);
   --nav-muted: var(--on-muted);
   --nav-active: var(--on-secondary-container);
+  background: var(--canvas);
+  color: var(--on-surface);
   height: 100vh;
   height: 100dvh;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-}
-.shell[data-home="true"] {
-  --nav-bg: var(--home-nav-bg);
-  --nav-pill: var(--home-nav-pill);
-  --nav-muted: var(--dashboard-muted);
-  --nav-active: var(--activation-accent);
-  background: var(--dashboard-bg);
-  color: var(--dashboard-text);
-}
-.shell[data-rules="true"] {
-  --nav-bg: var(--rules-bg);
-  --nav-pill: var(--rules-active);
-  --nav-muted: var(--rules-muted);
-  --nav-active: var(--rules-text);
-  background: var(--rules-bg);
-  color: var(--rules-text);
 }
 .main {
   grid-row: 1;
@@ -75,7 +61,7 @@
   line-height: 1rem;
 }
 .nav a[aria-current] {
-  color: var(--nav-active);
+  color: var(--on-surface);
   font-weight: 600;
 }
 .pill {
@@ -88,13 +74,17 @@
 }
 .nav a[aria-current] .pill {
   background: var(--nav-pill);
+  color: var(--nav-active);
 }
 .nav a[aria-current] .pill svg circle {
   fill: var(--nav-pill);
   stroke: var(--nav-pill);
 }
 .nav a:hover .pill {
-  background: color-mix(in srgb, var(--nav-pill), var(--nav-active) 12%);
+  background: color-mix(in srgb, var(--nav-bg), var(--nav-muted) 8%);
+}
+.nav a[aria-current]:hover .pill {
+  background: color-mix(in srgb, var(--nav-pill), var(--nav-active) 8%);
 }
 .skip {
   position: fixed;

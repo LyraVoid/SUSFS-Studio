@@ -22,50 +22,38 @@
   --fast: 120ms;
   --r4: 0.25rem;
   --r28: 1.75rem;
-  --on-container: var(--on-surface);
-  --success: #1a623f;
-  --warning: #745000;
-  --home-error: #a6243d;
-  --dashboard-bg: #f4f6fa;
-  --dashboard-card: #e7edf5;
-  --dashboard-text: #222d3c;
-  --dashboard-muted: #455568;
-  --activation: #d3e0ee;
-  --activation-text: #222d3c;
-  --activation-accent: #455568;
-  --mode-text: #fff;
-  --home-nav-bg: #edf1f7;
-  --home-nav-pill: #d3e0ee;
-  --rules-bg: #f4f6fa;
-  --rules-card: #e7edf5;
-  --rules-active: #d3e0ee;
-  --rules-primary: #455568;
-  --rules-text: #222d3c;
-  --rules-muted: #455568;
-}
-[data-mantine-color-scheme="dark"] {
-  --success: #82d6ae;
-  --warning: #f4c470;
-  --home-error: #ffaabd;
-  --dashboard-bg: #0f1012;
-  --dashboard-card: #16191e;
-  --dashboard-text: #e1e7ef;
-  --dashboard-muted: #abb3be;
-  --activation: #2d3947;
-  --activation-text: #e1e7ef;
-  --activation-accent: #b1c0d0;
-  --mode-text: #293543;
-  --home-nav-bg: #14171c;
-  --home-nav-pill: #2d3947;
-  --rules-bg: #1a2024;
-  --rules-card: #21262c;
-  --rules-active: #2e3d47;
-  --rules-primary: #afc1ce;
-  --rules-text: #dae1e7;
-  --rules-muted: #9ba3a9;
+  --surface: var(--md-sys-color-surface);
+  --surface-bright: var(--md-sys-color-surface-bright);
+  --surface-container: var(--md-sys-color-surface-container);
+  --surface-container-low: var(--md-sys-color-surface-container-low);
+  --surface-container-high: var(--md-sys-color-surface-container-high);
+  --surface-container-highest: var(--md-sys-color-surface-container-highest);
+  --on-surface: var(--md-sys-color-on-surface);
+  --on-muted: var(--md-sys-color-on-surface-variant);
+  --outline: var(--md-sys-color-outline);
+  --primary: var(--md-sys-color-primary);
+  --on-primary: var(--md-sys-color-on-primary);
+  --primary-container: var(--md-sys-color-primary-container);
+  --on-primary-container: var(--md-sys-color-on-primary-container);
+  --secondary-container: var(--md-sys-color-secondary-container);
+  --on-secondary-container: var(--md-sys-color-on-secondary-container);
+  --error: var(--md-sys-color-error);
+  --error-container: var(--md-sys-color-error-container);
+  --on-error-container: var(--md-sys-color-on-error-container);
+  --scrim: var(--md-sys-color-scrim);
+  --shadow: var(--md-sys-color-shadow);
+  --status-success: var(--md-sys-color-tertiary);
+  --status-success-container: var(--md-sys-color-tertiary-container);
+  --on-status-success-container: var(--md-sys-color-on-tertiary-container);
+  --status-warning: var(--md-sys-color-secondary);
+  --status-warning-container: var(--secondary-container);
+  --on-status-warning-container: var(--on-secondary-container);
+  --canvas: var(--surface-container);
+  --settings-row-surface: var(--surface-bright);
+  --dialog-surface: var(--surface-container-high);
 }
 body {
-  background: var(--surface);
+  background: var(--canvas);
   color: var(--on-surface);
   font-size: 0.875rem;
   line-height: 1.375rem;
@@ -86,6 +74,27 @@ a {
 :focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+.studio-switch-track.studio-switch-track {
+  border: 2px solid var(--outline);
+  background: var(--surface-container-highest);
+  color: var(--on-muted);
+}
+.studio-switch-thumb.studio-switch-thumb {
+  background: var(--outline);
+  color: var(--surface);
+  border: 0;
+}
+input:checked + .studio-switch-track.studio-switch-track {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+input:checked + .studio-switch-track .studio-switch-thumb {
+  background: var(--on-primary);
+  color: var(--primary);
+}
+input:disabled + .studio-switch-track {
+  opacity: 0.65;
 }
 @media (prefers-reduced-motion: reduce) {
   :root {

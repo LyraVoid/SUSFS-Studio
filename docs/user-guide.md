@@ -64,4 +64,6 @@ In standalone browser mode, preview works locally. Device save and export requir
 
 ## Change appearance
 
-Use **Settings → Theme** and **Settings → Language** to choose light or dark mode and English or Simplified Chinese. The browser stores these preferences locally. Changing the demo scenario does not persist across page reloads.
+In **Settings → Material 3 colors**, choose light or dark mode, one of seven seed colors, the 2021 or 2025 color specification, one of nine palette styles, and standard, medium, or high contrast. Scroll the seed color row horizontally if needed. A seed sets the starting color; the palette style determines how Material derives the rest. Changes take effect immediately across Home, Rules, Settings, and dialogs. The specification row shows the year in use without changing the saved preference. **Restore default colors** resets only the color preferences to dark, Slate, 2025 Tonal Spot, and standard contrast. The WebUI does not read wallpaper or host theme colors.
+
+Use **Settings → Language** to choose English or Simplified Chinese. Color and language preferences are stored locally in the browser, not in device archives. The demo scenario does not persist across page reloads.

@@ -1,12 +1,4 @@
 .rulesPage {
-  --settings-row-surface: var(--rules-card);
-  --surface-container: var(--rules-bg);
-  --surface-container-low: var(--rules-card);
-  --surface-container-high: var(--rules-active);
-  --on-surface: var(--rules-text);
-  --on-container: var(--rules-text);
-  --on-muted: var(--rules-muted);
-  --primary: var(--rules-primary);
   --settings-row-font-size: 1.0625rem;
   --settings-row-line-height: 1.375rem;
   --settings-row-detail-size: 0.9375rem;
@@ -23,12 +15,11 @@
   width: 100%;
   max-width: 52.5rem;
   margin-inline: auto;
-  color: var(--rules-text);
 }
 .rulesChrome {
   z-index: 2;
   min-width: 0;
-  background: var(--rules-bg);
+  background: var(--canvas);
 }
 .rulesHeader {
   position: relative;
@@ -58,20 +49,19 @@
   pointer-events: none;
 }
 .title h1 {
-  color: var(--rules-text);
   font-size: var(--top-app-bar-title-size);
   line-height: var(--top-app-bar-title-line);
   font-weight: 400;
   letter-spacing: 0;
 }
 .title span {
-  color: var(--rules-muted);
+  color: var(--on-muted);
   font-size: 0.75rem;
 }
 .refresh {
   flex: none;
   min-height: var(--hit);
-  color: var(--rules-primary);
+  color: var(--primary);
   padding-inline: var(--s16);
   white-space: nowrap;
 }
@@ -94,8 +84,8 @@
   min-height: var(--hit);
   padding-inline: 1.25rem;
   border-radius: var(--r-full);
-  background: var(--rules-card);
-  color: var(--rules-muted);
+  background: var(--settings-row-surface);
+  color: var(--on-muted);
   text-decoration: none;
   font-size: 0.9375rem;
   line-height: 1.25rem;
@@ -104,8 +94,14 @@
     color var(--fast);
 }
 .subnav a[aria-current="page"] {
-  background: var(--rules-active);
-  color: var(--rules-text);
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+}
+.subnav a:focus-visible {
+  outline-offset: -2px;
+}
+.subnav a[aria-current="page"]:focus-visible {
+  outline-color: var(--on-secondary-container);
 }
 .rulesContent {
   display: grid;

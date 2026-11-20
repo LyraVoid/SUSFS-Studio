@@ -1,7 +1,13 @@
 import "@mantine/core/styles.css";
 import "../theme/tokens.css";
 import { MantineProvider } from "@mantine/core";
-import { StrictMode, useEffect, useState, useSyncExternalStore } from "react";
+import {
+  StrictMode,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createRoot } from "react-dom/client";
 import { useRuleArchive } from "../features/config/useRuleArchive";
 import { useStatus } from "../features/status/useStatus";
@@ -10,7 +16,12 @@ import { Shell } from "../layouts/Shell";
 import { CapabilityPage } from "../pages/CapabilityPage";
 import { Home } from "../pages/Home";
 import { Settings } from "../pages/Settings";
-import { colorSchemeManager, colorVariables, theme } from "../theme/theme";
+import {
+  defaultAppearance,
+  readColorProfile,
+  saveColorProfile,
+} from "../theme/colorProfile";
+import { colorSchemeManager, createThemeColors, theme } from "../theme/theme";
 import { diagnosticSource } from "../transport/host";
 import type { Scenario } from "../transport/mock";
 import { resolveRoute } from "./routes";
@@ -29,6 +40,12 @@ function getLocale(): Locale {
 }
 
 function App() {
+  const [profile, setProfile] = useState(readColorProfile);
+  const { resolver, effectiveSpec } = useMemo(
+    () => createThemeColors(profile),
+    [profile],
+  );
+  useEffect(() => saveColorProfile(profile), [profile]);
   const [source] = useState(() => diagnosticSource(window));
   const demo = source.kind === "demo";
   const [locale, setLocale] = useState(getLocale);
@@ -62,50 +79,60 @@ function App() {
     }
   }, [locale]);
   return (
-    <Shell route={route} t={t}>
-      {route === "/" ? (
-        <Home
-          status={status}
-          demo={demo}
-          bridgeUnavailable={source.kind === "unavailable"}
-          stale={stale}
-          refresh={() => setRequest((id) => id + 1)}
-          t={t}
-        />
-      ) : route === "/settings" ? (
-        <Settings
-          demo={demo}
-          scenario={selection.scenario}
-          setScenario={(scenario) =>
-            setSelection((previous) =>
-              previous.scenario === scenario ? previous : { scenario },
-            )
-          }
-          locale={locale}
-          setLocale={setLocale}
-          status={status}
-          t={t}
-        />
-      ) : route ? (
-        <CapabilityPage
-          key={route}
-          route={route}
-          status={status}
-          demo={demo}
-          stale={stale}
-          archive={rules}
-          bridge={bridge}
-          connected={Boolean(bridge)}
-          refresh={() => setRequest((id) => id + 1)}
-          t={t}
-        />
-      ) : (
-        <>
-          <h1>{t("unknownPage")}</h1>
-          <a href="#/">{t("home")}</a>
-        </>
-      )}
-    </Shell>
+    <MantineProvider
+      theme={theme}
+      cssVariablesResolver={resolver}
+      defaultColorScheme={defaultAppearance}
+      colorSchemeManager={colorSchemeManager}
+    >
+      <Shell route={route} t={t}>
+        {route === "/" ? (
+          <Home
+            status={status}
+            demo={demo}
+            bridgeUnavailable={source.kind === "unavailable"}
+            stale={stale}
+            refresh={() => setRequest((id) => id + 1)}
+            t={t}
+          />
+        ) : route === "/settings" ? (
+          <Settings
+            profile={profile}
+            effectiveSpec={effectiveSpec}
+            setProfile={setProfile}
+            demo={demo}
+            scenario={selection.scenario}
+            setScenario={(scenario) =>
+              setSelection((previous) =>
+                previous.scenario === scenario ? previous : { scenario },
+              )
+            }
+            locale={locale}
+            setLocale={setLocale}
+            status={status}
+            t={t}
+          />
+        ) : route ? (
+          <CapabilityPage
+            key={route}
+            route={route}
+            status={status}
+            demo={demo}
+            stale={stale}
+            archive={rules}
+            bridge={bridge}
+            connected={Boolean(bridge)}
+            refresh={() => setRequest((id) => id + 1)}
+            t={t}
+          />
+        ) : (
+          <>
+            <h1>{t("unknownPage")}</h1>
+            <a href="#/">{t("home")}</a>
+          </>
+        )}
+      </Shell>
+    </MantineProvider>
   );
 }
 
@@ -113,13 +140,6 @@ const container = document.getElementById("root");
 if (!container) throw new Error("Missing application root");
 createRoot(container).render(
   <StrictMode>
-    <MantineProvider
-      theme={theme}
-      cssVariablesResolver={colorVariables}
-      defaultColorScheme="dark"
-      colorSchemeManager={colorSchemeManager}
-    >
-      <App />
-    </MantineProvider>
+    <App />
   </StrictMode>,
 );

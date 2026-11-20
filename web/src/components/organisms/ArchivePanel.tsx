@@ -411,7 +411,7 @@ export function ArchivePanel({
                 )}
                 {saved?.kind === "saved" &&
                   saved.receiptStatus === "missing" && (
-                    <Alert color="yellow" mt="xs">
+                    <Alert color="warning" mt="xs">
                       {t("archiveReceiptMissing")}
                     </Alert>
                   )}
@@ -542,7 +542,7 @@ export function ArchivePanel({
                       </p>
                     )}
                     {result.unknownFields.length > 0 && (
-                      <Alert color="blue" mt="xs">
+                      <Alert color="info" mt="xs">
                         {t("archiveUnknownFields", {
                           fields: result.unknownFields.slice(0, 20).join(", "),
                         })}
@@ -612,7 +612,7 @@ export function ArchivePanel({
                 </>
               )}
               {operationError && (
-                <Alert color="red" role="alert">
+                <Alert color="danger" role="alert">
                   {t(operationError)}
                 </Alert>
               )}
@@ -623,7 +623,7 @@ export function ArchivePanel({
                 savedResult &&
                 !completeDiff && <p role="alert">{t("ruleDiffBlocked")}</p>}
               {receipt && (
-                <Alert color="green" role="status">
+                <Alert color="success" role="status">
                   {t(
                     restoring
                       ? "archiveRestoredReceipt"
@@ -709,9 +709,9 @@ export function ArchivePanel({
                   </details>
                 </section>
               )}
-              <Alert color="blue">{t("archiveSaveEffect")}</Alert>
+              <Alert color="info">{t("archiveSaveEffect")}</Alert>
               {operationError && (
-                <Alert color="red" role="alert">
+                <Alert color="danger" role="alert">
                   {t(operationError)}
                 </Alert>
               )}

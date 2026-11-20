@@ -333,7 +333,7 @@ export function RuleArchive({
               <summary>{t("ruleDraftText")}</summary>
               <pre className={rules.source}>{review.draft.text}</pre>
             </details>
-            <Alert color="blue">{t("archiveSaveEffect")}</Alert>
+            <Alert color="info">{t("archiveSaveEffect")}</Alert>
             <DialogActions>
               <Button variant="subtle" disabled={saving} onClick={close}>
                 {t("ruleCancel")}
@@ -372,7 +372,7 @@ export function RuleArchive({
             {dialog.rule && canEdit && (
               <Button
                 variant="subtle"
-                color="red"
+                color="danger"
                 onClick={() => setDialog({ ...dialog, kind: "remove" })}
               >
                 {t("ruleDelete")}
@@ -403,7 +403,7 @@ export function RuleArchive({
               </Button>
               <Button
                 variant="subtle"
-                color="red"
+                color="danger"
                 disabled={dialog.kind === "remove" && !canEdit}
                 onClick={() => {
                   if (dialog.kind === "discard") state.discard();

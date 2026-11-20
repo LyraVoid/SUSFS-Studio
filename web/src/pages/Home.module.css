@@ -12,7 +12,7 @@
   font-weight: 500;
 }
 .header span {
-  color: var(--dashboard-muted);
+  color: var(--on-muted);
   font-size: 0.75rem;
   line-height: 1.125rem;
 }
@@ -31,14 +31,14 @@
   margin-top: var(--s16);
   padding: var(--s16);
   border-radius: var(--r16);
-  background: var(--dashboard-card);
-  color: var(--dashboard-text);
+  background: var(--settings-row-surface);
+  color: var(--on-surface);
 }
 .capabilities h2 {
   font-size: 1rem;
 }
 .capabilities p {
-  color: var(--dashboard-muted);
+  color: var(--on-muted);
 }
 @media (min-width: 1100px) {
   .dashboard {
@@ -55,7 +55,7 @@
   flex-wrap: wrap;
 }
 .metadata dd {
-  color: var(--dashboard-muted);
+  color: var(--on-muted);
 }
 .capabilities h3 {
   font-size: 0.875rem;

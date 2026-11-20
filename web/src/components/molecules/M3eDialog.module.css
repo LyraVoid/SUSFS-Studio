@@ -4,7 +4,7 @@
   --modal-size: min(35rem, calc(100vw - 2rem));
 }
 .overlay {
-  background: color-mix(in srgb, #000 62%, transparent);
+  background: color-mix(in srgb, var(--scrim) 62%, transparent);
 }
 .dialog.dialog {
   flex: 0 0 var(--modal-size);
@@ -14,9 +14,9 @@
   overflow: hidden;
   border: 0;
   border-radius: var(--r28);
-  background: var(--rules-card);
-  color: var(--rules-text);
-  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 32%);
+  background: var(--dialog-surface);
+  color: var(--on-surface);
+  box-shadow: 0 1.5rem 4rem color-mix(in srgb, var(--shadow) 32%, transparent);
 }
 .header.header {
   min-height: 0;
@@ -51,7 +51,7 @@
 }
 .content label[for] {
   margin-bottom: var(--s8);
-  color: var(--rules-muted);
+  color: var(--on-muted);
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
@@ -59,10 +59,10 @@
 .content textarea,
 .content select {
   min-height: 3.5rem;
-  border: 1px solid color-mix(in srgb, var(--rules-muted), transparent 32%);
+  border: 1px solid var(--outline);
   border-radius: var(--r16);
-  background: var(--rules-bg);
-  color: var(--rules-text);
+  background: var(--surface);
+  color: var(--on-surface);
   padding-inline: var(--s16);
   font-size: 1rem;
 }
@@ -70,20 +70,24 @@
   min-height: 6rem;
   padding-block: var(--s12);
 }
+.content input::placeholder,
+.content textarea::placeholder {
+  color: var(--on-muted);
+}
 .content input:not([type="radio"]):not([type="checkbox"]):focus,
 .content textarea:focus,
 .content select:focus {
-  border-color: var(--rules-primary);
+  border-color: var(--primary);
 }
 .content [class*="mantine-InputWrapper-description"],
 .content [class*="mantine-InputWrapper-error"] {
   margin-top: var(--s8);
-  color: var(--rules-muted);
+  color: var(--on-muted);
   font-size: 0.8125rem;
   line-height: 1.125rem;
 }
 .content [class*="mantine-InputWrapper-error"] {
-  color: var(--error);
+  color: var(--on-error-container);
 }
 .choices {
   display: grid;
@@ -99,8 +103,8 @@
   min-height: 4rem;
   padding: var(--s12) var(--s20);
   border-radius: var(--r4);
-  background: var(--rules-active);
-  color: var(--rules-text);
+  background: var(--surface-container-highest);
+  color: var(--on-surface);
   cursor: pointer;
   transition:
     background var(--fast),
@@ -115,7 +119,8 @@
   border-end-end-radius: var(--r24);
 }
 .choice[data-selected="true"] {
-  background: color-mix(in srgb, var(--rules-active), var(--rules-primary) 12%);
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
 }
 .choice:active {
   transform: scale(0.985);
@@ -127,8 +132,11 @@
   opacity: 0;
 }
 .choice:has(input:focus-visible) {
-  outline: 2px solid var(--rules-primary);
+  outline: 2px solid var(--primary);
   outline-offset: -2px;
+}
+.choice[data-selected="true"]:has(input:focus-visible) {
+  outline-color: var(--on-secondary-container);
 }
 .radio {
   display: grid;
@@ -136,17 +144,14 @@
   place-items: center;
   width: 1.5rem;
   height: 1.5rem;
-  border: 2px solid var(--rules-muted);
+  border: 2px solid currentColor;
   border-radius: var(--r-full);
-}
-.choice[data-selected="true"] .radio {
-  border-color: var(--rules-primary);
 }
 .choice[data-selected="true"] .radio::after {
   width: 0.75rem;
   height: 0.75rem;
   border-radius: inherit;
-  background: var(--rules-primary);
+  background: currentColor;
   content: "";
 }
 .actions {
@@ -162,7 +167,7 @@
   background: linear-gradient(
     to bottom,
     transparent,
-    var(--rules-card) var(--s12)
+    var(--dialog-surface) var(--s12)
   );
 }
 .actions[data-justify="space-between"] {
@@ -170,11 +175,10 @@
 }
 .actions button {
   min-height: 2.5rem;
-  color: var(--rules-primary);
   font-weight: 500;
 }
 .actions button:disabled {
-  color: var(--rules-muted);
+  color: var(--on-muted);
 }
 @media (max-width: 479px) {
   .dialog.dialog {

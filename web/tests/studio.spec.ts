@@ -1,6 +1,16 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Locator, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import fixtures from "../../contracts/diagnostic-v1.json" with { type: "json" };
+
+const materialColor = (page: Page, role: string) =>
+  page.locator("html").evaluate((root, name) => {
+    const probe = document.createElement("span");
+    probe.style.color = `var(--md-sys-color-${name})`;
+    root.append(probe);
+    const value = getComputedStyle(probe).color;
+    probe.remove();
+    return value;
+  }, role);
 
 test("a late host response cannot overwrite a newer refresh", async ({
   page,
@@ -257,8 +267,12 @@ test("Rules page keeps its layout tokens", async ({ page }) => {
   expect(await style(inactive, "min-height")).toBe("48px");
   expect(await style(inactive, "padding-left")).toBe("20px");
   expect(await style(inactive, "border-radius")).toBe("999px");
-  expect(await style(inactive, "background-color")).toBe("rgb(33, 38, 44)");
-  expect(await style(active, "background-color")).toBe("rgb(46, 61, 71)");
+  expect(await style(inactive, "background-color")).toBe(
+    await materialColor(page, "surface-bright"),
+  );
+  expect(await style(active, "background-color")).toBe(
+    await materialColor(page, "secondary-container"),
+  );
   expect(await style(list, "gap")).toBe("2px");
   expect(await style(first, "border-radius")).toBe("16px 16px 4px 4px");
   expect(await style(second, "border-radius")).toBe("4px 4px 16px 16px");
@@ -269,11 +283,13 @@ test("Rules page keeps its layout tokens", async ({ page }) => {
   expect(await style(detail, "line-height")).toBe("20px");
   expect(await style(sectionTitle, "font-size")).toBe("14px");
   expect(await style(sectionTitle, "line-height")).toBe("20px");
-  expect(await style(sectionTitle, "color")).toBe("rgb(175, 193, 206)");
+  expect(await style(sectionTitle, "color")).toBe(
+    await materialColor(page, "primary"),
+  );
   expect(await style(sectionTitle, "padding-left")).toBe("16px");
   expect(await style(sectionTitle, "margin-bottom")).toBe("8px");
   expect(await style(page.getByTestId("shell"), "background-color")).toBe(
-    "rgb(26, 32, 36)",
+    await materialColor(page, "surface-container"),
   );
   await page.setViewportSize({ width: 1200, height: 805 });
   expect((await rules.boundingBox())?.width).toBe(840);
@@ -746,4 +762,162 @@ test("mobile and desktop breakpoint, persisted preferences and axe", async ({
   );
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   expect(external).toEqual([]);
+});
+
+test("Material profiles update all pages and dialogs, persist, and reset independently", async ({
+  page,
+}) => {
+  await page.goto("/#/settings");
+  const root = page.locator("html");
+  await expect(root).toHaveAttribute("data-mantine-color-scheme", "dark");
+  const nav = page.getByRole("navigation", { name: "主导航" });
+  const spec = page.getByRole("combobox", { name: "配色规范" });
+  const scheme = page.getByRole("combobox", { name: "配色风格" });
+  const contrast = page.getByRole("combobox", { name: "配色对比度" });
+  const appearance = page.getByRole("combobox", { name: "主题" });
+  const shell = page.getByTestId("shell");
+  const originalPrimary = await materialColor(page, "primary");
+  const originalSurface = await materialColor(page, "surface-container");
+  const originalWidth = (await nav.boundingBox())?.width;
+  const slate = page.getByRole("radio", { name: "蓝灰" });
+  await expect(slate).toBeChecked();
+  const swatches = page
+    .getByRole("group", { name: "种子颜色" })
+    .getByRole("radio");
+  await expect(swatches).toHaveCount(7);
+  expect(
+    await swatches.evaluateAll(
+      (inputs) =>
+        new Set(inputs.map((input) => input.getBoundingClientRect().top)).size,
+    ),
+  ).toBe(1);
+  await slate.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("radio", { name: "海蓝" })).toBeChecked();
+  await expect
+    .poll(() => materialColor(page, "primary"))
+    .not.toBe(originalPrimary);
+  const seedSurface = await materialColor(page, "surface-container");
+
+  await spec.focus();
+  await page.keyboard.press("ArrowUp");
+  await expect(spec).toHaveValue("2021");
+  await expect
+    .poll(() => materialColor(page, "surface-container"))
+    .not.toBe(seedSurface);
+  const oldSecondary = await materialColor(page, "secondary-container");
+  await scheme.selectOption("vibrant");
+  await expect
+    .poll(() => materialColor(page, "secondary-container"))
+    .not.toBe(oldSecondary);
+  const standardPrimary = await materialColor(page, "primary");
+  await contrast.selectOption("high");
+  await expect
+    .poll(() => materialColor(page, "primary"))
+    .not.toBe(standardPrimary);
+  await appearance.selectOption("light");
+  await expect(root).toHaveAttribute("data-mantine-color-scheme", "light");
+  await expect(shell).not.toHaveCSS("background-color", originalSurface);
+  expect((await nav.boundingBox())?.width).toBe(originalWidth);
+
+  const canvas = await materialColor(page, "surface-container");
+  const navigation = await materialColor(page, "surface-container");
+  const list = await materialColor(page, "surface-bright");
+  const selection = await materialColor(page, "secondary-container");
+  const selectedText = await materialColor(page, "on-secondary-container");
+  const dialogSurface = await materialColor(page, "surface-container-high");
+  const sharedRoles = async () => {
+    await expect(shell).toHaveCSS("background-color", canvas);
+    await expect(nav).toHaveCSS("background-color", navigation);
+    await page.mouse.move(0, 0);
+    const indicator = nav.locator("a[aria-current] > span").first();
+    await expect(indicator).toHaveCSS("background-color", selection);
+    await expect(indicator).toHaveCSS("color", selectedText);
+  };
+  await sharedRoles();
+  await expect(page.getByTestId("settings-row").first()).toHaveCSS(
+    "background-color",
+    list,
+  );
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+
+  await nav.getByRole("link", { name: "首页" }).click();
+  await sharedRoles();
+  const workCard = page.locator('output[data-state="active"]');
+  await expect(workCard).toHaveCSS("background-color", selection);
+  await expect(workCard).toHaveCSS("color", selectedText);
+  await expect(workCard.getByText("LKM", { exact: true })).toHaveCSS(
+    "background-color",
+    await materialColor(page, "primary"),
+  );
+  await expect(workCard.getByText("LKM", { exact: true })).toHaveCSS(
+    "color",
+    await materialColor(page, "on-primary"),
+  );
+  const status = page.getByRole("button", { name: /状态/ });
+  await expect(status).toHaveCSS("background-color", list);
+  await status.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toHaveCSS("background-color", dialogSurface);
+  await expect(dialog.getByRole("heading").first()).toHaveCSS(
+    "color",
+    await materialColor(page, "on-surface"),
+  );
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(status).toBeFocused();
+
+  await nav.getByRole("link", { name: "规则" }).click();
+  await sharedRoles();
+  const tabs = page.getByTestId("rules-tabs");
+  await expect(tabs.locator("a[aria-current]")).toHaveCSS(
+    "background-color",
+    selection,
+  );
+  await expect(page.getByTestId("settings-row").first()).toHaveCSS(
+    "background-color",
+    list,
+  );
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+
+  await nav.getByRole("link", { name: "设置" }).click();
+  await page.reload();
+  await expect(appearance).toHaveValue("light");
+  await expect(spec).toHaveValue("2021");
+  await expect(scheme).toHaveValue("vibrant");
+  await expect(contrast).toHaveValue("high");
+  await expect(page.getByRole("radio", { name: "海蓝" })).toBeChecked();
+  await sharedRoles();
+  await spec.selectOption("2025");
+  await scheme.selectOption("monochrome");
+  await expect(spec).toHaveValue("2025");
+  await expect(
+    page.getByTestId("settings-row-detail").filter({ hasText: /^2021$/ }),
+  ).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "演示场景" })
+    .selectOption("builtin24");
+  await page.getByRole("combobox", { name: "语言" }).selectOption("en");
+  const reset = page.getByRole("button", { name: "Restore default colors" });
+  await expect(reset).toContainText(
+    "Dark · Slate · 2025 · Tonal Spot · Standard",
+  );
+  await reset.click();
+  await expect(root).toHaveAttribute("lang", "en");
+  await expect(root).toHaveAttribute("data-mantine-color-scheme", "dark");
+  await expect(shell).toHaveCSS("background-color", originalSurface);
+  await expect(
+    page.getByRole("combobox", { name: "Demo scenario" }),
+  ).toHaveValue("builtin24");
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "Slate" })).toBeChecked();
+  await expect(
+    page.getByRole("combobox", { name: "Color specification" }),
+  ).toHaveValue("2025");
+  await expect(page.getByRole("combobox", { name: "Color style" })).toHaveValue(
+    "tonalSpot",
+  );
+  await expect(
+    page.getByRole("combobox", { name: "Color contrast" }),
+  ).toHaveValue("standard");
 });
