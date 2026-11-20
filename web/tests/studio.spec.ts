@@ -21,6 +21,234 @@ const materialColor = (page: Page, role: string) =>
     return value;
   }, role);
 
+const installOperationHost = async (
+  page: Page,
+  initialStatus: "ready" | "recovery_required" | "partial",
+) =>
+  page.addInitScript(
+    ({ hello, active, archive, initialStatus: status }) => {
+      const token = "0123456789abcdef0123456789abcdef";
+      const revision = "a".repeat(64);
+      const itemId = "fedcba9876543210fedcba9876543210";
+      let saved = false;
+      let planStatus: string = status;
+      let effectStatus = "unverified";
+      const commands: string[] = [];
+      const reply = (requestId: string, data: unknown) =>
+        JSON.stringify({ protocol: 1, requestId, ok: true, data });
+      const item = (itemStatus: string) => ({
+        id: itemId,
+        idempotencyKey: "00112233445566778899aabbccddeeff",
+        category: "paths",
+        intent: "add",
+        stage: "live",
+        eligibility: "eligible",
+        reason: "CAPABILITY_VERIFIED",
+        effectProbe: "UID_PATH_VISIBILITY",
+        recovery: "proc-remove",
+        identityDigest: "b".repeat(64),
+        executionUid: 0,
+        status: itemStatus,
+        attempts: itemStatus === "saved" ? 0 : 1,
+      });
+      const plan = () => ({
+        planVersion: 2,
+        id: token,
+        baselineRevision: null,
+        candidateRevision: revision,
+        provider: {
+          implementation: "lkm",
+          version: "v2.3.0",
+          variant: "GKI-LKM",
+          audited: true,
+          features: ["CONFIG_KSU_SUSFS_SUS_PATH"],
+          bootId: "test-boot",
+          uid: 0,
+          procNodes: ["susfs_path"],
+        },
+        status: planStatus,
+        effectStatus,
+        createdAt: "1",
+        updatedAt: "1",
+        items: [
+          {
+            ...item(
+              planStatus === "ready"
+                ? "saved"
+                : planStatus === "recovery_required"
+                  ? "recovery_required"
+                  : planStatus === "partial"
+                    ? "partial"
+                    : "applied",
+            ),
+            ...(effectStatus === "verified" && {
+              effect: {
+                observed: true,
+                source: "uid-app-range",
+                code: "PATH_VISIBILITY",
+                valueDigest: "c".repeat(64),
+              },
+            }),
+          },
+        ],
+      });
+      const report = (
+        reportStatus: string,
+        reportEffect: string,
+        itemStatus: string,
+      ) => ({
+        planId: token,
+        status: reportStatus,
+        effectStatus: reportEffect,
+        saved: true,
+        applied: itemStatus === "applied" ? [itemId] : [],
+        failed: {},
+        pendingReboot: [],
+        deferred: [],
+        blocked: {},
+        unknown: [],
+        items: [item(itemStatus)],
+      });
+      window.ksu = {
+        exec: (command: string, options: string, callback: string) => {
+          commands.push(command);
+          if (options !== "{}") throw new Error("invalid options");
+          let output: string;
+          if (command.endsWith(" hello")) output = JSON.stringify(hello);
+          else if (command.endsWith(" status")) output = JSON.stringify(active);
+          else if (command.endsWith(" stage"))
+            output = reply("stage", {
+              token,
+              uploadPath: `/data/adb/susfs-studio/.staging/${token}.input`,
+              baseline: null,
+              revision: null,
+            });
+          else if (command.includes(` plan ${token}`))
+            output = reply("plan", plan());
+          else if (command.endsWith(` save ${token}`)) {
+            saved = true;
+            output = reply("save", {
+              revision,
+              savedAt: "1760000000000",
+              bytes: new TextEncoder().encode(archive).length,
+            });
+          } else if (command.endsWith(" read"))
+            output = saved
+              ? reply("read", {
+                  kind: "saved",
+                  text: archive,
+                  revision,
+                  receipt: {
+                    revision,
+                    savedAt: "1760000000000",
+                    bytes: new TextEncoder().encode(archive).length,
+                  },
+                  receiptStatus: "available",
+                })
+              : reply("read", { kind: "empty", receiptStatus: "missing" });
+          else if (command.includes(` apply-plan ${token}`)) {
+            planStatus = "applied";
+            output = reply(
+              "apply-plan",
+              report("applied", "unverified", "applied"),
+            );
+          } else if (command.includes(` verify-plan ${token}`)) {
+            effectStatus = "verified";
+            output = reply(
+              "verify-plan",
+              report("applied", "verified", "applied"),
+            );
+          } else if (command.includes(` recover-plan ${token}`)) {
+            planStatus = "applied";
+            output = reply(
+              "recover-plan",
+              report("recovered", "unverified", "recovery_required"),
+            );
+          } else if (command.includes(` retry-plan ${token}`)) {
+            planStatus = "applied";
+            output = reply(
+              "retry-plan",
+              report("applied", "unverified", "applied"),
+            );
+          } else if (command.includes(` operation-status ${token}`))
+            output = reply("operation-status", plan());
+          else throw new Error(`unexpected command: ${command}`);
+          (
+            window as unknown as Record<
+              string,
+              (code: number, stdout: string) => void
+            >
+          )[callback]?.(0, output);
+        },
+        io: () => ({
+          version: () => 1,
+          FileOutputStream: () => ({
+            open: () => "stream",
+            write: () => true,
+            close: () => true,
+          }),
+        }),
+      };
+      (window as unknown as Record<string, unknown>).__studioOperationCommands =
+        commands;
+    },
+    {
+      hello: fixtures.hello,
+      active: fixtures.active,
+      archive: JSON.stringify({
+        format: "susfs-studio",
+        schema: 2,
+        rules: {
+          paths: [
+            {
+              id: "operation-test",
+              path: "/data/local/tmp/studio-operation",
+              looping: false,
+            },
+          ],
+          maps: [],
+          kstats: [],
+          redirects: [],
+        },
+      }),
+      initialStatus,
+    },
+  );
+
+const saveOperationArchive = async (page: Page, archiveName: string) => {
+  await page.getByRole("button", { name: "设备保存" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .locator("input[type=file]")
+    .first()
+    .setInputFiles({
+      name: archiveName,
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({
+          format: "susfs-studio",
+          schema: 2,
+          rules: {
+            paths: [
+              {
+                id: "operation-test",
+                path: "/data/local/tmp/studio-operation",
+                looping: false,
+              },
+            ],
+            maps: [],
+            kstats: [],
+            redirects: [],
+          },
+        }),
+      ),
+    });
+  await dialog.getByRole("button", { name: "检查并确认保存" }).click();
+  await dialog.getByRole("button", { name: "确认保存" }).click();
+  await expect(dialog.getByRole("status")).toContainText("保存完成");
+  await page.keyboard.press("Escape");
+};
+
 test("a late host response cannot overwrite a newer refresh", async ({
   page,
 }) => {
@@ -153,7 +381,7 @@ test("host, provider evidence and operation authorization stay separate", async 
     .filter({ hasText: "路径规则" })
     .first();
   await expect(path).toContainText("接口报告可用");
-  await expect(path).toContainText("操作资格：未授予设备写入权限");
+  await expect(path).toContainText("操作资格：写入与效果验证均已授权");
 });
 
 test("an injected host shows its own result and refresh failures", async ({
@@ -903,6 +1131,29 @@ test("archive save, receipt refresh and export form one confirmed loop", async (
               baseline: saved || undefined,
               revision: saved ? revision : undefined,
             });
+          else if (command.includes(` plan ${token}`))
+            output = reply("plan", {
+              planVersion: 2,
+              id: token,
+              baselineRevision: saved ? revision : null,
+              candidateRevision: revision,
+              provider: {
+                implementation: "unknown",
+                version: "unreported",
+                variant: "unknown",
+                audited: false,
+                features: [],
+                bootId: "test-boot",
+                uid: 0,
+                procNodes: [],
+              },
+              status: "blocked",
+              effectStatus: "unverified",
+              reason: "PROVIDER_DIAGNOSTIC_FAILED",
+              createdAt: "1",
+              updatedAt: "1",
+              items: [],
+            });
           else if (command.endsWith(` save ${token}`)) {
             saved = upload;
             output = reply("save", receipt);
@@ -1003,6 +1254,84 @@ test("archive save, receipt refresh and export form one confirmed loop", async (
   await expect(restore.getByRole("status")).toContainText("恢复完成");
 });
 
+test("saved operation plan requires confirmation and separate effect verification", async ({
+  page,
+}) => {
+  await installOperationHost(page, "ready");
+  await page.goto("/#/rules/overview");
+  await saveOperationArchive(page, "operation-apply.json");
+  await page.getByRole("button", { name: "应用到设备" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("确认应用计划");
+  await expect(dialog).toContainText("先保存预写日志");
+  await dialog.getByRole("button", { name: "确认应用计划" }).click();
+  const application = page.locator('section[aria-label="设备应用"]');
+  await expect(application).toContainText("已受理");
+  await page.getByRole("button", { name: "验证独立效果" }).click();
+  await expect(application).toContainText("独立效果核对：全部已观察");
+  await expect(application).toContainText("独立效果：已观察");
+  const commands = await page.evaluate(
+    () =>
+      (window as unknown as Record<string, string[] | undefined>)
+        .__studioOperationCommands ?? [],
+  );
+  expect(
+    commands.filter((command) => command.includes(" apply-plan ")),
+  ).toHaveLength(1);
+  expect(
+    commands.filter((command) => command.includes(" verify-plan ")),
+  ).toHaveLength(1);
+});
+
+test("unknown operation is inspected before recovery and never replayed", async ({
+  page,
+}) => {
+  await installOperationHost(page, "recovery_required");
+  await page.goto("/#/rules/overview");
+  await saveOperationArchive(page, "operation-recover.json");
+  await page.getByRole("button", { name: "读取并恢复未知状态" }).click();
+  await expect(page.locator('section[aria-label="设备应用"]')).toContainText(
+    "已重新核对",
+  );
+  const commands = await page.evaluate(
+    () =>
+      (window as unknown as Record<string, string[] | undefined>)
+        .__studioOperationCommands ?? [],
+  );
+  expect(
+    commands.filter((command) => command.includes(" apply-plan ")),
+  ).toHaveLength(0);
+  expect(
+    commands.filter((command) => command.includes(" recover-plan ")),
+  ).toHaveLength(1);
+});
+
+test("partial operation retries only after explicit confirmation", async ({
+  page,
+}) => {
+  await installOperationHost(page, "partial");
+  await page.goto("/#/rules/overview");
+  await saveOperationArchive(page, "operation-retry.json");
+  await page.getByRole("button", { name: "重试已知失败项" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("确认后仅重试已知失败项");
+  await dialog.getByRole("button", { name: "确认重试失败项" }).click();
+  await expect(page.locator('section[aria-label="设备应用"]')).toContainText(
+    "已受理",
+  );
+  const commands = await page.evaluate(
+    () =>
+      (window as unknown as Record<string, string[] | undefined>)
+        .__studioOperationCommands ?? [],
+  );
+  expect(
+    commands.filter((command) => command.includes(" retry-plan ")),
+  ).toHaveLength(1);
+  expect(
+    commands.filter((command) => command.includes(" apply-plan ")),
+  ).toHaveLength(0);
+});
+
 test("an uncertain archive save keeps the draft and requires verification", async ({
   page,
 }) => {
@@ -1036,19 +1365,42 @@ test("an uncertain archive save keeps the draft and requires verification", asyn
                     baseline: null,
                     revision: null,
                   })
-                : command.endsWith(` save ${token}`)
-                  ? reply(
-                      "save",
-                      { code: "RESULT_UNKNOWN", retryable: false },
-                      false,
-                    )
-                  : reply("read", {
-                      kind: committed ? "saved" : "empty",
-                      ...(committed
-                        ? { text: archive, revision: "a".repeat(64) }
-                        : {}),
-                      receiptStatus: "missing",
-                    });
+                : command.includes(` plan ${token}`)
+                  ? reply("plan", {
+                      planVersion: 2,
+                      id: token,
+                      baselineRevision: null,
+                      candidateRevision: "a".repeat(64),
+                      provider: {
+                        implementation: "unknown",
+                        version: "unreported",
+                        variant: "unknown",
+                        audited: false,
+                        features: [],
+                        bootId: "test-boot",
+                        uid: 0,
+                        procNodes: [],
+                      },
+                      status: "blocked",
+                      effectStatus: "unverified",
+                      reason: "PROVIDER_DIAGNOSTIC_FAILED",
+                      createdAt: "1",
+                      updatedAt: "1",
+                      items: [],
+                    })
+                  : command.endsWith(` save ${token}`)
+                    ? reply(
+                        "save",
+                        { code: "RESULT_UNKNOWN", retryable: false },
+                        false,
+                      )
+                    : reply("read", {
+                        kind: committed ? "saved" : "empty",
+                        ...(committed
+                          ? { text: archive, revision: "a".repeat(64) }
+                          : {}),
+                        receiptStatus: "missing",
+                      });
           (
             window as unknown as Record<
               string,

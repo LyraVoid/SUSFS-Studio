@@ -20,13 +20,13 @@ An optional `control` object separates the command adapter from archive and devi
 ```json
 {
   "archiveImport": true,
-  "providerWrite": false,
-  "effectVerification": false,
+  "providerWrite": true,
+  "effectVerification": true,
   "adapter": "confirmed"
 }
 ```
 
-`adapter` must be `confirmed`, `unknown`, or `unsupported`. A legacy control object containing only `archiveImport` remains readable, but its write and effect authorization default to false and its adapter remains unknown. The Rules surface shows the host channel, raw provider evidence, adapter confirmation, and each capability's operation gate as separate facts. An available capability with `providerWrite=false` is reported as unavailable for writes because authorization is missing, not because the feature is unsupported.
+The sample describes a confirmed adapter that exposes the fixed command set. A real host must report these fields according to its own adapter. Per-item capability, audited ABI, proc extension, stage, and UID checks still decide whether a specific operation is eligible. `adapter` must be `confirmed`, `unknown`, or `unsupported`. A legacy control object containing only `archiveImport` remains readable, but its write and effect authorization default to false and its adapter remains unknown. An available capability with `providerWrite=false` is unavailable for writes because authorization is missing, not because the feature is unsupported.
 
 Archive save additionally requires host file operations compatible with `ksu.io()` version 1. The WebUI checks that `io().version()` returns `1`, then uses `FileOutputStream().open(path, false)`, `write(id, base64)`, and `close(id)`. It accepts only the path returned by native `stage` and verifies the exact form `/data/adb/susfs-studio/.staging/<32 lowercase hex>.input`. It never writes a selected file name or user-supplied path through this API. A host without the stream keeps device save disabled but may still use local preview and device export.
 
@@ -74,13 +74,36 @@ On 2026-11-20, the updated debug module was deployed to the same PKX110 device. 
 
 This evidence covers one host build and one provider combination. It does not establish behavior for other managers, WebView versions, provider variants, concurrent UI instances, process termination at every transaction point, or hosts without the file API.
 
+### Full management device closure
+
+On 2026-11-20, the same host opened a debug Studio module with the complete management contract. The device was PKX110, Android 17/API 37, arm64 kernel `6.6.118-android15-8-g9bc34d5b0c79-abogki537459655-4k`, KernelSU `v3.3.1-50-g64833c00`, and a Studio-loaded GKI-LKM Provider `v2.3.0`. The Provider KO SHA-256 was `a6ecb1331fc5baf1d4f82b60ab09736b3c3d391112ed5b9a1f1b9b36ca4e19ed`.
+
+The formal archive-to-device sequence used the same Studio transaction:
+
+1. stage and server-side archive validation;
+2. Provider capability and ABI planning;
+3. revision and effect preview;
+4. explicit confirmation;
+5. durable archive save and receipt;
+6. write-ahead plan application;
+7. per-item receipt and independent effect probes;
+8. refresh, cleanup, and reboot verification.
+
+The full plan applied 12 live items, deferred two dynamic-kstat items to the boot stages, and blocked Priority UID with `ABI_NOT_AUDITED`. Independent effect verification observed every accepted live item, including app-domain path, map, redirect, static kstat, mount, and AVC evidence. A separate restart test captured a pre-mount kstat snapshot, deduplicated it at late pre-mount, redirected it after mount, and produced `effectStatus: verified` without treating the restart acceptance as effect evidence.
+
+The final cleanup archive had revision `6ffbe945d4b713e77a263761ac1fa03769b9ce0fed98ce3b4498ab039fd6d175`. Its 348-byte content disables automatic work, explicitly disables hide-mounts, logging, and AVC spoof, clears all rule and LKM lists, and leaves uname and cmdline unmanaged. After applying it and rebooting, `boot-enabled` returned `disabled`, Studio's boot log stopped before KO loading, `/sys/module/susfs_guard_lkm` and all `/proc/susfs_*` extensions were absent, the real uname and bootconfig were visible, and the status returned `missing` with write/effect authorization false.
+
+The actual KernelSU WebUI was also opened on this host. A harmless Studio archive was selected through Android DocumentsUI, returned to the WebView, parsed as Schema 2, compared with the device archive, and displayed without `NotReadableError`. The file picker step did not use CDP or an injected `File`. The current result closes the earlier picker gap for this host; it does not establish every DocumentsUI provider or OEM file provider.
+
+The full lifecycle package SHA-256 was `149db42e3cb6a2d2539744edd7bcb3336a1121f75bcf05f20933aed5b79c4e7c`; its tested `studioctl` digest was `34cd09b907b46b8390dbb566b7d935eab7b2d455d73d16cdb4d494b305a49b94`. After adding a guard against treating legacy plans without a boot ID as current-boot entries, final package SHA-256 became `62cd8cfda2958780160658ff6dcb2480b1fe0477e16893d832a7c026be4a0f6c` and the final installed `studioctl` digest became `1cc870459bebd946bd21c0d417b0cf0617d5a7a748ef7e24ed40f3c8b586b008`. The final binary was installed and rebooted with an empty store; the Provider remained unloaded. The installed WebUI entry digest is `1318e55cd3409b88b8744a357f5f9fe8d702115e399b0a65da390615247c6c11`. Detailed raw plans, effect reports, logs, hashes, and backup verification are retained under `.local/full-management-device.cfqNEy/`.
+
 The automatic backup list and read commands were also verified on the same Android device with the packaged debug executable, a private mount namespace, and two harmless archives. The listed digest and returned bytes matched the retained archive; the current archive matched the restore receipt. The installed module and its store were not changed by this check. The current backup picker was tested in Chromium with a test bridge, not in the installed manager; the earlier manager round trip used an exported JSON file.
 
 ### Compatibility evidence matrix
 
 | Environment | Evidence | Status |
 | --- | --- | --- |
-| PKX110, Android 17 API 37, host `v3.3.1-50-g64833c00` (32730), WebView `157.0.8103.50`, kernel `6.6.118-android15-8-g9bc34d5b0c79-abogki537459655-4k`, GKI-LKM provider `v2.3.0` | Host load, archive save/export and restore; the current rule editor also saved and verified a receipt. | Verified only for the stated operations; host navigation did not block the earlier external-link probe. |
+| PKX110, Android 17 API 37, host `v3.3.1-50-g64833c00` (32730), WebView `157.0.8103.50`, kernel `6.6.118-android15-8-g9bc34d5b0c79-abogki537459655-4k`, GKI-LKM provider `v2.3.0` | Host load; real DocumentsUI selection; archive save/export/restore; unified plan apply, partial, unknown recovery, retry, effects, boot stages, and cleanup. | Verified only for the stated Provider and operations. Host navigation did not block the earlier external-link probe, so host-level origin isolation remains unverified. |
 | Same PKX110, host `v1.6.4` (33211) | Four-category rule archive round trip; two WebUI activities with stale-revision recovery; injected receipt-publication failure. | Verified only for the stated operations. The tagged source does not demonstrate origin isolation. |
 | Same PKX110, alternate manager build `0f3f42ba` (115404) | The app opens but reports its kernel patch missing and system patch inactive. No module WebUI or bridge check is possible from that inactive state. | Inactive; unverified. |
 | Same PKX110, alternate manager build `31.1` (31100) | The app opens and reports its runtime not installed. No module WebUI or bridge check is possible from that inactive state. | Inactive; unverified. |
@@ -112,7 +135,7 @@ In the isolated test store, a directory at the receipt target prevented receipt 
 
 The installed host `v3.3.1-50-g64833c00` (32730) also opened the same debug bundle, reported the live GKI-LKM status, loaded the archive in Rules, and saved an independent Paths edit after the test obstruction was removed. The WebUI verified its receipt. The other installed managers (`0f3f42ba` and `31.1`) still reported inactive runtimes, so their module WebUIs were not tested. No manager was replaced and the locked, verified-boot device was not flashed or rebooted.
 
-Read-only review of the `v1.6.4` tagged source found a local HTTPS asset loader, disabled file access, and general-purpose JavaScript command and file interfaces. The WebView client did not provide an exact top-level document allowlist or an origin-scoped bridge. External navigation and frame exposure were not probed on that build in this round. A separate UID 2000 CLI invocation completed the handshake but could not query the provider or read the private archive. Provider status before, after, and following cleanup was identical; the Studio module and private store were restored and their paths, file contents, modes, and owners matched the pre-test inventory. Provider writes remain disabled.
+Read-only review of the `v1.6.4` tagged source found a local HTTPS asset loader, disabled file access, and general-purpose JavaScript command and file interfaces. The WebView client did not provide an exact top-level document allowlist or an origin-scoped bridge. External navigation and frame exposure were not probed on that build in this round. A separate UID 2000 CLI invocation completed the handshake but could not query the provider or read the private archive. Provider status before, after, and following cleanup was identical; the Studio module and private store were restored and their paths, file contents, modes, and owners matched the pre-test inventory. Those tests did not authorize Provider writes.
 
 ## Decision
 
@@ -120,4 +143,4 @@ When a compatible command bridge is present, the module uses it for fixed querie
 
 The command and file bridges remain general-purpose privileged host interfaces. Fixed calls and token paths in this module do not restrict what other JavaScript in the WebView can invoke. Embedded frames and external connections are restricted by the bundled page's CSP, but top-level navigation and interface exposure remain host-dependent. Treat every host version as unverified until local load, navigation, handshake, status, malformed output, timeout, file-stream failure, non-root behavior, and archive round trip have been checked.
 
-The current implementation is independent of FinaSU's `ksud susfs` controller and of the sidex15 module's `ksu_susfs` binary. Provider detection is the fixed native protocol-1 syscall query. Neither reference manager is required to open Studio or operate its private archive, and neither private controller is used as a fallback write channel. Real rule operations remain rejected until their individual authorization and effect evidence is available.
+The current implementation is independent of FinaSU's `ksud susfs` controller and of the sidex15 module's `ksu_susfs` binary. Provider detection is the fixed native protocol-1 syscall query. Neither reference manager is required to open Studio or operate its private archive, and neither private controller is used as a fallback write channel. Provider operations use Studio's own protocol-2 plan, journal, fixed requests, effect probes, and recovery. Only the tested GKI-LKM 2.3.0 combination is enabled per item; Built-In, NON-GKI, 2.4, unknown versions, unreported extensions, and unaudited subfeatures remain visible but fail closed. See [rule operation boundary](rule-operation-boundary.md) for the current matrix.

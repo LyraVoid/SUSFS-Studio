@@ -11,6 +11,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const RECEIPT_MAX: u64 = 4096;
 const STAGE_MAX_AGE: u64 = 60 * 60;
+const OPERATION_MAX: usize = 16;
 
 pub struct Store {
     root: PathBuf,
@@ -36,14 +37,6 @@ pub struct Prepared {
     pub upload_path: String,
     pub baseline: Option<String>,
     pub revision: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CandidatePlan {
-    baseline_revision: Option<String>,
-    candidate_revision: String,
-    changes: Vec<crate::archive::Change>,
 }
 
 #[derive(Serialize)]
@@ -200,7 +193,7 @@ impl Store {
         Ok(store)
     }
 
-    fn lock(&self) -> io::Result<File> {
+    pub(crate) fn lock(&self) -> io::Result<File> {
         let lock = open_name(
             &self.dir,
             ".lock",
@@ -248,7 +241,7 @@ impl Store {
         read_limited(&file, MAX_ARCHIVE as u64).map(Some)
     }
 
-    fn read_archive_unlocked(&self) -> io::Result<Option<Vec<u8>>> {
+    pub(crate) fn read_archive_unlocked(&self) -> io::Result<Option<Vec<u8>>> {
         let bytes = self.read_archive_bytes()?;
         if bytes.as_ref().is_some_and(|bytes| !valid_archive(bytes)) {
             return Err(io::Error::new(
@@ -357,6 +350,38 @@ impl Store {
                 })
             })
             .collect()
+    }
+
+    fn prune_backups(&self) -> io::Result<()> {
+        let path = PathBuf::from(format!("/proc/self/fd/{}", self.dir.as_raw_fd()));
+        let mut newest = std::collections::BTreeSet::new();
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            let Some(id) = name
+                .to_str()
+                .and_then(|name| name.strip_prefix("backup-")?.strip_suffix(".json"))
+                .filter(|id| valid_token(id))
+            else {
+                continue;
+            };
+            let Ok(file) = self.open_backup(id) else {
+                continue;
+            };
+            newest.insert((file.metadata()?.mtime(), id.to_owned()));
+        }
+        while newest.len() > 32 {
+            let (_, oldest) = newest.pop_first().unwrap();
+            let name = CString::new(format!("backup-{oldest}.json"))
+                .map_err(|_| io::ErrorKind::InvalidInput)?;
+            if unsafe { libc::unlinkat(self.dir.as_raw_fd(), name.as_ptr(), 0) } != 0 {
+                let error = io::Error::last_os_error();
+                if error.kind() != io::ErrorKind::NotFound {
+                    return Err(error);
+                }
+            }
+        }
+        self.dir.sync_all()
     }
 
     pub fn read_backup(&self, id: &str) -> io::Result<Stored> {
@@ -556,7 +581,7 @@ impl Store {
         self.save_staged_with_backup(token, false)
     }
 
-    pub fn plan_staged(&self, token: &str) -> io::Result<CandidatePlan> {
+    pub fn read_staged_candidate(&self, token: &str) -> io::Result<(Option<Vec<u8>>, Vec<u8>)> {
         if !valid_token(token) {
             return Err(io::ErrorKind::InvalidInput.into());
         }
@@ -564,17 +589,131 @@ impl Store {
         let current = self.read_archive_unlocked()?;
         let (expected, input) = self.read_stage(&self.staging()?, token)?;
         if current != expected {
-            return Err(io::ErrorKind::AlreadyExists.into());
+            return Err(io::Error::from(io::ErrorKind::AlreadyExists));
         }
-        let text = |bytes| std::str::from_utf8(bytes).map_err(|_| io::ErrorKind::InvalidData);
-        Ok(CandidatePlan {
-            baseline_revision: current.as_deref().map(revision),
-            candidate_revision: revision(&input),
-            changes: crate::archive::changes(
-                current.as_deref().map(text).transpose()?,
-                text(&input)?,
-            ),
-        })
+        Ok((current, input))
+    }
+
+    fn operations(&self) -> io::Result<File> {
+        if let Err(error) = open_name(
+            &self.dir,
+            ".operations",
+            libc::O_RDONLY | libc::O_DIRECTORY,
+            0,
+        ) {
+            if error.kind() != io::ErrorKind::NotFound {
+                return Err(error);
+            }
+            let name = c".operations";
+            if unsafe { libc::mkdirat(self.dir.as_raw_fd(), name.as_ptr(), 0o700) } != 0 {
+                let error = io::Error::last_os_error();
+                if error.kind() != io::ErrorKind::AlreadyExists {
+                    return Err(error);
+                }
+            }
+            self.dir.sync_all()?;
+        }
+        let directory = open_name(
+            &self.dir,
+            ".operations",
+            libc::O_RDONLY | libc::O_DIRECTORY,
+            0,
+        )?;
+        trusted(&directory, true)?;
+        Ok(directory)
+    }
+
+    pub fn read_operation(&self, id: &str) -> io::Result<Option<Vec<u8>>> {
+        if !valid_token(id) {
+            return Err(io::ErrorKind::InvalidInput.into());
+        }
+        let operations = self.operations()?;
+        let file = match open_name(
+            &operations,
+            &format!("{id}.json"),
+            libc::O_RDONLY | libc::O_NONBLOCK,
+            0,
+        ) {
+            Ok(file) => file,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error),
+        };
+        trusted(&file, false)?;
+        read_limited(&file, 256 * 1024).map(Some)
+    }
+
+    pub fn write_operation(&self, id: &str, bytes: &[u8]) -> io::Result<()> {
+        if !valid_token(id) || bytes.len() > 256 * 1024 {
+            return Err(io::ErrorKind::InvalidInput.into());
+        }
+        let current_boot = serde_json::from_slice::<serde_json::Value>(bytes)
+            .ok()
+            .and_then(|plan| plan["provider"]["bootId"].as_str().map(str::to_owned));
+        let operations = self.operations()?;
+        let temp = format!(".{id}.{}.tmp", random_token()?);
+        let file = Self::write_stage_file(&operations, &temp, bytes)?;
+        file.sync_all()?;
+        let old = CString::new(temp).map_err(|_| io::ErrorKind::InvalidInput)?;
+        let new = CString::new(format!("{id}.json")).map_err(|_| io::ErrorKind::InvalidInput)?;
+        if unsafe {
+            libc::renameat(
+                operations.as_raw_fd(),
+                old.as_ptr(),
+                operations.as_raw_fd(),
+                new.as_ptr(),
+            )
+        } != 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+        operations.sync_all()?;
+        let path = PathBuf::from(format!("/proc/self/fd/{}", operations.as_raw_fd()));
+        let mut plans = std::collections::BTreeSet::new();
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            let Some(filename) = name.to_str() else {
+                continue;
+            };
+            let Some(id) = filename.strip_suffix(".json").filter(|id| valid_token(id)) else {
+                continue;
+            };
+            let Ok(file) = open_name(&operations, filename, libc::O_RDONLY | libc::O_NONBLOCK, 0)
+            else {
+                continue;
+            };
+            if trusted(&file, false).is_err() {
+                continue;
+            }
+            let metadata = file.metadata()?;
+            let plan_boot = read_limited(&file, 256 * 1024)
+                .ok()
+                .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+                .and_then(|plan| plan["provider"]["bootId"].as_str().map(str::to_owned));
+            let same_boot = current_boot
+                .as_ref()
+                .is_some_and(|boot| plan_boot.as_ref() == Some(boot));
+            plans.insert((metadata.mtime(), same_boot, id.to_owned()));
+        }
+        while plans.len() > OPERATION_MAX {
+            let oldest = plans
+                .iter()
+                .find(|(_, current_boot_plan, candidate)| candidate != id && !current_boot_plan)
+                .or_else(|| plans.iter().find(|(_, _, candidate)| candidate != id))
+                .cloned()
+                .unwrap();
+            plans.remove(&oldest);
+            let (_, _, oldest) = oldest;
+            let name =
+                CString::new(format!("{oldest}.json")).map_err(|_| io::ErrorKind::InvalidInput)?;
+            if unsafe { libc::unlinkat(operations.as_raw_fd(), name.as_ptr(), 0) } != 0 {
+                let error = io::Error::last_os_error();
+                if error.kind() != io::ErrorKind::NotFound {
+                    return Err(error);
+                }
+            }
+        }
+        operations.sync_all()
     }
 
     pub fn restore_staged(&self, token: &str) -> Result<Receipt, SaveError> {
@@ -609,13 +748,25 @@ impl Store {
             let _ = self.remove_stage(&staging, token);
             return Err(io::Error::new(io::ErrorKind::AlreadyExists, "revision conflict").into());
         }
-        if restore {
-            let current = current.ok_or_else(|| {
-                io::Error::new(io::ErrorKind::NotFound, "no current archive to preserve")
-            })?;
-            let token = random_token()?;
-            let name = format!(".backup-{token}.tmp");
-            let target = format!("backup-{token}.json");
+        if restore && current.is_none() {
+            return Err(
+                io::Error::new(io::ErrorKind::NotFound, "no current archive to preserve").into(),
+            );
+        }
+        if let Some(current) = &current {
+            if restore && current.is_empty() {
+                return Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "no current archive to preserve",
+                )
+                .into());
+            }
+            let current = current.clone();
+            #[cfg(test)]
+            checkpoint("before-backup")?;
+            let backup_token = random_token()?;
+            let name = format!(".backup-{backup_token}.tmp");
+            let target = format!("backup-{backup_token}.json");
             let mut backup = open_name(
                 &self.dir,
                 &name,
@@ -647,6 +798,7 @@ impl Store {
             self.dir.sync_all()?;
             #[cfg(test)]
             checkpoint("backup-synced")?;
+            self.prune_backups()?;
         }
         self.remove_stage(&staging, token)?;
         #[cfg(test)]
@@ -823,6 +975,28 @@ mod tests {
         fs::set_permissions(&stale, fs::Permissions::from_mode(0o600)).unwrap();
         store.save(None, fixture()).unwrap();
         assert_eq!(fs::read(&stale).unwrap(), b"prior transaction");
+        drop(store);
+        cleanup(dir);
+    }
+
+    #[test]
+    fn operation_retention_keeps_every_plan_from_the_current_boot() {
+        let (dir, store) = test_store("operation-retention");
+        for index in 0..OPERATION_MAX {
+            let id = format!("{index:032x}");
+            let plan = format!(r#"{{"provider":{{"bootId":"old-{index}"}}}}"#);
+            store.write_operation(&id, plan.as_bytes()).unwrap();
+        }
+        let first = "a".repeat(32);
+        let second = "b".repeat(32);
+        for id in [&first, &second] {
+            store
+                .write_operation(id, br#"{"provider":{"bootId":"current"}}"#)
+                .unwrap();
+        }
+        assert!(store.read_operation(&first).unwrap().is_some());
+        assert!(store.read_operation(&second).unwrap().is_some());
+        assert_eq!(fs::read_dir(dir.join(".operations")).unwrap().count(), 16);
         drop(store);
         cleanup(dir);
     }
@@ -1263,29 +1437,6 @@ mod tests {
     }
 
     #[test]
-    fn planning_checks_current_baseline_without_consuming_the_stage() {
-        let (dir, store) = test_store("plan");
-        let prepared = store.prepare().unwrap();
-        assert_eq!(
-            store.plan_staged(&prepared.token).unwrap_err().kind(),
-            io::ErrorKind::InvalidInput
-        );
-        fs::write(&prepared.upload_path, fixture()).unwrap();
-        let plan = store.plan_staged(&prepared.token).unwrap();
-        assert_eq!(plan.baseline_revision, None);
-        assert_eq!(plan.candidate_revision, revision(fixture()));
-        assert!(store.read().unwrap().is_none());
-        assert!(Path::new(&prepared.upload_path).exists());
-        store.save(None, fixture()).unwrap();
-        assert_eq!(
-            store.plan_staged(&prepared.token).unwrap_err().kind(),
-            io::ErrorKind::AlreadyExists
-        );
-        drop(store);
-        cleanup(dir);
-    }
-
-    #[test]
     fn restore_preserves_current_archive_before_replacement() {
         let (dir, store) = test_store("restore");
         store.save(None, fixture()).unwrap();
@@ -1317,6 +1468,20 @@ mod tests {
         );
         assert_eq!(store.read_backup(&list[0].id).unwrap().bytes, fixture());
         drop(store);
+        cleanup(dir);
+    }
+
+    #[test]
+    fn ordinary_staged_save_preserves_the_previous_revision() {
+        let (dir, store) = test_store("save-backup");
+        store.save(None, fixture()).unwrap();
+        let prepared = store.prepare().unwrap();
+        let next = br#"{"format":"susfs-studio","schema":1,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]},"next":true}"#;
+        fs::write(&prepared.upload_path, next).unwrap();
+        store.save_staged(&prepared.token).unwrap();
+        let backups = store.backups().unwrap();
+        assert_eq!(backups.len(), 1);
+        assert_eq!(store.read_backup(&backups[0].id).unwrap().bytes, fixture());
         cleanup(dir);
     }
 

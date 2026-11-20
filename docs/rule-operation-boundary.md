@@ -1,35 +1,54 @@
 # Rule Operation Boundary
 
-Studio's provider is read-only. Archive validation and comparison are not device application, and feature markers are not permission to write or evidence of effect. The application action on Rules → Overview is disabled, and the CLI apply and verify commands return a structured rejection without sending a rule operation to the provider. No per-rule result is fabricated.
+Studio's provider operation layer uses its own archive, operation plan, journal, fixed executable arguments, and effect probes. A feature marker, a loaded kernel module, an archive receipt, or a returned syscall value alone does not authorize an operation or prove its effect. Every item must have a known Provider implementation and audited ABI, the required runtime proc extension, an eligible stage and UID, an independent effect probe, and a recovery path.
 
-The Rules surface evaluates every capability independently. It distinguishes a missing host interface, failed diagnostics, an absent provider, an unknown protocol, an unreported capability, an explicitly unsupported capability, an unknown implementation, an unconfirmed adapter, stale evidence, missing write authorization, and a fully authorized operation. An available feature whose `providerWrite` authorization is false is blocked for missing authorization rather than relabeled as unsupported. Real application remains disabled for every current provider combination.
+The Rules surface keeps host access, Provider identity, raw features, adapter confirmation, per-item eligibility, operation state, effect state, and recovery state separate. A missing host, absent Provider, unknown protocol, unreported feature, explicitly unsupported feature, unaudited ABI, missing proc extension, stale evidence, missing authorization, deferred boot-stage work, and pending reboot are distinct results.
 
-## Review matrix
+## Provider ABI matrix
 
-| Category and archive fields | Minimum capability evidence | Stage restriction | Confirmation and receipt | Effect verification |
-| --- | --- | --- | --- | --- |
-| Path: `path`, `looping` | Reported path feature plus a verified implementation-specific regular or looping ABI. | Target availability and boot ordering require device evidence. | Disabled; a future write would require explicit confirmation and a receipt for each entry. | Independently verify visibility from the intended process context. |
-| Map: `path` | Reported map feature and verified provider ABI. | Target and process lifetime require device evidence. | Disabled; confirmation and individual receipts required before any write. | Independently inspect the intended process mapping view. |
-| kstat: `path`, `mode`, optional static fields | Reported kstat feature and a verified ABI for the selected mode; full clone and static support are not inferred from the marker. | Snapshot timing and mount ordering require explicit verification. | Disabled; confirmation and individual receipts required before any write. | Independently compare stat results in the intended context. |
-| Redirect: `path`, `destination`, `uidScheme` | Reported redirect feature and verified implementation/version-specific UID semantics. | Target existence and mount ordering require device evidence. | Disabled; confirmation and individual receipts required before any write. | Independently verify the open result under the intended UID. |
+The table describes the evidence level, not a claim that every combination behaves identically. Unknown builds stay fail-closed until their runtime identity and request/response layout are re-audited.
 
-The diagnostic implementation currently queries only version, feature, and variant commands in `native/src/main.rs`. Its capabilities describe reported configuration markers. For one inspected built-in dispatch implementation, `kernel/extension/susfs.c` in the locally inspected source tree routes separate path, looping path, map, normal/static kstat, and redirect commands behind corresponding feature guards. This establishes only that implementation's dispatch, not a stable cross-version ABI, timing, success semantics, or LKM equivalence. The installed GKI-LKM device reported SUSFS 2.3.0 and the four markers; no write was tested.
-
-## Arm64 source and artifact comparison
-
-The inspected built-in 2.3 and 2.4 source trees declare the same command IDs and request fields for these four categories. The 2.4 source changes internal path matching state, so equal request fields do not establish equal runtime behavior. The local 2.3 LKM artifact and 2.4 built-in object also show matching request sizes and result offsets in their debug type metadata:
-
-| Request | Size (bytes) | Result offset (bytes) | Source constraints still relevant |
+| Provider family | Versions and variants | Current evidence | Operation disposition |
 | --- | --- | --- | --- |
-| Path (regular or looping) | 260 | 256 | NUL-terminated path in 256 bytes. Looping has a distinct command and must be tested separately across mount changes. |
-| Map | 260 | 256 | NUL-terminated path in 256 bytes. The target file and the observing process's mapping must both be established. |
-| Kstat | 376 | 372 | Path starts at byte 16, with 64-bit `long` fields on arm64 and 32-bit flags at byte 368. Matching layout does not prove matching flags or full-clone semantics. An earlier snapshot must exist before an update can reuse it. |
-| Redirect | 520 | 516 | Two NUL-terminated 256-byte paths and a 32-bit UID selector at byte 512. Acceptance does not prove that the desired process took the redirect. |
+| LKM | SUSFS 2.3.0, GKI-LKM, arm64, kernel 6.6, KernelSU `v3.3.1-50-g64833c00` | Real-device request, return, effect, restart, and cleanup tests completed for the supported operations below. | Eligible when the per-item proc extension and capability checks pass. |
+| LKM | Other 2.3 builds, NON-GKI, other kernels, other architectures | No matching runtime test. The source/layout review is not build-identity proof. | Blocked as unaudited or unreported. |
+| LKM | SUSFS 2.4 | No matching running Provider was tested in this pass. | Blocked until runtime dispatch, return semantics, effects, and recovery are verified. |
+| Built-In | GKI 2.3.0 / 2.4.0 | Reference source and local arm64 artifacts were inspected; no Built-In runtime was booted in this pass. | Detection and archive editing work; provider operations remain blocked for lack of runtime evidence. |
+| Built-In | NON-GKI or unknown | No audited runtime target. | Blocked. |
+| Any | Unknown version, implementation, or protocol | The interface may remain visible for diagnostics. | No write eligibility. |
 
-The inspected LKM dispatch requires UID 0 and leaves the caller's result field untouched when the command is not handled. The installed device's root diagnostic query reported LKM 2.3 and all four feature markers; a Studio invocation under UID 2000 returned a diagnostic failure before querying. This is not a test of kernel-side write authorization. No installed LKM artifact has been matched byte-for-byte to the reference build, and neither built-in version was booted in this round. No write, independent effect measurement, or rollback was performed.
+Runtime capability detection reads the Provider version, features, variant, readable proc extensions, static-kstat field list, and redirect UID scheme report. A `CONFIG_*` token alone does not authorize a subfeature when the corresponding proc extension or exact ABI is absent. LKM module hiding and mount-prefix operations additionally require a live LKM identity and the exact extension nodes.
 
-The source review found both module `post-fs-data` loading and an optional earlier loader in reference artifacts. The current live provider's response does not identify when it was loaded. A late UI session cannot establish that a pre-mount kstat snapshot was captured or schedule a future stage simply by displaying “pending reboot.” Studio does not register any such task.
+## Verified LKM 2.3.0 matrix
 
-Provider writes remain disabled for every combination. Before enabling one, verify the exact device build, authorization and complete return semantics, startup stage, independent effect and rollback. Confirmations and receipts must distinguish accepted, failed, unknown, and independently verified effects; they must not be merged into archive save or restore.
+| Area | Implemented operation | Stage and constraints | Independent effect and recovery |
+| --- | --- | --- | --- |
+| Detection | Version, implementation, variant, raw features, runtime proc nodes, boot ID, UID, static fields, UID schemes | Fixed syscall and proc inspection; root required for writes. | Re-read after mutation and after reboot. Missing Provider, unknown protocol, and non-root access remain distinct. |
+| Path | Regular and looping add/remove | Live for the audited GKI-LKM 2.3.0 ABI. Fixed path length validation and NUL-safe request storage. | App-domain visibility probe. Removal uses the affected proc node; unsupported removal waits for reboot. |
+| Map | Add/remove | Live with a real target mapping in an app-domain process. | `/proc/self/maps` observed inside the app SELinux domain. Proc removal and restart/reboot recovery. |
+| Dynamic kstat | Normal and full clone, snapshot, post-mount redirect | `pre-mount` captures; `late-pre-mount` deduplicates; `post-mount` updates. A live request becomes `pending_reboot`. | Stat syscall probe after the post-mount update. A missed snapshot is never reconstructed online. |
+| Static kstat | Twelve reported fields, exact decimal strings, 64-bit range validation | Live add/update by identity; conflicts are explicit. | Target-process stat probe. The device run covered the reported field set with a live value; all field-width boundaries are fixture/unit tested. |
+| Redirect | Source, destination, UID schemes 0–4 | Live where the Provider reports the scheme. Scheme 2 was executed under a service-range app UID. | Open-result probe in the intended app domain. Schemes 0, 1, 3, and 4 remain archive/protocol tested but do not have per-scheme device evidence. |
+| Hide mounts | Unmanaged, explicit off/on | Live tri-state write. | App-range mountinfo observation. Inverse toggle. |
+| Logging | Unmanaged, explicit off/on | Live proc write. | Independent proc-state probe. Inverse toggle. |
+| AVC spoof | Unmanaged, explicit off/on | Live proc write when the extension is reported. | App-domain SELinux trigger and `enter`/`hits` state observation. Inverse toggle. |
+| Priority UID filter | Unmanaged, explicit empty list, add/remove | LKM is blocked as `ABI_NOT_AUDITED`. A Built-In app/UID source is exposed only for an audited Built-In Provider, which was not available. | No device effect is claimed for LKM. |
+| uname | Unmanaged, manual values, real-value reset | Live for the audited LKM ABI. Manual spoof and reboot restoration were tested. | `uname(2)` probe and post-reboot real-value check. |
+| cmdline / bootconfig | Unmanaged, manual value, explicit reset intent | The tested LKM writes `/proc/bootconfig`, not `/proc/cmdline`. Empty reset returns an unsupported boundary and becomes `pending_reboot`. | Proc probe before/after and post-reboot real bootconfig check. |
+| LKM hidden modules | Add/remove/apply | Live list mutation with name and count validation. | Module visibility plus Provider state observed independently. Removal restores the list. |
+| LKM mount prefixes | Add/remove/apply | Live absolute-path list mutation with count validation. | Mountinfo plus Provider state in the target context. Bind-mount test resource was removed after verification. |
+| Automatic application | Studio-owned pre-mount, late-pre-mount, post-mount, late-load | `automatic=true` enables the module scripts. Studio loads the audited host GKI-LKM KO only when the archive enables automatic work and the Provider is missing. `automatic=false` exits before loading a KO. | Reboot test showed both kstat phases, post-mount redirect, `effectStatus=verified`, and later a disabled boot with no Provider load. |
 
-An ownership flag that disables a host's internal implementation is not a grant to Studio. Studio does not switch ownership, invoke another manager's mutation commands, or use a lower-level interface to bypass that boundary.
+## Reboot and recovery rules
+
+A late UI session cannot recreate a missed mount snapshot. Dynamic kstat writes made after the pre-mount stage are reported as `pending_reboot`. A Provider that rejects an online reset is not treated as a successful deletion. If an inverse ABI is unavailable, Studio marks the state `pending_reboot` and waits rather than claiming online rollback.
+
+The operation journal is written before and after each Provider call. Accepted items are not replayed. `retry-plan` can retry only known failed items. `recover-plan` re-reads Provider identity, boot ID, archive revision, item identity, the write-ahead record, and effect evidence before returning `applied` or `recovery_required`. A missing or ambiguous result remains `unknown` until that inspection completes.
+
+Plans bind the Provider boot ID and archive revisions. A new boot or a changed Provider identity invalidates the plan's execution eligibility. The store keeps every current-boot plan even when the pre-Android clock makes early boot files appear older than later files.
+
+## Ownership and host boundaries
+
+Studio does not invoke FinaSU's `ksud susfs` controller or sidex15's `ksu_susfs`. It does not change a host ownership switch, write another controller's files, or treat a host's general-purpose bridge as origin isolation. The KernelSU file stream is used only with the opaque staging path returned by Studio, and every user value remains structured payload or validated data, never shell text.
+
+No current evidence covers an arbitrary Built-In 2.4 runtime, NON-GKI kernels, other architectures, or every redirect UID scheme. Those combinations remain visible but disabled with a concrete reason.

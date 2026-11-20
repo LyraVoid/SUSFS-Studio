@@ -67,9 +67,64 @@ export const zh = {
   operationCapabilityUnreported: "操作资格：能力未报告",
   operationIdentityUnknown: "操作资格：Provider 实现未确认",
   operationAdapterUnconfirmed: "操作资格：适配器未确认",
+  operationExtensionUnreported: "操作资格：Provider 未报告运行时扩展",
+  operationExtensionUnavailable: "操作资格：所需 proc 扩展当前不可写",
   operationWriteNotAuthorized: "操作资格：未授予设备写入权限",
   operationWriteEligibleUnverified: "操作资格：已授权写入，效果验证未授权",
   operationWriteEligible: "操作资格：写入与效果验证均已授权",
+  ready: "待应用",
+  applying: "正在应用",
+  saved: "仅已保存",
+  applied: "已受理",
+  partial: "部分成功",
+  operationUnknown: "结果未知",
+  operationRecovered: "已重新核对",
+  deferred: "已延后",
+  pending_reboot: "等待重启",
+  recovery_required: "需要恢复核对",
+  blocked: "已阻止",
+  verified: "效果已观察",
+  idle: "无操作",
+  operationPlanSummary:
+    "设备计划：{count} 项，可执行 {eligible} 项，阻止 {blocked} 项。",
+  operationPlanReadyHint:
+    "先核对归档修订、逐项资格和恢复方式，再明确确认应用。",
+  operationPlanMissing: "保存新的归档修订后会生成设备操作计划。",
+  operationPlan: "设备操作计划",
+  operationCandidateRevision: "计划绑定的归档修订",
+  operationEffectSeparate: "设备受理与独立效果验证分开呈现。",
+  operationVerify: "验证独立效果",
+  operationVerifyHint: "只检查已受理的项目；未观察到效果不代表系统调用被拒绝。",
+  operationRecover: "读取并恢复未知状态",
+  operationRecoverHint:
+    "先重读 Provider、运行实例和效果；不会自动重放未知写入。",
+  operationRetry: "重试已知失败项",
+  operationRetryHint: "只重试状态为失败的逐项操作；已受理项不会再次执行。",
+  operationConfirmRetry:
+    "确认后仅重试已知失败项。结果未知或正在应用的计划不能使用此操作。",
+  operationConfirmRetryAction: "确认重试失败项",
+  operationInspect: "重新读取操作日志",
+  operationEffectObserved: "独立效果：已观察",
+  operationEffectVerified: "独立效果核对：全部已观察",
+  operationEffectPartial: "独立效果核对：部分已观察",
+  operationEffectUnobserved: "独立效果：未观察到",
+  operationEffectPending: "独立效果：尚未验证",
+  operationConfirmWarning:
+    "确认后，Studio 将按计划逐项写入 Provider。每项写入前先保存预写日志；未知结果禁止自动重试。",
+  operationConfirmApply: "确认应用计划",
+  operationReasonVerified: "能力与所需 ABI 已确认",
+  operationReasonAbiUnaudited: "该 Provider 组合的 ABI 尚未审计",
+  operationReasonProcMissing: "Provider 未提供可用的所需 proc 扩展",
+  operationReasonUnreported: "Provider 未报告此能力",
+  operationReasonKstatStage: "实时会话错过了挂载前快照阶段",
+  operationReasonKstatPreMount: "未找到同一实例的挂载前 kstat 快照",
+  operationReasonRebootReplace: "替换已有规则没有安全的在线撤销 ABI，等待重启",
+  operationReasonSnapshot: "已捕获挂载前快照，等待挂载后重定向",
+  operationReasonSnapshotAlreadyCaptured: "同一实例的挂载前快照已存在",
+  operationReasonCmdlineReset:
+    "此 LKM Provider 拒绝空值重置；真实 cmdline 或 bootconfig 需要重启后恢复",
+  operationReasonBootStage: "由 Studio 启动阶段计划执行",
+  operationReasonMismatch: "计划与归档重新解析结果不一致",
   builtin: "Built-In",
   lkm: "LKM",
   lkmDetail: "可加载内核模块（LKM）",
@@ -383,6 +438,7 @@ export const zh = {
   controlUnameVersion: "uname version",
   controlCmdline: "伪装 cmdline / bootconfig",
   controlNoAppSource: "没有经验证的应用 UID 列表，仅可查看归档值。",
+  controlTrustedApps: "应用与 UID 来自当前设备的固定包管理查询；不记录到日志。",
   controlNoBootFacts: "没有经验证的启动槽数据，不能从设备填入值。",
   controlArchiveOnly: "编辑仅改变 Studio 归档；接口报告的能力不代表写入授权。",
   controlNeedsUpgrade: "请先在设置的归档预览中检查并确认升级至 Schema 2。",
@@ -510,12 +566,81 @@ export const en = {
   operationIdentityUnknown:
     "Operation eligibility: provider implementation unknown",
   operationAdapterUnconfirmed: "Operation eligibility: adapter not confirmed",
+  operationExtensionUnreported:
+    "Operation eligibility: provider runtime extensions not reported",
+  operationExtensionUnavailable:
+    "Operation eligibility: required proc extension is not writable",
   operationWriteNotAuthorized:
     "Operation eligibility: device write not authorized",
   operationWriteEligibleUnverified:
     "Operation eligibility: write authorized; effect verification not authorized",
   operationWriteEligible:
     "Operation eligibility: write and effect verification authorized",
+  ready: "Ready to apply",
+  applying: "Applying",
+  saved: "Saved, not applied",
+  applied: "Accepted by the provider",
+  partial: "Partially successful",
+  operationUnknown: "Result unknown",
+  operationRecovered: "Recovery inspected",
+  deferred: "Deferred",
+  pending_reboot: "Pending reboot",
+  recovery_required: "Recovery review required",
+  blocked: "Blocked",
+  verified: "Effect observed",
+  idle: "No operations",
+  operationPlanSummary:
+    "Device plan: {count} items, {eligible} eligible, {blocked} blocked.",
+  operationPlanReadyHint:
+    "Review the bound archive revision, item eligibility, and recovery before explicitly applying it.",
+  operationPlanMissing:
+    "A device operation plan is created when a new archive revision is saved.",
+  operationPlan: "Device operation plan",
+  operationCandidateRevision: "Archive revision bound to this plan",
+  operationEffectSeparate:
+    "Provider acceptance and independent effect verification appear separately.",
+  operationVerify: "Verify independent effects",
+  operationVerifyHint:
+    "Checks accepted items only. An unobserved effect does not prove the system call was rejected.",
+  operationRecover: "Read and recover an unknown result",
+  operationRecoverHint:
+    "Reloads the provider, runtime instance, and effects. Unknown writes are never replayed automatically.",
+  operationRetry: "Retry known failures",
+  operationRetryHint:
+    "Retries only items with a known failed status; accepted items are not executed again.",
+  operationConfirmRetry:
+    "Only known failed items will be retried. Plans with unknown or in-progress results cannot use this action.",
+  operationConfirmRetryAction: "Confirm failed-item retry",
+  operationInspect: "Reload operation log",
+  operationEffectObserved: "Independent effect: observed",
+  operationEffectVerified: "Independent effect check: all observed",
+  operationEffectPartial: "Independent effect check: partially observed",
+  operationEffectUnobserved: "Independent effect: not observed",
+  operationEffectPending: "Independent effect: not verified",
+  operationConfirmWarning:
+    "After confirmation, Studio writes each planned item through the provider. A write-ahead record is persisted before each mutation; unknown outcomes are never retried automatically.",
+  operationConfirmApply: "Confirm plan application",
+  operationReasonVerified: "Capability and required ABI verified",
+  operationReasonAbiUnaudited:
+    "The ABI for this provider combination has not been audited",
+  operationReasonProcMissing:
+    "The provider does not expose the required writable proc extension",
+  operationReasonUnreported: "The provider did not report this capability",
+  operationReasonKstatStage:
+    "The live session missed the pre-mount snapshot stage",
+  operationReasonKstatPreMount:
+    "No pre-mount kstat snapshot exists for the same runtime instance",
+  operationReasonRebootReplace:
+    "Replacing an existing rule has no safe live inverse; reboot is required",
+  operationReasonSnapshot:
+    "The pre-mount snapshot was captured and awaits post-mount retargeting",
+  operationReasonSnapshotAlreadyCaptured:
+    "A pre-mount snapshot for this runtime instance already exists",
+  operationReasonCmdlineReset:
+    "This LKM provider rejects an empty reset; the real cmdline or bootconfig returns after reboot",
+  operationReasonBootStage: "Scheduled by Studio's own boot-stage process",
+  operationReasonMismatch:
+    "The plan does not match a fresh parse of the bound archive",
   builtin: "Built-In",
   lkm: "LKM",
   lkmDetail: "Loadable kernel module (LKM)",
@@ -874,6 +999,8 @@ export const en = {
   controlCmdline: "Spoof cmdline / bootconfig",
   controlNoAppSource:
     "No verified application UID list. Only the archived value can be viewed.",
+  controlTrustedApps:
+    "Applications and UIDs come from the current device's fixed package query and are not logged.",
   controlNoBootFacts:
     "No verified boot-slot facts. Values cannot be filled from the device.",
   controlArchiveOnly:

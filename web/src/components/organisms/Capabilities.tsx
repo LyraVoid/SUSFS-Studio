@@ -35,6 +35,8 @@ const operationLabels = {
   capabilityUnreported: "operationCapabilityUnreported",
   identityUnknown: "operationIdentityUnknown",
   adapterUnconfirmed: "operationAdapterUnconfirmed",
+  extensionUnreported: "operationExtensionUnreported",
+  extensionUnavailable: "operationExtensionUnavailable",
   writeNotAuthorized: "operationWriteNotAuthorized",
   writeEligibleUnverified: "operationWriteEligibleUnverified",
   writeEligible: "operationWriteEligible",

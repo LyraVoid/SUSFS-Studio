@@ -1,73 +1,80 @@
 # Diagnostic CLI
 
-`studioctl` is an experimental read-only diagnostic command for Android arm64. Results require validation on each device and provider combination.
+`studioctl` is the Android arm64 native layer for diagnostics, Studio archive storage, Provider-qualified operation plans, write-ahead journaling, effects, and recovery. It emits one JSON object on standard output. Unknown command shapes are rejected. Results require validation for every device and Provider combination.
 
-## Commands
+## Diagnostic commands
 
-Run `studioctl hello` to check that the executable starts and reports protocol version 1. Run `studioctl status` as root to query the device interface. Run `studioctl preview` with an archive on standard input to classify its envelope without writing it. Commands emit one JSON object on standard output. Other arguments are rejected.
-
-The device archive commands are:
-
-| Command | Effect |
+| Command | Behavior |
 | --- | --- |
-| `studioctl stage` | Captures the current archive baseline and creates one empty, `0600`, token-named input below the private staging directory. It returns the token, upload path, baseline text, and revision. |
-| `studioctl plan <token>` | Revalidates the staged bytes and current baseline under the archive lock without consuming the stage. Returns a read-only candidate plan; does not authorize or execute operations. |
-| `studioctl save <token>` | Validates and consumes the staged bytes, checks the baseline under the write lock, then atomically stores the archive and receipt. The token is a fixed 32-character lowercase hexadecimal value. |
-| `studioctl import <token>` | Same transaction as save. Accepts only staged Studio archive bytes, not a configuration from another manager. |
-| `studioctl restore <token>` | Checks the staged candidate and baseline, durably preserves the current archive in a new private backup, then replaces the archive and receipt. |
-| `studioctl read` | Returns the trusted archive file's bounded UTF-8 text and SHA-256 revision. It includes a receipt only for valid content with a matching persisted receipt. Invalid or unknown JSON remains inspectable without becoming writable. |
-| `studioctl export` | Same read result as `read`, with an `export` request ID. |
-| `studioctl backups` | Lists up to 32 newest trusted automatic backups, with ID, modification time, byte count, revision, and validation state. |
-| `studioctl backup <id>` | Reads and validates one private backup. The identifier is exactly 32 lowercase hexadecimal characters; the command does not accept paths. |
-| `studioctl apply`, `studioctl verify` | Rejects with `PROVIDER_NOT_AUTHORIZED` and an empty rule result set. Neither command opens a provider write channel or reports an observed effect. |
+| `studioctl hello` | Confirms executable startup and protocol version 1. |
+| `studioctl status` | Queries Provider version, implementation, kernel type, variant, audit state, raw features, runtime proc extensions, static-kstat fields, redirect UID schemes, and device facts. Root is required for a live Provider query. |
+| `studioctl apps` | Returns package names and UIDs only when an audited Built-In Provider reports priority-UID support. LKM currently returns `TRUSTED_UID_SOURCE_UNAVAILABLE`. |
+| `studioctl preview` | Reads at most 128 KiB from standard input and classifies the Studio envelope without storing it. |
+| `studioctl effect-probe map <path>` | Runs a fixed app-domain mapping probe for an already configured path. The path is validated as an absolute non-dot path; it is not inserted into a shell. |
+| `studioctl boot-enabled` | Reports whether the current Studio archive enables Studio's own boot handler. Values are `enabled`, `disabled`, `missing`, or `invalid`. |
 
-The host adapter constructs `stage` and `read` as fixed commands. For `save`, it accepts only a token returned by that adapter's own successful `stage` call and embeds only the validated hexadecimal token. Selected file names, JSON, and form values are never incorporated into a root shell command.
+Version 1 responses contain `protocol`, `requestId`, `ok`, and `data`. The status kinds are `active`, `missing`, `unknownProtocol`, and `failed`. An active result keeps implementation identity, raw evidence, capabilities, proc nodes, and authorization separate. A malformed or duplicate feature report is an unknown protocol. An unfamiliar version may remain active for inspection but is not audited.
 
-The candidate plan (`planVersion: 1`) includes the exact baseline and candidate revisions, redacted category/index/intent descriptors, and a separate snapshot of the provider diagnostic result. Indices are zero-based in the candidate for additions and updates, or in the baseline for removals. An absent baseline revision is `null`. Rule identifiers, paths, and setting values are not returned. All plans are blocked; they are neither execution tickets nor receipts and are not yet consumed by the WebUI. A later save still validates the stage independently.
+The native status control advertises `archiveImport`, `providerWrite`, `effectVerification`, and `adapter`. Write and effect authorization are true only after a recognized Provider snapshot and confirmed protocol-1 adapter. They do not replace per-item capability, ABI, proc-node, stage, and UID checks.
 
-Version 1 responses contain `protocol`, `requestId`, `ok`, and `data`. The command name is the response's `requestId`. `hello` returns `"studioctl"` as its data. A `status` response uses `data.kind` for the diagnostic result, including when the query itself fails. Rust serialization and WebUI status parsing share the [version 1 fixtures](../contracts/diagnostic-v1.json).
+## Archive commands
 
-The status result distinguishes a complete recognized response (`active`), an absent response (`missing`), a malformed or unrecognized response (`unknownProtocol`), and an indeterminate or unauthorized query (`failed`). An active response includes the version, implementation, kernel type, variant, audit result, raw feature tokens, and capability indications. Capability indications report interface features, not verified effects or permission to change device state. The current query maps the priority-UID, path, map, kstat, redirect, hide-mount, logging, uname, and cmdline markers. It does not infer static kstat fields, redirect UID schemes, full-clone support, LKM module hiding, or mount-prefix hiding from those markers; those remain unknown until a host reports explicit metadata. Optional `staticKstatFields` and `redirectUidSchemes` arrays are validated and displayed separately from the archive's editable scheme range.
+| Command | Behavior |
+| --- | --- |
+| `studioctl stage` | Captures the current archive baseline and creates one empty, `0600`, token-named input below `/data/adb/susfs-studio/.staging/`. |
+| `studioctl plan <token>` | Revalidates the staged bytes and baseline, then returns operation-plan version 2 without consuming the stage. A staged save that follows performs its own revision check. |
+| `studioctl save <token>` | Under the non-blocking archive lock, revalidates the stage and current bytes, preserves the current archive as a private backup, atomically replaces the archive and receipt, then returns the new digest. |
+| `studioctl import <token>` | Same archive transaction as save, for conversion output already reviewed as Studio JSON. |
+| `studioctl restore <token>` | Preserves the current archive and replaces it with the reviewed staged bytes. |
+| `studioctl read` | Returns trusted archive text and SHA-256 revision. A receipt is returned only when it matches the readable valid bytes. |
+| `studioctl export` | Same bytes as read with an export request ID. |
+| `studioctl backups` | Lists up to 32 trusted prior archives with opaque IDs, time, size, validity, and revision. |
+| `studioctl backup <id>` | Reads one trusted backup by 32-hex ID; filesystem paths are not accepted. |
 
-An optional `data.control` advertises `archiveImport`, `providerWrite`, `effectVerification`, and `adapter`. Studio currently advertises import support, a confirmed protocol-1 adapter, and reports the other two capabilities as false. A legacy control object with only `archiveImport` remains readable, but missing write or effect fields default to false and a missing adapter remains unknown. These facts are displayed separately from provider feature markers.
+All token-bearing commands accept only 32 lowercase hexadecimal characters generated by Studio. The host adapter tracks stage paths it created, validates the returned upload path, and writes bytes through the host file stream without shell interpolation. The selected file name is not a native path.
 
-The implementation is reported as LKM only when both the variant and feature marker agree. Conflicting evidence leaves the implementation unknown. An implementation badge must not be inferred from the kernel type alone.
+The archive revision is the lowercase SHA-256 digest of the exact bytes. Save and restore use exclusive same-directory temporary files, file sync, atomic rename, directory sync, and receipt publication. A conflict or lock failure leaves the current archive unchanged. A missing or uncertain post-replacement result requires readback and is never replayed automatically.
 
-The audit flag refers to a reviewed diagnostic response family, not a verified build identity or write ABI. The native CLI sets it only for GKI-LKM 2.3.0 or built-in GKI 2.3.0/2.4.0 with consistent variant evidence. An unfamiliar version can still report an active interface without receiving this flag. Invalid or duplicated feature tokens are rejected as an unknown protocol.
+## Provider operation commands
 
-On Android, `status` can include `data.device` with the model, Android release and API level, and kernel release. Each field is optional. The WebUI shows the available fields independently of the provider state.
+| Command | Behavior |
+| --- | --- |
+| `studioctl apply-plan <plan-id>` | Executes eligible `saved` items in a version-2 plan. Each item is persisted as `applying` before its fixed Provider call and updated afterward. |
+| `studioctl verify-plan <plan-id>` | Runs the item's independent effect probe and updates `effectStatus`; it does not change syscall acceptance into effect success. |
+| `studioctl retry-plan <plan-id>` | Retries only known failed items after explicit UI confirmation. Accepted items are skipped. |
+| `studioctl recover-plan <plan-id>` | Re-reads Provider identity, boot ID, journal state, and effect evidence for an applying, unknown, or recovery-required plan. It does not replay an unknown write. |
+| `studioctl operation-status <plan-id>` | Returns the redacted current plan state. |
+| `studioctl boot <phase>` | Executes Studio-owned `pre-mount`, `late-pre-mount`, `post-mount`, or `late-load` planning when automatic application is enabled. |
 
-After a matching protocol-1 response has been received, invalid provider data is reported as a diagnostic failure. Validated device facts remain visible, but no activation state or provider badge is inferred from the malformed provider data. Device fields from a mismatched request or unsupported protocol are not used.
+Operation protocol version 2 is shared by Rust and TypeScript fixtures in `contracts/operation-v2.json`. A plan binds the archive baseline/candidate revisions, Provider implementation/version/variant/features/proc extensions, boot ID, executing UID, and per-item opaque IDs, idempotency keys, identity digests, stages, eligibility, recovery, status, attempts, and effect evidence. Public output omits archive payload text.
 
-Archive operations belong only to Studio. They do not call SUSFS write operations, alter the provider, or manage startup tasks. The executable does not open a network listener.
+An item status is one of `saved`, `applying`, `applied`, `partial`, `failed`, `unknown`, `deferred`, `pending_reboot`, `blocked`, or `recovery_required`. The separate effect status is `unverified`, `partial`, or `verified`. An accepted Provider call is not an observed effect. A loaded LKM is not evidence that every feature or proc extension is available.
+
+Dynamic kstat follows `pre-mount` capture, `late-pre-mount` deduplication, and `post-mount` update. A request made after the snapshot stage becomes `pending_reboot`. The tested LKM writes manually spoofed command-line data to `/proc/bootconfig`; an empty reset is rejected online and also becomes `pending_reboot`.
+
+Current-boot journal entries are exempt from retention pruning based on filesystem modification time. This is necessary because `post-fs-data` can run before Android sets wall-clock time.
+
+## Automatic startup
+
+The packaged module contains executable `post-fs-data.sh` and `service.sh` scripts. `post-fs-data.sh` first asks `boot-enabled`. Only an enabled archive proceeds to:
+
+1. load the fixed host GKI-LKM KO through `/data/adb/ksud insmod` when the Provider is absent;
+2. wait for the runtime proc extension within a bounded interval;
+3. run `boot pre-mount` and `boot late-pre-mount` with bounded retries.
+
+`service.sh` runs `boot post-mount` and `boot late-load`. With automatic application disabled or missing, `post-fs-data.sh` exits before loading a KO. The scripts contain no user-supplied command text and log only phase names and opaque plan IDs.
+
+This is Studio's own boot flow. It does not invoke the host manager's or FinaSU's task, use `ksud susfs`, call sidex15's `ksu_susfs`, or manage another controller's files.
 
 ## WebUI host contract
 
-A host may inject `window.studioDiagnostics` before the WebUI starts. Its argument-free `hello()` and `status()` methods return a JSON string or a promise resolving to one. Expose the bridge only to the bundled WebUI and bind each method to its fixed diagnostic command. The host owns execution and should resolve only after the command succeeds. The WebUI checks the handshake before reading status and applies a shared five-second deadline to asynchronous calls. The host should execute commands off the WebView UI thread and impose its own execution deadline.
+A host may inject `window.studioDiagnostics` with argument-free `hello()` and `status()` methods. The WebUI also adapts the fixed `ksu.exec` command form and requires `ksu.io()` version 1 for archive upload. The host should expose either interface only to Studio's trusted document and enforce navigation and frame isolation.
 
-In a standalone browser with no host interface, the WebUI uses demo data. A host exposing the compatible `ksu.exec` callback API is used for fixed commands. Archive save is enabled only when the same host exposes the verified `ksu.io()` version-1 file stream API. Export still requires only the fixed `read` command and the host's download path. An unsupported or malformed host interface reports a connection failure. Host-side navigation and bridge security vary; see [host integration](host-integration.md) for the boundary and validation status.
+The standalone browser uses simulated data and local previews. A host without the command bridge reports connection failure and does not substitute demo data. If command access exists without the verified file stream, device save stays disabled while diagnostics and local preview remain available.
 
-## Test the WebUI in Android WebView
+## Verification
 
-The smoke APK bundles the built WebUI, the shared protocol fixtures, and the debug CLI. It serves bundled assets under a local HTTPS origin, blocks page-initiated navigation outside the loaded document, and disables file and content access. The fixture scenarios return canned responses through the same bridge interface used by the native and capture scenarios.
-
-Build the WebUI first. Run `bash scripts/build-webview-smoke.sh` with JDK 17 or later, Android SDK Platform 36, Build Tools 36.0.0, the Android arm64 Rust build prerequisites below, and a standard Android debug keystore. The script builds and bundles the debug CLI and prints the APK path under `.local/`. Set `STUDIO_DEBUG_KEYSTORE` to use a debug keystore at a different path.
-
-Launch the installed smoke activity with ADB. Omit the `scenario` extra for the active fixture. Use `failed`, `mismatch`, or `demo` to check the diagnostic failure, unsupported protocol, or absent bridge respectively.
-
-```bash
-adb shell am start -S -W -n dev.susfs.studio.smoke/.SmokeActivity --es scenario mismatch
-```
-
-Run `bash scripts/test-webview-smoke.sh` with an unlocked arm64 ADB device, Python 3, and the same build prerequisites. Set `ANDROID_SERIAL` when more than one device is connected. The script rebuilds the WebUI and checks the Chinese UI labels for active status, demo mode, protocol mismatch, query failure, and a host marker without a diagnostic bridge. It also checks that the smoke host rejects page-initiated top-level navigation to another HTTPS origin and to an unknown path on the local origin. It refuses to replace an installed smoke app and removes its temporary app and UI dump on exit.
-
-The `native` scenario runs the bundled CLI under the smoke application's ordinary Android UID. The bridge invokes the fixed `hello` and `status` subcommands with a two-second process timeout and a 4 KiB response limit. The regression checks that both commands complete and that the WebUI displays the expected diagnostic failure from the unprivileged status query. This scenario covers process execution and the WebView response path. Successful device status and archive storage require a privileged host integration.
-
-Pass a captured `studioctl status` response as the only argument to the smoke script to check a successful device response in WebView. Use an active protocol-1 response of at most 4 KiB and keep the capture and APK in `.local/`. The APK displays a capture notice. The regression checks the displayed version and any reported implementation badge, then confirms that the refresh button replays the same capture. Live reads still require the dedicated host bridge.
-
-## Build and verify
-
-From the repository root, with an Android NDK, the Rust Android target, and `cargo-ndk` installed:
+From the repository root, with the Android NDK, Rust Android target, and `cargo-ndk` installed:
 
 ```bash
 cargo test --manifest-path native/Cargo.toml --locked
@@ -76,21 +83,13 @@ cargo clippy --manifest-path native/Cargo.toml --locked --all-targets -- -D warn
 (cd native && cargo ndk -t arm64-v8a -P 26 build --locked)
 ```
 
-The debug executable is written to `native/target/aarch64-linux-android/debug/studioctl`. Validate the host transport and device ABI separately before distributing it.
+The debug executable is written below `native/target/aarch64-linux-android/debug/`. The ordinary suite covers protocol bounds, plan identity, status semantics, write-ahead ordering, duplicate apply, partial result, process loss, archive trust, revision conflicts, and effect-state separation. The serial suite covers concurrent writers, staging interruption, restore crash points, and storage failures.
 
-The separate serial tests run writers in child processes against ordinary-permission temporary directories. They check a stale staged baseline and process exits after archive write, file sync, and rename. They do not simulate power loss, storage hardware failure, or every transaction boundary.
+Device acceptance must separately establish startup, Provider identity, per-item acceptance, effect in the intended process or kernel context, restart behavior, and cleanup. A fixture or source comparison cannot be promoted to a real-device result.
 
-The two-writer race starts independent processes with distinct candidates staged against the same baseline. A test-only synchronization point holds the first process inside the write lock until the second has returned busy; the first then succeeds and retrying the second stage reports conflict. The final archive and receipt match the winner. The synchronized test passed on Linux and under UID 2000 in an isolated Android directory on the PKX110. A separate Playwright regression checks two independent pages with a shared test bridge, including draft retention and the required review after refresh. Neither check proves simultaneous concurrency in the installed manager's WebUI.
+## Package the development artifact
 
-The restore fault matrix injects a storage error or sends `SIGKILL` at eleven boundaries from stage validation through receipt rename. It checks archive bytes and digest, receipt association, listed backup bytes and revision, and stage consumption, then verifies that a subsequent save still works. The matrix passed on Linux and isolated Android arm64. A partial staged upload was rejected without changing the archive or receipt, also on both systems. Observations after process exit reflect the running filesystem; a visible rename is not proof of persistence across power loss.
-
-The staging test injects a storage error or ends the child after creating the empty input and after writing its baseline. A returned error cleans up the failed stage; a killed process can leave unreturned staging files. Neither case changes the current archive or receipt, and another stage can be prepared without reusing those files. This test also passed on Linux and isolated Android arm64 storage.
-
-On 2026-11-20, the arm64 debug test executable ran these serial tests and `restore_preserves_current_archive_before_replacement` as the shell UID with `TMPDIR=/data/local/tmp` on the PKX110 device described in [host integration](host-integration.md). The test directories and executable were removed. This does not exercise the installed manager or its privileged store.
-
-## Package the development artifacts
-
-Build the WebUI and the Android executable first. Run the packager from the repository root with Python 3.9 or later.
+Build the WebUI and executable first:
 
 ```bash
 pnpm --dir web exec vite build --mode development
@@ -100,4 +99,4 @@ python3 scripts/package.py \
   --output .local/susfs-studio-dev-arm64.zip
 ```
 
-The ZIP contains module metadata, an install script, `webroot/`, and `bin/studioctl`. The install script accepts arm64 and applies executable permissions to the CLI. The packager validates the executable's ELF architecture and Android interpreter, checks the relative WebUI entry assets, and prints the archive's SHA-256 digest. Use a new output path for each build. See [host integration](host-integration.md) for the tested host and remaining security limitations.
+The ZIP contains module metadata, executable installation and boot scripts, relative WebUI assets, and `bin/studioctl`. The packager rejects non-arm64 ELF files, remote asset references, symlinked asset directories, and output-path collisions. It prints the archive SHA-256 digest and never overwrites an existing package.

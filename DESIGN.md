@@ -82,7 +82,7 @@ components:
 
 ## Overview
 
-Home summarizes interface response and device status. Rules owns the complete SUSFS surface: Overview, Basic settings, Path hiding, File disguise, Redirect, and Extensions. Its Overview contains provider status, archive save state, the device application boundary, configuration exchange, and the complete reported capability list. Settings groups appearance preferences, diagnostics, and browser demo controls. Material 3 Expressive guides tonal hierarchy, shape, and typography. Mantine provides the control primitives.
+Home summarizes interface response and device status. Rules owns the complete SUSFS surface: Overview, Basic settings, Path hiding, File disguise, Redirect, and Extensions. Its Overview contains provider status, archive state, the provider-qualified operation plan, separate effect state, recovery and retry actions, configuration exchange, and the complete reported capability list. Settings groups appearance preferences, diagnostics, and browser demo controls. Material 3 Expressive guides tonal hierarchy, shape, and typography. Mantine provides the control primitives.
 
 ## Color and Hierarchy
 
@@ -139,4 +139,4 @@ Group Map and kstat separately under File disguise. Lead each rule group with th
 
 For Paths, Map, and Redirect, place the batch action directly below single add. In kstat, place static add before normal add and omit batch add. Keep supporting text in the connected rows and show the empty state only once the archive has actually been read. Category tabs show only a compact notice when a draft still needs review on Overview.
 
-Basic settings uses labeled three-state rows and manual archive fields. Device-sourced values remain unavailable without verified facts. Label archive resets and filter removal as draft-only actions. Extensions uses separate module and prefix lists. Both share the rule draft and review confirmation. In Rules → Overview, an upgrade or import is a candidate, never an immediate write. Archive save, device application and independently observed effects remain separate.
+Basic settings uses labeled three-state rows and manual archive fields. Device-sourced values remain unavailable without verified facts. Label unmanaged, real-value reset, and filter removal as distinct draft intents. Extensions uses separate module and prefix lists. Both share the rule draft and review confirmation. In Rules → Overview, an upgrade or import is a candidate, never an immediate write. Archive save, plan application, syscall acceptance, and independently observed effects remain separate. Unknown and recovery-required plans expose inspection or recovery instead of automatic replay; known failed items may be retried only after explicit confirmation.

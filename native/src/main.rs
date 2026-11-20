@@ -7,6 +7,8 @@ use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
 mod archive;
+mod device;
+mod operations;
 mod store;
 
 #[derive(Serialize)]
@@ -106,7 +108,7 @@ fn io_error(error: &std::io::Error) -> (&'static str, bool) {
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 enum Status {
-    Active { provider: Provider },
+    Active { provider: Box<Provider> },
     Missing,
     UnknownProtocol,
     Failed,
@@ -122,6 +124,12 @@ struct Provider {
     audited: bool,
     features: Vec<String>,
     capabilities: BTreeMap<&'static str, &'static str>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    proc_nodes: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    static_kstat_fields: Vec<&'static str>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    redirect_uid_schemes: Vec<u32>,
 }
 
 #[derive(Serialize)]
@@ -143,11 +151,13 @@ struct Control {
 }
 
 impl Control {
-    fn supported() -> Self {
+    fn for_status(status: &Status) -> Self {
+        let active = matches!(status, Status::Active { provider } if provider.audited);
         Self {
             archive_import: true,
+            provider_write: active,
+            effect_verification: active,
             adapter: "confirmed",
-            ..Self::default()
         }
     }
 }
@@ -160,6 +170,12 @@ struct Device {
     system: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     kernel: Option<String>,
+}
+
+#[derive(Serialize)]
+struct PackageEntry {
+    name: String,
+    uid: u32,
 }
 
 fn device() -> Option<Device> {
@@ -316,7 +332,7 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
     .map(|(key, _)| (key, "available"))
     .collect();
     Status::Active {
-        provider: Provider {
+        provider: Box::new(Provider {
             implementation,
             kernel_type: if variant_text.starts_with("GKI") {
                 "GKI"
@@ -331,7 +347,10 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
             ),
             features,
             capabilities,
-        },
+            proc_nodes: Vec::new(),
+            static_kstat_fields: Vec::new(),
+            redirect_uid_schemes: Vec::new(),
+        }),
     }
 }
 
@@ -341,16 +360,138 @@ fn status() -> Status {
         if unsafe { libc::geteuid() } != 0 {
             return Status::Failed;
         }
-        classify(
+        let mut status = classify(
             query::<16>(0x555e1),
             query::<8192>(0x555e2),
             query::<16>(0x555e3),
-        )
+        );
+        if let Status::Active { provider } = &mut status {
+            provider.proc_nodes = device::probe_proc_nodes();
+            let proc = |node: &str| provider.proc_nodes.iter().any(|value| value == node);
+            let kstat = provider.capabilities.get("kstat") == Some(&"available");
+            let redirect = provider.capabilities.get("redirect") == Some(&"available");
+            let lkm = provider.implementation == "lkm";
+            let builtin = provider.implementation == "builtin";
+            if kstat && provider.audited {
+                provider.static_kstat_fields = vec![
+                    "ino",
+                    "dev",
+                    "nlink",
+                    "size",
+                    "atime_sec",
+                    "atime_nsec",
+                    "mtime_sec",
+                    "mtime_nsec",
+                    "ctime_sec",
+                    "ctime_nsec",
+                    "blocks",
+                    "blksize",
+                ];
+            }
+            if redirect && provider.audited {
+                provider.redirect_uid_schemes = if lkm {
+                    vec![0, 1, 2, 3, 4]
+                } else if builtin {
+                    vec![0, 1, 2]
+                } else {
+                    Vec::new()
+                };
+            }
+            for (key, available) in [
+                (
+                    "avcSpoof",
+                    (lkm && proc("susfs_avc_spoof")) || (builtin && provider.audited),
+                ),
+                (
+                    "fullClone",
+                    kstat && provider.audited && (builtin || proc("susfs_kstat")),
+                ),
+                ("staticKstat", kstat && provider.audited),
+                ("hiddenModules", lkm && proc("susfs_hide_modules")),
+                ("mountPrefixes", lkm && proc("susfs_hide_mounts")),
+            ] {
+                provider.capabilities.insert(
+                    key,
+                    if available {
+                        "available"
+                    } else {
+                        "unavailable"
+                    },
+                );
+            }
+            if lkm
+                && provider
+                    .features
+                    .iter()
+                    .any(|feature| feature == "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER")
+            {
+                provider
+                    .capabilities
+                    .insert("priorityUidFilter", "unavailable");
+            }
+        }
+        status
     }
     #[cfg(not(target_os = "android"))]
     {
         Status::Failed
     }
+}
+
+fn provider_snapshot(status: &Status) -> Option<device::ProviderSnapshot> {
+    let Status::Active { provider } = status else {
+        return None;
+    };
+    Some(device::ProviderSnapshot {
+        implementation: provider.implementation.to_owned(),
+        version: provider.version.clone(),
+        variant: provider.variant.clone(),
+        audited: provider.audited,
+        features: provider.features.clone(),
+        boot_id: device::boot_id(),
+        uid: unsafe { libc::geteuid() },
+        proc_nodes: provider.proc_nodes.clone(),
+    })
+}
+
+fn installed_packages() -> std::io::Result<Vec<PackageEntry>> {
+    let output = std::process::Command::new("/system/bin/cmd")
+        .args(["package", "list", "packages", "-U"])
+        .output()?;
+    if !output.status.success() || output.stdout.len() > 1024 * 1024 {
+        return Err(std::io::Error::other("package list is unavailable"));
+    }
+    let text = std::str::from_utf8(&output.stdout).map_err(|_| {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid package list")
+    })?;
+    let mut packages = BTreeMap::new();
+    for line in text.lines().take(4096) {
+        let mut name = None;
+        let mut uid = None;
+        for field in line.split_whitespace() {
+            if let Some(value) = field.strip_prefix("package:") {
+                name = Some(value);
+            } else if let Some(value) = field.strip_prefix("uid:") {
+                uid = value.parse::<u32>().ok();
+            }
+        }
+        let (Some(name), Some(uid)) = (name, uid) else {
+            continue;
+        };
+        if name.len() <= 255
+            && name != "."
+            && name != ".."
+            && name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_'))
+        {
+            packages.insert(name.to_owned(), uid);
+        }
+    }
+    Ok(packages
+        .into_iter()
+        .map(|(name, uid)| PackageEntry { name, uid })
+        .collect())
 }
 
 fn archive_store() -> std::io::Result<store::Store> {
@@ -425,10 +566,36 @@ fn main() {
     if !matches!(
         (action, args.len()),
         (
-            Some("hello" | "status" | "preview" | "stage" | "read" | "export" | "apply" | "verify"),
+            Some(
+                "hello"
+                    | "status"
+                    | "preview"
+                    | "stage"
+                    | "read"
+                    | "export"
+                    | "apply"
+                    | "verify"
+                    | "apps"
+                    | "boot-enabled",
+            ),
             1
-        ) | (Some("save" | "import" | "restore" | "backup" | "plan"), 2)
-            | (Some("backups"), 1)
+        ) | (
+            Some(
+                "save"
+                    | "import"
+                    | "restore"
+                    | "backup"
+                    | "plan"
+                    | "apply-plan"
+                    | "retry-plan"
+                    | "verify-plan"
+                    | "recover-plan"
+                    | "operation-status"
+                    | "boot"
+            ),
+            2
+        ) | (Some("backups"), 1)
+            | (Some("effect-probe"), 3)
     ) {
         std::process::exit(2);
     }
@@ -466,25 +633,53 @@ fn main() {
             )),
             Err(error) => serde_json::to_string(&io_failure("stage", error)),
         },
-        Some("plan") => match archive_store().and_then(|store| store.plan_staged(&args[1])) {
-            Ok(plan) => {
-                let status = status();
-                let reason = match &status {
-                    Status::Missing => "PROVIDER_MISSING",
-                    Status::UnknownProtocol => "PROVIDER_UNKNOWN_PROTOCOL",
-                    Status::Failed => "PROVIDER_DIAGNOSTIC_FAILED",
-                    Status::Active { .. } => "PROVIDER_NOT_AUTHORIZED",
-                };
-                serde_json::to_string(&response(
-                    "plan",
-                    serde_json::json!({
-                        "planVersion": 1, "archive": plan, "status": "blocked", "reason": reason,
-                        "providerStatus": status,
-                    }),
-                ))
+        Some("plan") => {
+            let status = status();
+            match provider_snapshot(&status) {
+                None => {
+                    let reason = match &status {
+                        Status::Missing => "PROVIDER_MISSING",
+                        Status::UnknownProtocol => "PROVIDER_UNKNOWN_PROTOCOL",
+                        Status::Failed => "PROVIDER_DIAGNOSTIC_FAILED",
+                        Status::Active { .. } => unreachable!(),
+                    };
+                    let provider = device::ProviderSnapshot {
+                        implementation: "unknown".to_owned(),
+                        version: "unreported".to_owned(),
+                        variant: "unknown".to_owned(),
+                        audited: false,
+                        features: Vec::new(),
+                        boot_id: device::boot_id(),
+                        uid: unsafe { libc::geteuid() },
+                        proc_nodes: Vec::new(),
+                    };
+                    match archive_store().and_then(|store| {
+                        let (before, after) = store.read_staged_candidate(&args[1])?;
+                        operations::create_blocked(
+                            &store,
+                            before.as_deref(),
+                            &after,
+                            reason,
+                            &provider,
+                        )
+                    }) {
+                        Ok(plan) => {
+                            serde_json::to_string(&response("plan", operations::public_json(&plan)))
+                        }
+                        Err(error) => serde_json::to_string(&io_failure("plan", error)),
+                    }
+                }
+                Some(provider) => match archive_store().and_then(|store| {
+                    let (before, after) = store.read_staged_candidate(&args[1])?;
+                    operations::create(&store, before.as_deref(), &after, &provider)
+                }) {
+                    Ok(plan) => {
+                        serde_json::to_string(&response("plan", operations::public_json(&plan)))
+                    }
+                    Err(error) => serde_json::to_string(&io_failure("plan", error)),
+                },
             }
-            Err(error) => serde_json::to_string(&io_failure("plan", error)),
-        },
+        }
         Some("save" | "import") => {
             let id = if action == Some("save") {
                 "save"
@@ -513,6 +708,167 @@ fn main() {
                 Err(error) => serde_json::to_string(&failure(id, error)),
             }
         }
+        Some("apply-plan") => {
+            let status = status();
+            match provider_snapshot(&status) {
+                None => match archive_store().and_then(|store| {
+                    operations::blocked_report(&store, &args[1], "PROVIDER_MISSING")
+                }) {
+                    Ok(report) => serde_json::to_string(&response("apply-plan", report)),
+                    Err(error) => serde_json::to_string(&io_failure("apply-plan", error)),
+                },
+                Some(provider) => match archive_store()
+                    .and_then(|store| operations::apply(&store, &args[1], &provider))
+                {
+                    Ok(report) => serde_json::to_string(&response("apply-plan", report)),
+                    Err(error) => serde_json::to_string(&io_failure("apply-plan", error)),
+                },
+            }
+        }
+        Some("verify-plan") => {
+            let status = status();
+            match provider_snapshot(&status) {
+                None => match archive_store().and_then(|store| {
+                    operations::blocked_report(&store, &args[1], "PROVIDER_MISSING")
+                }) {
+                    Ok(report) => serde_json::to_string(&response("verify-plan", report)),
+                    Err(error) => serde_json::to_string(&io_failure("verify-plan", error)),
+                },
+                Some(provider) => match archive_store()
+                    .and_then(|store| operations::verify(&store, &args[1], &provider))
+                {
+                    Ok(report) => serde_json::to_string(&response("verify-plan", report)),
+                    Err(error) => serde_json::to_string(&io_failure("verify-plan", error)),
+                },
+            }
+        }
+        Some("retry-plan") => {
+            let status = status();
+            match provider_snapshot(&status) {
+                None => match archive_store().and_then(|store| {
+                    operations::blocked_report(&store, &args[1], "PROVIDER_MISSING")
+                }) {
+                    Ok(report) => serde_json::to_string(&response("retry-plan", report)),
+                    Err(error) => serde_json::to_string(&io_failure("retry-plan", error)),
+                },
+                Some(provider) => match archive_store()
+                    .and_then(|store| operations::retry(&store, &args[1], &provider))
+                {
+                    Ok(report) => serde_json::to_string(&response("retry-plan", report)),
+                    Err(error) => serde_json::to_string(&io_failure("retry-plan", error)),
+                },
+            }
+        }
+        Some("recover-plan") => {
+            let status = status();
+            match provider_snapshot(&status) {
+                None => match archive_store().and_then(|store| {
+                    operations::blocked_report(&store, &args[1], "PROVIDER_MISSING")
+                }) {
+                    Ok(report) => serde_json::to_string(&response("recover-plan", report)),
+                    Err(error) => serde_json::to_string(&io_failure("recover-plan", error)),
+                },
+                Some(provider) => match archive_store()
+                    .and_then(|store| operations::recover(&store, &args[1], &provider))
+                {
+                    Ok(report) => serde_json::to_string(&response("recover-plan", report)),
+                    Err(error) => serde_json::to_string(&io_failure("recover-plan", error)),
+                },
+            }
+        }
+        Some("operation-status") => {
+            match archive_store().and_then(|store| operations::load(&store, &args[1])) {
+                Ok(plan) => serde_json::to_string(&response(
+                    "operation-status",
+                    operations::public_json(&plan),
+                )),
+                Err(error) => serde_json::to_string(&io_failure("operation-status", error)),
+            }
+        }
+        Some("apps") => {
+            let status = status();
+            let allowed = matches!(&status, Status::Active { provider }
+                if provider.audited
+                    && provider.implementation == "builtin"
+                    && provider.capabilities.get("priorityUidFilter") == Some(&"available"));
+            if !allowed {
+                serde_json::to_string(&response(
+                    "apps",
+                    serde_json::json!({
+                        "status": "blocked",
+                        "reason": "TRUSTED_UID_SOURCE_UNAVAILABLE",
+                    }),
+                ))
+            } else {
+                match installed_packages() {
+                    Ok(packages) => serde_json::to_string(&response(
+                        "apps",
+                        serde_json::json!({"status":"available", "packages":packages}),
+                    )),
+                    Err(error) => serde_json::to_string(&io_failure("apps", error)),
+                }
+            }
+        }
+        Some("effect-probe") => {
+            let path = &args[2];
+            if args[1] != "map"
+                || !path.starts_with('/')
+                || path == "/"
+                || path.len() >= 256
+                || path.chars().any(char::is_whitespace)
+                || path.chars().any(char::is_control)
+                || path.split('/').any(|part| matches!(part, "." | ".."))
+            {
+                serde_json::to_string(&response(
+                    "effect-probe",
+                    serde_json::json!({"status":"invalid"}),
+                ))
+            } else {
+                Ok(if device::effect_probe_map(path) {
+                    "visible"
+                } else {
+                    "hidden"
+                }
+                .to_owned())
+            }
+        }
+        Some("boot-enabled") => match archive_store().and_then(|store| store.read()) {
+            Ok(Some(stored)) => {
+                let status = serde_json::from_slice::<serde_json::Value>(&stored.bytes)
+                    .ok()
+                    .map(|root| operations::automatic_enabled(&root))
+                    .map_or(
+                        "invalid",
+                        |enabled| {
+                            if enabled { "enabled" } else { "disabled" }
+                        },
+                    );
+                serde_json::to_string(&response(
+                    "boot-enabled",
+                    serde_json::json!({"status":status}),
+                ))
+            }
+            Ok(None) => serde_json::to_string(&response(
+                "boot-enabled",
+                serde_json::json!({"status":"missing"}),
+            )),
+            Err(error) => serde_json::to_string(&io_failure("boot-enabled", error)),
+        },
+        Some("boot") => {
+            let status = status();
+            match provider_snapshot(&status) {
+                None => serde_json::to_string(&response(
+                    "boot",
+                    serde_json::json!({"status":"deferred", "reason":"PROVIDER_MISSING"}),
+                )),
+                Some(provider) => match archive_store()
+                    .and_then(|store| operations::boot(&store, &args[1], &provider))
+                {
+                    Ok(report) => serde_json::to_string(&response("boot", report)),
+                    Err(error) => serde_json::to_string(&io_failure("boot", error)),
+                },
+            }
+        }
         Some("apply" | "verify") => serde_json::to_string(&response(
             if action == Some("apply") {
                 "apply"
@@ -534,14 +890,18 @@ fn main() {
             )),
             Err(error) => serde_json::to_string(&io_failure("backup", error)),
         },
-        _ => serde_json::to_string(&response(
-            "status",
-            StatusData {
-                status: status(),
-                device: device(),
-                control: Control::supported(),
-            },
-        )),
+        _ => {
+            let status = status();
+            let control = Control::for_status(&status);
+            serde_json::to_string(&response(
+                "status",
+                StatusData {
+                    status,
+                    device: device(),
+                    control,
+                },
+            ))
+        }
     };
     match output {
         Ok(json) => println!("{json}"),
@@ -568,11 +928,14 @@ mod tests {
             serde_json::to_value(response("hello", "studioctl")).unwrap(),
             fixtures["hello"]
         );
-        let active = classify(
+        let mut active = classify(
             reply("v2.3.0"),
             reply("CONFIG_KSU_SUSFS_SUS_PATH\nCONFIG_KSU_SUSFS_ENABLE_LOG\nSUSFS_LKM_MODULES"),
             reply("GKI-LKM"),
         );
+        if let Status::Active { provider } = &mut active {
+            provider.proc_nodes = vec!["susfs_path".to_owned(), "susfs_enable_log".to_owned()];
+        }
         for (name, status) in [
             ("active", active),
             ("missing", Status::Missing),
@@ -584,12 +947,13 @@ mod tests {
                 system: Some("Android 17 (API 37)".into()),
                 kernel: Some("6.6.118-demo".into()),
             });
+            let control = Control::for_status(&status);
             let result = serde_json::to_value(response(
                 "status",
                 StatusData {
                     status,
                     device,
-                    control: Control::supported(),
+                    control,
                 },
             ))
             .unwrap();

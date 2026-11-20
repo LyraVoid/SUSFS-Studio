@@ -45,5 +45,7 @@ export async function writeArchive(
   if (stage.revision !== base.revision || stage.baseline !== base.text)
     throw new ArchiveCommandError("REVISION_CONFLICT", true);
   await archive.write(stage.uploadPath, bytes);
-  return commit(stage.token);
+  const plan = archive.plan ? await archive.plan(stage.token) : undefined;
+  const receipt = await commit(stage.token);
+  return { receipt, plan };
 }

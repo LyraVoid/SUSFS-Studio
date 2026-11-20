@@ -103,4 +103,24 @@ describe("operation qualification", () => {
       ),
     ).toBe("adapterUnconfirmed");
   });
+
+  it("requires the exact runtime proc extension for LKM controls", () => {
+    const hidden = active("available", {
+      ...control,
+      providerWrite: true,
+      effectVerification: true,
+    }) as Extract<Status, { kind: "active" }>;
+    hidden.provider.capabilities.hiddenModules = "available";
+    expect(operationState(hidden, "hiddenModules", "ksu")).toBe(
+      "extensionUnreported",
+    );
+    hidden.provider.procNodes = ["susfs_path"];
+    expect(operationState(hidden, "hiddenModules", "ksu")).toBe(
+      "extensionUnavailable",
+    );
+    hidden.provider.procNodes.push("susfs_hide_modules");
+    expect(operationState(hidden, "hiddenModules", "ksu")).toBe(
+      "writeEligible",
+    );
+  });
 });

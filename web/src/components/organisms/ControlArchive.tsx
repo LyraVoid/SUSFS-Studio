@@ -6,7 +6,7 @@ import {
   Textarea,
   TextInput,
 } from "@mantine/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   type Json,
   object,
@@ -15,6 +15,7 @@ import {
 } from "../../features/config/preview";
 import type { useRuleArchive } from "../../features/config/useRuleArchive";
 import type { Message, Translate } from "../../i18n/messages";
+import type { PackageEntry } from "../../transport/archiveBridge";
 import { demoApps, demoSlots } from "../../transport/demoArchive";
 import type { Provider } from "../../transport/mock";
 import {
@@ -45,11 +46,13 @@ export function BasicArchive({
   state,
   workflow,
   provider,
+  appsSource,
   t,
 }: {
   state: State;
   workflow: boolean;
   provider?: Provider;
+  appsSource?: () => Promise<PackageEntry[]>;
   t: Translate;
 }) {
   const [dialog, setDialog] = useState<
@@ -57,6 +60,8 @@ export function BasicArchive({
   >();
   const [query, setQuery] = useState("");
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
+  const [availableApps, setAvailableApps] = useState<string[]>();
+  const [appsError, setAppsError] = useState(false);
   const [sourceTab, setSourceTab] = useState<string | null>("manual");
   const [releaseInput, setReleaseInput] = useState("");
   const [versionInput, setVersionInput] = useState("");
@@ -98,8 +103,35 @@ export function BasicArchive({
           ? "controlUname"
           : "controlCmdline";
   const filtered = (
-    workflow ? [...new Set([...demoApps, ...(names ?? [])])] : names
+    workflow
+      ? [...new Set([...demoApps, ...(names ?? [])])]
+      : availableApps
+        ? [...new Set([...availableApps, ...(names ?? [])])]
+        : names
   )?.filter((name) => name.toLowerCase().includes(query.trim().toLowerCase()));
+  useEffect(() => {
+    if (
+      dialog !== "apps" ||
+      workflow ||
+      availableApps !== undefined ||
+      !appsSource
+    )
+      return;
+    let current = true;
+    setAppsError(false);
+    void appsSource().then(
+      (packages) => {
+        if (current)
+          setAvailableApps(packages.map((entry) => entry.name).sort());
+      },
+      () => {
+        if (current) setAppsError(true);
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [appsSource, availableApps, dialog, workflow]);
   const validUname = validText(releaseInput, 65) && validText(versionInput, 65);
   const validCmdline =
     cmdlineInput === "" || validText(cmdlineInput, 8192, true);
@@ -228,13 +260,22 @@ export function BasicArchive({
                 value={query}
                 onChange={(e) => setQuery(e.currentTarget.value)}
               />
-              <p>{t(workflow ? "workflowNotice" : "controlNoAppSource")}</p>
+              <p>
+                {t(
+                  workflow
+                    ? "workflowNotice"
+                    : availableApps
+                      ? "controlTrustedApps"
+                      : "controlNoAppSource",
+                )}
+              </p>
+              {appsError && <p role="alert">{t("controlNoAppSource")}</p>}
               {filtered?.map((name) => (
                 <Checkbox
                   key={name}
                   label={name}
                   checked={selectedApps.includes(name)}
-                  disabled={!workflow || disabled}
+                  disabled={disabled || (!workflow && !availableApps)}
                   onChange={(event) =>
                     setSelectedApps(
                       event.currentTarget.checked

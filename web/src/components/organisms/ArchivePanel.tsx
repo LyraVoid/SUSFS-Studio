@@ -27,6 +27,7 @@ import {
   type ArchiveReceipt,
   type SavedArchive,
 } from "../../transport/archiveBridge";
+import type { OperationPlan } from "../../transport/operations";
 import { Icon } from "../atoms/Icon";
 import { DialogActions, M3eDialog } from "../molecules/M3eDialog";
 import { SettingsList, SettingsRow } from "../molecules/SettingsList";
@@ -103,7 +104,7 @@ export function ArchivePanel({
   archive?: ArchiveBridge;
   archiveImport: boolean;
   workflow: boolean;
-  onSaved?: () => void;
+  onSaved?: (plan?: OperationPlan) => void;
 }) {
   const [opened, setOpened] = useState(false);
   const [result, setResult] = useState<Preview>();
@@ -121,6 +122,7 @@ export function ArchivePanel({
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [operationError, setOperationError] = useState<Message>();
   const [receipt, setReceipt] = useState<ArchiveReceipt>();
+  const [plan, setPlan] = useState<OperationPlan>();
   const [backups, setBackups] = useState<ArchiveBackup[]>();
   const [backupListError, setBackupListError] = useState(false);
   const [backupId, setBackupId] = useState("");
@@ -153,6 +155,7 @@ export function ArchivePanel({
     setSource(undefined);
     setOperationError(undefined);
     setReceipt(undefined);
+    setPlan(undefined);
     if (!backup?.valid || !archive) return;
     try {
       const candidate = await archive.backup(backup.id);
@@ -206,6 +209,7 @@ export function ArchivePanel({
     setOpened(true);
     setOperationError(undefined);
     setReceipt(undefined);
+    setPlan(undefined);
     setNeedsVerification(false);
     void refreshSaved();
     if (restore) void refreshBackups();
@@ -231,6 +235,7 @@ export function ArchivePanel({
     setConfirming(false);
     setOperationError(undefined);
     setReceipt(undefined);
+    setPlan(undefined);
     setNeedsVerification(false);
   };
 
@@ -280,7 +285,7 @@ export function ArchivePanel({
     setOperationError(undefined);
     setReceipt(undefined);
     try {
-      const next = await writeArchive(
+      const { receipt: next, plan: candidatePlan } = await writeArchive(
         archive,
         saved,
         result.bytes,
@@ -298,11 +303,12 @@ export function ArchivePanel({
       )
         throw new ArchiveCommandError("RESULT_UNKNOWN");
       setReceipt(next);
+      setPlan(candidatePlan);
       setSaved(persisted);
       setSavedResult(result);
       setConfirming(false);
       setNeedsVerification(false);
-      onSaved?.();
+      onSaved?.(candidatePlan);
       if (restoring) void refreshBackups();
     } catch (error) {
       const message = archiveErrorMessage(error);
@@ -642,6 +648,19 @@ export function ArchivePanel({
                       bytes: receipt.bytes,
                     },
                   )}
+                </Alert>
+              )}
+              {plan && (
+                <Alert color={plan.status === "blocked" ? "warning" : "info"}>
+                  {t("operationPlanSummary", {
+                    count: plan.items.length,
+                    eligible: plan.items.filter(
+                      (item) => item.eligibility === "eligible",
+                    ).length,
+                    blocked: plan.items.filter(
+                      (item) => item.eligibility !== "eligible",
+                    ).length,
+                  })}
                 </Alert>
               )}
               <DialogActions justify="space-between">

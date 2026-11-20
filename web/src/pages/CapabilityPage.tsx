@@ -225,6 +225,7 @@ export function CapabilityPage({
                 state={archive}
                 workflow={workflow}
                 provider={provider}
+                appsSource={bridge?.apps}
                 t={t}
               />
             )}

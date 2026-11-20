@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-SUSFS Studio is an offline WebUI for device diagnostics and configuration archives in Android module hosts. The React, strict TypeScript, Vite, Mantine, and pnpm frontend lives in `web/`. The browser preview uses `MockTransport`. Rust and host integration are planned for later stages.
+SUSFS Studio is an offline WebUI and native transaction layer for SUSFS diagnostics, archives, provider-qualified operation plans, effects, and recovery. The React, strict TypeScript, Vite, Mantine, and pnpm frontend lives in `web/`. The Android arm64 Rust executable lives in `native/`. The browser preview uses `MockTransport`.
 
 ## Required Practices
 
@@ -10,7 +10,7 @@ SUSFS Studio is an offline WebUI for device diagnostics and configuration archiv
 - Compose components from higher to lower layers: `pages`, `layouts`, `organisms`, `molecules`, and `atoms`. Layouts own the navigation shell. Feature modules provide data to business components. Base components do not access the host bridge or persist business state.
 - Keep user-visible text in `web/src/i18n/messages.ts`. Add Simplified Chinese and English together and use identical placeholder names. Route icons through `web/src/components/atoms/Icon.tsx` and bundle runtime assets locally.
 - Preserve the three main destinations (Home, Rules, Settings), the six Rules tabs, hash routes, and relative asset URLs. Explain why unavailable actions are disabled and what they need to become available. Label demo data explicitly.
-- The native layer is authoritative for configuration and device capabilities. Keep the device provider read-only and archive previews independent of device state. Update the specification, fixtures, and tests together when the protocol, configuration schema, or compatibility findings change.
+- The native layer is authoritative for configuration, device capabilities, operation plans, journal state, and effect probes. Keep archive previews independent of device state. Update the specification, fixtures, and tests together when the protocol, configuration schema, or compatibility findings change.
 - Write `AGENTS.md`, `DESIGN.md`, and `docs/` in English. Keep public documentation neutral and self-contained. Use `docs/` for user guides, verified technical references, and stable maintenance procedures. Store implementation plans, handoffs, and progress notes in the ignored `.local/` directory.
 - Run local checks and CI without elevated privileges. Create commits only after explicit authorization.
 
@@ -20,7 +20,7 @@ SUSFS Studio is an offline WebUI for device diagnostics and configuration archiv
 - [DESIGN.md](DESIGN.md) defines visual tokens, components, and page baselines.
 - [docs/user-guide.md](docs/user-guide.md) explains diagnostic states, archive previews, and browser preferences.
 - [docs/webui-maintenance.md](docs/webui-maintenance.md) documents routes, source ownership, and validation.
-- [docs/diagnostic-cli.md](docs/diagnostic-cli.md) documents the experimental read-only diagnostic executable.
+- [docs/diagnostic-cli.md](docs/diagnostic-cli.md) documents the Android executable and transaction commands.
 - [docs/host-integration.md](docs/host-integration.md) records the verified Android host boundary and bridge requirements.
 
 ## Validation

@@ -27,7 +27,8 @@ test("two pages retain independent drafts and must review a newer revision", asy
     "archiveCall",
     async (_, command: string, upload: string) => {
       const [, action, token] =
-        /studioctl (read|stage|save)(?: ([0-9a-f]{32}))?$/.exec(command) ?? [];
+        /studioctl (read|stage|plan|save)(?: ([0-9a-f]{32}))?$/.exec(command) ??
+        [];
       const reply = (data: unknown) => ({
         protocol: 1,
         requestId: action,
@@ -50,6 +51,31 @@ test("two pages retain independent drafts and must review a newer revision", asy
           uploadPath: `/data/adb/susfs-studio/.staging/${id}.input`,
           baseline: text,
           revision: digest(text),
+        });
+      }
+      if (action === "plan") {
+        const id = token ?? "";
+        return reply({
+          planVersion: 2,
+          id,
+          baselineRevision: digest(text),
+          candidateRevision: digest(upload),
+          provider: {
+            implementation: "unknown",
+            version: "unreported",
+            variant: "unknown",
+            audited: false,
+            features: [],
+            bootId: "test-boot",
+            uid: 0,
+            procNodes: [],
+          },
+          status: "blocked",
+          effectStatus: "unverified",
+          reason: "PROVIDER_DIAGNOSTIC_FAILED",
+          createdAt: "1",
+          updatedAt: "1",
+          items: [],
         });
       }
       const stage = stages.get(token ?? "");

@@ -110,8 +110,14 @@ export function parseStatusResponse(text: string, requestId: string): Status {
       return { kind: "failed", ...factsWithControl };
     if (value !== undefined) capabilities[key] = value;
   }
-  const { variant, audited, features, staticKstatFields, redirectUidSchemes } =
-    provider;
+  const {
+    variant,
+    audited,
+    features,
+    staticKstatFields,
+    redirectUidSchemes,
+    procNodes,
+  } = provider;
   if (
     (variant !== undefined &&
       (typeof variant !== "string" ||
@@ -145,7 +151,15 @@ export function parseStatusResponse(text: string, requestId: string): Status {
             id >= 0 &&
             id <= 0xffffffff,
         ) ||
-        new Set(redirectUidSchemes).size !== redirectUidSchemes.length))
+        new Set(redirectUidSchemes).size !== redirectUidSchemes.length)) ||
+    (procNodes !== undefined &&
+      (!Array.isArray(procNodes) ||
+        procNodes.length > 64 ||
+        !procNodes.every(
+          (node: unknown) =>
+            typeof node === "string" && /^[A-Za-z0-9_]{1,64}$/u.test(node),
+        ) ||
+        new Set(procNodes).size !== procNodes.length))
   )
     return { kind: "failed", ...factsWithControl };
   return {
@@ -161,6 +175,7 @@ export function parseStatusResponse(text: string, requestId: string): Status {
       ...(features !== undefined && { features }),
       ...(staticKstatFields !== undefined && { staticKstatFields }),
       ...(redirectUidSchemes !== undefined && { redirectUidSchemes }),
+      ...(procNodes !== undefined && { procNodes }),
     },
   };
 }

@@ -1,17 +1,17 @@
+import { ArchiveCommandError } from "./archiveError";
 import { type CommandBridge, execCommand } from "./commandBridge";
+import {
+  type OperationPlan,
+  type OperationReport,
+  parseOperationPlan,
+  parseOperationReport,
+} from "./operations";
 
 const executable = "/data/adb/modules/susfs_studio/bin/studioctl";
 const stagePrefix = "/data/adb/susfs-studio/.staging/";
 const tokenPattern = /^[0-9a-f]{32}$/;
 
-export class ArchiveCommandError extends Error {
-  constructor(
-    readonly code: string,
-    readonly retryable = false,
-  ) {
-    super(code);
-  }
-}
+export { ArchiveCommandError } from "./archiveError";
 
 export type ArchiveReceipt = {
   revision: string;
@@ -42,6 +42,11 @@ export type ArchiveBackup = {
   valid: boolean;
 };
 
+export type PackageEntry = {
+  name: string;
+  uid: number;
+};
+
 export type ArchiveBridge = {
   writable: boolean;
   read(): Promise<SavedArchive>;
@@ -52,6 +57,13 @@ export type ArchiveBridge = {
   restore?: (token: string) => Promise<ArchiveReceipt>;
   backups(): Promise<ArchiveBackup[]>;
   backup(id: string): Promise<SavedArchive>;
+  plan?: (token: string) => Promise<OperationPlan>;
+  applyPlan?: (id: string) => Promise<OperationReport>;
+  verifyPlan?: (id: string) => Promise<OperationReport>;
+  retryPlan?: (id: string) => Promise<OperationReport>;
+  recoverPlan?: (id: string) => Promise<OperationReport>;
+  operationStatus?: (id: string) => Promise<OperationPlan>;
+  apps?: () => Promise<PackageEntry[]>;
 };
 
 type KsuStream = {
@@ -194,6 +206,36 @@ function prepared(value: unknown): PreparedArchive {
   };
 }
 
+function packages(value: unknown): PackageEntry[] {
+  if (
+    !record(value) ||
+    value.status !== "available" ||
+    !Array.isArray(value.packages) ||
+    value.packages.length > 4096
+  )
+    throw new ArchiveCommandError(
+      record(value) && typeof value.reason === "string"
+        ? value.reason
+        : "BAD_RESPONSE",
+    );
+  const names = new Set<string>();
+  return value.packages.map((entry: unknown) => {
+    if (
+      !record(entry) ||
+      typeof entry.name !== "string" ||
+      entry.name.length > 255 ||
+      names.has(entry.name) ||
+      !/^[A-Za-z0-9._]+$/u.test(entry.name) ||
+      !Number.isSafeInteger(entry.uid) ||
+      (entry.uid as number) < 0 ||
+      (entry.uid as number) > 0xffffffff
+    )
+      throw new ArchiveCommandError("BAD_RESPONSE");
+    names.add(entry.name);
+    return { name: entry.name, uid: entry.uid as number };
+  });
+}
+
 function base64(bytes: Uint8Array) {
   let binary = "";
   for (let offset = 0; offset < bytes.length; offset += 0x8000)
@@ -221,7 +263,14 @@ export function createArchiveBridge(
       | "restore"
       | "read"
       | "backups"
-      | "backup",
+      | "backup"
+      | "plan"
+      | "apply-plan"
+      | "verify-plan"
+      | "retry-plan"
+      | "recover-plan"
+      | "operation-status"
+      | "apps",
     command: string,
     timeout: number,
   ) => {
@@ -235,7 +284,10 @@ export function createArchiveBridge(
       throw new ArchiveCommandError(
         requestId === "save" ||
           requestId === "restore" ||
-          requestId === "import"
+          requestId === "import" ||
+          requestId === "apply-plan" ||
+          requestId === "retry-plan" ||
+          requestId === "recover-plan"
           ? "RESULT_UNKNOWN"
           : "TIMEOUT",
       );
@@ -291,6 +343,71 @@ export function createArchiveBridge(
         ),
       );
     },
+    plan: async (token) => {
+      if (!tokenPattern.test(token) || !stagePaths.has(token))
+        throw new ArchiveCommandError("BAD_REQUEST");
+      return parseOperationPlan(
+        await call(
+          "plan",
+          `/system/bin/timeout 10 ${executable} plan ${token}`,
+          12000,
+        ),
+      );
+    },
+    applyPlan: async (id) => {
+      if (!tokenPattern.test(id)) throw new ArchiveCommandError("BAD_REQUEST");
+      return parseOperationReport(
+        await call(
+          "apply-plan",
+          `/system/bin/timeout 60 ${executable} apply-plan ${id}`,
+          62000,
+        ),
+      );
+    },
+    verifyPlan: async (id) => {
+      if (!tokenPattern.test(id)) throw new ArchiveCommandError("BAD_REQUEST");
+      return parseOperationReport(
+        await call(
+          "verify-plan",
+          `/system/bin/timeout 60 ${executable} verify-plan ${id}`,
+          62000,
+        ),
+      );
+    },
+    retryPlan: async (id) => {
+      if (!tokenPattern.test(id)) throw new ArchiveCommandError("BAD_REQUEST");
+      return parseOperationReport(
+        await call(
+          "retry-plan",
+          `/system/bin/timeout 60 ${executable} retry-plan ${id}`,
+          62000,
+        ),
+      );
+    },
+    recoverPlan: async (id) => {
+      if (!tokenPattern.test(id)) throw new ArchiveCommandError("BAD_REQUEST");
+      return parseOperationReport(
+        await call(
+          "recover-plan",
+          `/system/bin/timeout 60 ${executable} recover-plan ${id}`,
+          62000,
+        ),
+      );
+    },
+    operationStatus: async (id) => {
+      if (!tokenPattern.test(id)) throw new ArchiveCommandError("BAD_REQUEST");
+      return parseOperationPlan(
+        await call(
+          "operation-status",
+          `/system/bin/timeout 10 ${executable} operation-status ${id}`,
+          12000,
+        ),
+      );
+    },
+    apps: async () =>
+      packages(
+        await call("apps", `/system/bin/timeout 10 ${executable} apps`, 12000),
+      ),
     prepare: io
       ? async () => {
           stagePaths.clear();

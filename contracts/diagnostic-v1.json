@@ -18,12 +18,13 @@
           "CONFIG_KSU_SUSFS_SUS_PATH",
           "SUSFS_LKM_MODULES"
         ],
-        "capabilities": { "paths": "available", "logging": "available" }
+        "capabilities": { "paths": "available", "logging": "available" },
+        "procNodes": ["susfs_path", "susfs_enable_log"]
       },
       "control": {
         "archiveImport": true,
-        "providerWrite": false,
-        "effectVerification": false,
+        "providerWrite": true,
+        "effectVerification": true,
         "adapter": "confirmed"
       }
     }

@@ -80,6 +80,8 @@ def package(web: Path, cli: Path, output: Path) -> None:
     entries = {
         "module.prop": read_regular(ROOT / "module/module.prop"),
         "customize.sh": read_regular(ROOT / "module/customize.sh"),
+        "post-fs-data.sh": read_regular(ROOT / "module/post-fs-data.sh"),
+        "service.sh": read_regular(ROOT / "module/service.sh"),
         "bin/studioctl": binary,
         **{f"webroot/{name}": data for name, data in paths.items()},
     }
@@ -88,13 +90,17 @@ def package(web: Path, cli: Path, output: Path) -> None:
         for name, data in sorted(entries.items()):
             entry = ZipInfo(name)
             entry.create_system = 3
-            mode = 0o755 if name == "bin/studioctl" else 0o644
+            mode = (
+                0o755
+                if name in {"bin/studioctl", "post-fs-data.sh", "service.sh"}
+                else 0o644
+            )
             entry.external_attr = (stat.S_IFREG | mode) << 16
             archive.writestr(entry, data, compress_type=ZIP_DEFLATED, compresslevel=9)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build the arm64 diagnostic development ZIP")
+    parser = argparse.ArgumentParser(description="Build the arm64 development module ZIP")
     parser.add_argument("--web", type=Path, required=True)
     parser.add_argument("--cli", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)

@@ -1,0 +1,77 @@
+{
+  "plan": {
+    "planVersion": 2,
+    "id": "0123456789abcdef0123456789abcdef",
+    "baselineRevision": null,
+    "candidateRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "provider": {
+      "implementation": "lkm",
+      "version": "v2.3.0",
+      "variant": "GKI-LKM",
+      "audited": true,
+      "features": [
+        "CONFIG_KSU_SUSFS_SUS_PATH",
+        "SUSFS_LKM_MODULES"
+      ],
+      "bootId": "00000000-0000-0000-0000-000000000000",
+      "uid": 0,
+      "procNodes": ["susfs_path"]
+    },
+    "status": "ready",
+    "effectStatus": "unverified",
+    "createdAt": "1763680000000",
+    "updatedAt": "1763680000000",
+    "items": [
+      {
+        "id": "fedcba9876543210fedcba9876543210",
+        "idempotencyKey": "00112233445566778899aabbccddeeff",
+        "category": "paths",
+        "intent": "add",
+        "stage": "live",
+        "eligibility": "eligible",
+        "reason": "CAPABILITY_VERIFIED",
+        "effectProbe": "UID_PATH_VISIBILITY",
+        "recovery": "proc-remove",
+        "identityDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "executionUid": 0,
+        "status": "saved",
+        "attempts": 0
+      }
+    ]
+  },
+  "report": {
+    "planId": "0123456789abcdef0123456789abcdef",
+    "status": "applied",
+    "effectStatus": "verified",
+    "saved": true,
+    "applied": ["fedcba9876543210fedcba9876543210"],
+    "failed": {},
+    "pendingReboot": [],
+    "deferred": [],
+    "blocked": {},
+    "unknown": [],
+    "items": [
+      {
+        "id": "fedcba9876543210fedcba9876543210",
+        "idempotencyKey": "00112233445566778899aabbccddeeff",
+        "category": "paths",
+        "intent": "add",
+        "stage": "live",
+        "eligibility": "eligible",
+        "reason": "CAPABILITY_VERIFIED",
+        "effectProbe": "UID_PATH_VISIBILITY",
+        "recovery": "proc-remove",
+        "identityDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "executionUid": 0,
+        "status": "applied",
+        "attempts": 1,
+        "effect": {
+          "observed": true,
+          "source": "uid-app-range",
+          "code": "PATH_VISIBILITY",
+          "valueDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      }
+    ]
+  }
+}

@@ -33,8 +33,10 @@ class PackageTest(unittest.TestCase):
             package(web, cli, second)
             self.assertEqual(first.read_bytes(), second.read_bytes())
             with ZipFile(first) as archive:
-                self.assertEqual(archive.namelist(), ["bin/studioctl", "customize.sh", "module.prop", "webroot/assets/index.js", "webroot/index.html"])
+                self.assertEqual(archive.namelist(), ["bin/studioctl", "customize.sh", "module.prop", "post-fs-data.sh", "service.sh", "webroot/assets/index.js", "webroot/index.html"])
                 self.assertEqual(stat.S_IMODE(archive.getinfo("bin/studioctl").external_attr >> 16), 0o755)
+                self.assertEqual(stat.S_IMODE(archive.getinfo("post-fs-data.sh").external_attr >> 16), 0o755)
+                self.assertEqual(stat.S_IMODE(archive.getinfo("service.sh").external_attr >> 16), 0o755)
                 self.assertIn(
                     "author=LyraVoid and matsuzaka-yuki",
                     archive.read("module.prop").decode("utf-8").splitlines(),

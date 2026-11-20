@@ -44,6 +44,7 @@ export type Provider = {
   capabilities: Partial<Record<Capability | "extensions", Availability>>;
   staticKstatFields?: string[];
   redirectUidSchemes?: number[];
+  procNodes?: string[];
 };
 type Result =
   | {

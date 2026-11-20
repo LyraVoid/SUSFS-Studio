@@ -5,6 +5,10 @@ import {
   ArchiveCommandError,
   type SavedArchive,
 } from "../../transport/archiveBridge";
+import type {
+  OperationPlan,
+  OperationReport,
+} from "../../transport/operations";
 import {
   archiveErrorMessage,
   hasArchiveWriter,
@@ -29,6 +33,9 @@ export function useRuleArchive(
   const [error, setError] = useState<Message>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [operationBusy, setOperationBusy] = useState(false);
+  const [plan, setPlan] = useState<OperationPlan>();
+  const [report, setReport] = useState<OperationReport>();
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const [rebaseBlocked, setRebaseBlocked] = useState(false);
   const [verified, setVerified] = useState(false);
@@ -46,7 +53,8 @@ export function useRuleArchive(
     !needsRefresh &&
     !rebaseBlocked &&
     !loading &&
-    !saving;
+    !saving &&
+    !operationBusy;
   const edit = (change: RuleEdit | SettingsEdit | RuleEdit[]) => {
     if (!canEdit || !current) return false;
     const edits = Array.isArray(change) ? change : [change];
@@ -138,7 +146,11 @@ export function useRuleArchive(
     setError(undefined);
     let committed = false;
     try {
-      const receipt = await writeArchive(archive, baseline, current.bytes);
+      const { receipt, plan: candidatePlan } = await writeArchive(
+        archive,
+        baseline,
+        current.bytes,
+      );
       committed = true;
       const next = await archive.read();
       if (
@@ -154,6 +166,8 @@ export function useRuleArchive(
         throw new ArchiveCommandError("RESULT_UNKNOWN");
       setSaved(next);
       setDraft(undefined);
+      setPlan(candidatePlan);
+      setReport(undefined);
       setVerified(true);
       return true;
     } catch (error) {
@@ -174,12 +188,158 @@ export function useRuleArchive(
     error,
     loading,
     saving,
+    operationBusy,
+    plan,
+    report,
     verified,
     writable,
     canEdit,
     edit,
     refresh,
     save,
+    adoptPlan: (next: OperationPlan | undefined) => {
+      setPlan(next);
+      setReport(undefined);
+    },
+    applyOperation: async () => {
+      if (
+        !archive?.applyPlan ||
+        !archive.operationStatus ||
+        busy.current ||
+        plan?.status !== "ready" ||
+        saved?.kind !== "saved" ||
+        saved.revision !== plan.candidateRevision ||
+        draft ||
+        needsRefresh
+      )
+        return false;
+      busy.current = true;
+      setOperationBusy(true);
+      setError(undefined);
+      try {
+        const next = await archive.applyPlan(plan.id);
+        if (next.planId !== plan.id)
+          throw new ArchiveCommandError("RESULT_UNKNOWN");
+        setReport(next);
+        const refreshed = await archive.operationStatus(plan.id);
+        setPlan(refreshed);
+        return true;
+      } catch (error) {
+        setNeedsRefresh(
+          error instanceof ArchiveCommandError &&
+            error.code === "RESULT_UNKNOWN",
+        );
+        setError(archiveErrorMessage(error));
+        return false;
+      } finally {
+        busy.current = false;
+        setOperationBusy(false);
+      }
+    },
+    verifyOperation: async () => {
+      if (
+        !archive?.verifyPlan ||
+        !archive.operationStatus ||
+        busy.current ||
+        !plan ||
+        plan.status === "unknown" ||
+        plan.status === "recovery_required" ||
+        plan.status === "applying"
+      )
+        return false;
+      busy.current = true;
+      setOperationBusy(true);
+      setError(undefined);
+      try {
+        const next = await archive.verifyPlan(plan.id);
+        if (next.planId !== plan.id)
+          throw new ArchiveCommandError("RESULT_UNKNOWN");
+        setReport(next);
+        setPlan(await archive.operationStatus(plan.id));
+        return true;
+      } catch (error) {
+        setError(archiveErrorMessage(error));
+        return false;
+      } finally {
+        busy.current = false;
+        setOperationBusy(false);
+      }
+    },
+    retryOperation: async () => {
+      if (
+        !archive?.retryPlan ||
+        !archive.operationStatus ||
+        busy.current ||
+        !plan ||
+        !["failed", "partial"].includes(plan.status) ||
+        saved?.revision !== plan.candidateRevision
+      )
+        return false;
+      busy.current = true;
+      setOperationBusy(true);
+      setError(undefined);
+      try {
+        const next = await archive.retryPlan(plan.id);
+        if (next.planId !== plan.id)
+          throw new ArchiveCommandError("RESULT_UNKNOWN");
+        setReport(next);
+        setPlan(await archive.operationStatus(plan.id));
+        return true;
+      } catch (error) {
+        setNeedsRefresh(
+          error instanceof ArchiveCommandError &&
+            error.code === "RESULT_UNKNOWN",
+        );
+        setError(archiveErrorMessage(error));
+        return false;
+      } finally {
+        busy.current = false;
+        setOperationBusy(false);
+      }
+    },
+    recoverOperation: async () => {
+      if (
+        !archive?.recoverPlan ||
+        !archive.operationStatus ||
+        busy.current ||
+        !plan ||
+        !["applying", "unknown", "recovery_required"].includes(plan.status)
+      )
+        return false;
+      busy.current = true;
+      setOperationBusy(true);
+      setError(undefined);
+      try {
+        const next = await archive.recoverPlan(plan.id);
+        if (next.planId !== plan.id)
+          throw new ArchiveCommandError("RESULT_UNKNOWN");
+        setReport(next);
+        setPlan(await archive.operationStatus(plan.id));
+        return true;
+      } catch (error) {
+        setError(archiveErrorMessage(error));
+        return false;
+      } finally {
+        busy.current = false;
+        setOperationBusy(false);
+      }
+    },
+    inspectOperation: async () => {
+      if (!archive?.operationStatus || busy.current || !plan) return false;
+      busy.current = true;
+      setOperationBusy(true);
+      setError(undefined);
+      try {
+        setPlan(await archive.operationStatus(plan.id));
+        return true;
+      } catch (error) {
+        setError(archiveErrorMessage(error));
+        return false;
+      } finally {
+        busy.current = false;
+        setOperationBusy(false);
+      }
+    },
     discard: () => {
       setDraft(undefined);
       setRebaseBlocked(false);

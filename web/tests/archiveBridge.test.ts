@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, it, vi } from "vitest";
 import {
   type ArchiveCommandError,
@@ -7,6 +8,12 @@ import {
 const token = "0123456789abcdef0123456789abcdef";
 const uploadPath = `/data/adb/susfs-studio/.staging/${token}.input`;
 const revision = "a".repeat(64);
+const operationFixture = JSON.parse(
+  readFileSync(
+    new URL("../../contracts/operation-v2.json", import.meta.url),
+    "utf8",
+  ),
+);
 
 function response(requestId: string, data: unknown, ok = true) {
   return JSON.stringify({
@@ -294,4 +301,97 @@ it("streams archive bytes in bounded chunks", async () => {
     32 * 1024,
     6 * 1024,
   ]);
+});
+
+it("uses fixed commands for operation planning, apply, verify and recovery", async () => {
+  const host: Record<string, unknown> = {};
+  const commands: string[] = [];
+  const bridge = createArchiveBridge(host as unknown as Window, {
+    exec(command, _options, callback) {
+      commands.push(command);
+      const requestId = command.includes("apply-plan")
+        ? "apply-plan"
+        : command.includes("retry-plan")
+          ? "retry-plan"
+          : command.includes("verify-plan")
+            ? "verify-plan"
+            : command.includes("recover-plan")
+              ? "recover-plan"
+              : command.includes("studioctl plan ")
+                ? "plan"
+                : "stage";
+      const data =
+        requestId === "stage"
+          ? { token, uploadPath }
+          : requestId === "plan"
+            ? operationFixture.plan
+            : operationFixture.report;
+      (host[callback] as (code: number, stdout: string) => void)(
+        0,
+        response(requestId, data),
+      );
+    },
+    io: () => ({
+      version: () => 1,
+      FileOutputStream: () => ({
+        open: () => "stream",
+        write: () => true,
+        close: () => true,
+      }),
+    }),
+  });
+  await bridge.prepare?.();
+  await expect(bridge.plan?.(token)).resolves.toMatchObject({
+    id: token,
+  });
+  await expect(bridge.applyPlan?.(token)).resolves.toMatchObject({
+    status: "applied",
+  });
+  await expect(bridge.verifyPlan?.(token)).resolves.toMatchObject({
+    status: "applied",
+  });
+  await expect(bridge.retryPlan?.(token)).resolves.toMatchObject({
+    status: "applied",
+  });
+  await expect(bridge.recoverPlan?.(token)).resolves.toMatchObject({
+    status: "applied",
+  });
+  expect(commands).toHaveLength(6);
+  expect(commands[0]).toMatch(/studioctl stage$/u);
+  expect(commands[1]).toMatch(new RegExp(`studioctl plan ${token}$`, "u"));
+  expect(commands[2]).toMatch(
+    new RegExp(`studioctl apply-plan ${token}$`, "u"),
+  );
+  expect(commands[3]).toMatch(
+    new RegExp(`studioctl verify-plan ${token}$`, "u"),
+  );
+  expect(commands[4]).toMatch(
+    new RegExp(`studioctl retry-plan ${token}$`, "u"),
+  );
+  expect(commands[5]).toMatch(
+    new RegExp(`studioctl recover-plan ${token}$`, "u"),
+  );
+});
+
+it("never sends a malformed operation or application identifier", async () => {
+  const exec = vi.fn();
+  const bridge = createArchiveBridge({} as Window, { exec });
+  for (const id of ["../../archive", token.toUpperCase()]) {
+    await expect(bridge.applyPlan?.(id)).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await expect(bridge.verifyPlan?.(id)).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await expect(bridge.retryPlan?.(id)).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await expect(bridge.recoverPlan?.(id)).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+  }
+  await expect(bridge.plan?.("../../stage")).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+  });
+  expect(exec).not.toHaveBeenCalled();
 });

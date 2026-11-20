@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use serde::Serialize;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -73,104 +72,6 @@ pub enum Envelope {
     Valid,
     Invalid,
     Unknown,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Change {
-    pub category: &'static str,
-    pub index: usize,
-    pub intent: &'static str,
-}
-
-pub fn changes(before: Option<&str>, after: &str) -> Vec<Change> {
-    fn items(text: &str) -> BTreeMap<(&'static str, String), (usize, Value)> {
-        let Ok(Value::Object(mut root)) = serde_json::from_str(text) else {
-            return BTreeMap::new();
-        };
-        let mut items = BTreeMap::new();
-        if let Some(Value::Object(mut rules)) = root.remove("rules") {
-            for (group, fields) in [
-                ("paths", &["path", "looping"][..]),
-                ("maps", &["path"][..]),
-                ("kstats", &["path", "mode", "static"][..]),
-                ("redirects", &["path", "destination", "uidScheme"][..]),
-            ] {
-                if let Some(Value::Array(entries)) = rules.remove(group) {
-                    for (index, entry) in entries.into_iter().enumerate() {
-                        if let Value::Object(mut entry) = entry
-                            && let Some(Value::String(path)) = entry.get("path")
-                        {
-                            let path = path.clone();
-                            entry.retain(|field, _| fields.contains(&field.as_str()));
-                            if let Some(Value::Object(fields)) = entry.get_mut("static") {
-                                fields.retain(|name, value| {
-                                    static_field_valid(name, value).is_some()
-                                });
-                            }
-                            items.insert((group, path), (index, Value::Object(entry)));
-                        }
-                    }
-                }
-            }
-        }
-        if matches!(root.get("schema"), Some(Value::Number(schema)) if schema == "2") {
-            for (container, fields) in [
-                (
-                    "settings",
-                    &["hideMounts", "logging", "avcSpoof", "priorityUidFilter"][..],
-                ),
-                ("lkm", &["hiddenModules", "mountPrefixes"][..]),
-            ] {
-                if let Some(Value::Object(mut values)) = root.remove(container) {
-                    for &field in fields {
-                        if let Some(value) =
-                            values.remove(field).filter(|value| *value != Value::Null)
-                        {
-                            items.insert((field, String::new()), (0, value));
-                        }
-                    }
-                }
-            }
-            for field in ["uname", "cmdline", "automatic"] {
-                if let Some(mut value) = root.remove(field) {
-                    if field == "uname"
-                        && let Value::Object(fields) = &mut value
-                    {
-                        fields.retain(|name, _| matches!(name.as_str(), "release" | "version"));
-                    }
-                    items.insert((field, String::new()), (0, value));
-                }
-            }
-        }
-        items
-    }
-
-    let mut before = before.map(items).unwrap_or_default();
-    let after = items(after);
-    let mut changes = Vec::new();
-    for (key, (index, value)) in after {
-        let intent = match before.remove(&key) {
-            None => "add",
-            Some((_, old)) if old == value => continue,
-            Some(_) => "update",
-        };
-        changes.push(Change {
-            category: key.0,
-            index,
-            intent,
-        });
-    }
-    changes.extend(
-        before
-            .into_iter()
-            .map(|((category, _), (index, _))| Change {
-                category,
-                index,
-                intent: "remove",
-            }),
-    );
-    changes
 }
 
 fn exceeds_depth(text: &str) -> bool {
@@ -430,25 +331,6 @@ fn valid_static(fields: &BTreeMap<String, Value>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn planning_preserves_intents_without_leaking_payloads() {
-        let before = r#"{"format":"susfs-studio","schema":2,"settings":{"logging":true},"rules":{"paths":[{"id":"p","path":"/private/p","looping":false}],"maps":[{"id":"m","path":"/private/m"}],"kstats":[],"redirects":[]}}"#;
-        let after = r#"{"format":"susfs-studio","schema":2,"settings":{"logging":false,"priorityUidFilter":[]},"uname":null,"rules":{"paths":[{"id":"new","path":"/private/p","looping":true}],"maps":[],"kstats":[],"redirects":[]}}"#;
-        assert_eq!(validate_envelope(before), Envelope::Valid);
-        assert_eq!(validate_envelope(after), Envelope::Valid);
-        let changes = serde_json::to_value(changes(Some(before), after)).unwrap();
-        assert_eq!(
-            changes,
-            serde_json::json!([
-                {"category":"logging","index":0,"intent":"update"},
-                {"category":"paths","index":0,"intent":"update"},
-                {"category":"priorityUidFilter","index":0,"intent":"add"},
-                {"category":"uname","index":0,"intent":"add"},
-                {"category":"maps","index":0,"intent":"remove"}
-            ])
-        );
-    }
-
     #[test]
     fn shared_envelope_cases() {
         let cases: serde_json::Value =

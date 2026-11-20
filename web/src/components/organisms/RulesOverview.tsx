@@ -5,6 +5,7 @@ import type { Translate } from "../../i18n/messages";
 import type { ArchiveBridge } from "../../transport/archiveBridge";
 import type { HostChannel } from "../../transport/host";
 import { capabilityKeys, type Status } from "../../transport/mock";
+import type { OperationPlanStatus } from "../../transport/operations";
 import {
   DialogActions,
   DialogChoiceGroup,
@@ -23,6 +24,61 @@ const outcomes = [
   "workflowUnknown",
   "workflowPendingReboot",
 ] as const;
+const operationStatuses = [
+  "ready",
+  "applying",
+  "saved",
+  "applied",
+  "partial",
+  "failed",
+  "unknown",
+  "recovery_required",
+  "pending_reboot",
+  "deferred",
+  "blocked",
+  "verified",
+  "idle",
+] as const satisfies readonly OperationPlanStatus[];
+const operationReasons: Record<string, string> = {
+  CAPABILITY_VERIFIED: "operationReasonVerified",
+  ABI_NOT_AUDITED: "operationReasonAbiUnaudited",
+  PROC_EXTENSION_REQUIRED: "operationReasonProcMissing",
+  CAPABILITY_UNREPORTED: "operationReasonUnreported",
+  LIVE_KSTAT_STAGE_MISSED: "operationReasonKstatStage",
+  PRE_MOUNT_KSTAT_MISSED: "operationReasonKstatPreMount",
+  RULE_REPLACEMENT_REQUIRES_REBOOT: "operationReasonRebootReplace",
+  KSTAT_SNAPSHOT_CAPTURED: "operationReasonSnapshot",
+  KSTAT_SNAPSHOT_ALREADY_CAPTURED: "operationReasonSnapshotAlreadyCaptured",
+  BOOT_STAGE: "operationReasonBootStage",
+  PLAN_ITEM_MISMATCH: "operationReasonMismatch",
+  PLAN_ACTION_MISSING: "operationReasonMismatch",
+  PROVIDER_MISSING: "operationProviderMissing",
+  PROVIDER_UNKNOWN_PROTOCOL: "operationProtocolUnknown",
+  PROVIDER_DIAGNOSTIC_FAILED: "operationDiagnosticsFailed",
+  EXPLICIT_RESET_REQUIRES_REBOOT: "operationReasonCmdlineReset",
+};
+const categoryMessages = {
+  paths: "paths",
+  maps: "mapRules",
+  kstats: "kstatRules",
+  redirects: "redirectRules",
+  hideMounts: "controlHideMounts",
+  logging: "controlLogging",
+  avcSpoof: "controlAvcSpoof",
+  priorityUidFilter: "controlUid",
+  uname: "controlUname",
+  cmdline: "controlCmdline",
+  hiddenModules: "controlModules",
+  mountPrefixes: "controlPrefixes",
+} as const;
+const operationStatusMessage = (status: string) =>
+  status === "recovered"
+    ? "operationRecovered"
+    : operationStatuses.includes(status as OperationPlanStatus)
+      ? status === "unknown"
+        ? "operationUnknown"
+        : (status as OperationPlanStatus)
+      : "operationUnknown";
 export type WorkflowReport = {
   revision: string;
   instance: number;
@@ -59,6 +115,9 @@ export function RulesOverview({
   t: Translate;
 }) {
   const [review, setReview] = useState<string>();
+  const [reviewOperation, setReviewOperation] = useState<
+    "apply" | "retry" | undefined
+  >();
   const [outcome, setOutcome] =
     useState<(typeof outcomes)[number]>("workflowAccepted");
   const [instance, setInstance] = useState((report?.instance ?? 0) + 1);
@@ -74,6 +133,33 @@ export function RulesOverview({
     !archive.loading &&
     !archive.saving &&
     !archive.error;
+  const canApplyOperation =
+    !workflow &&
+    archive.plan?.status === "ready" &&
+    archive.saved?.revision === archive.plan.candidateRevision &&
+    !archive.draft &&
+    !archive.loading &&
+    !archive.saving &&
+    !archive.operationBusy &&
+    !archive.error;
+  const canVerifyOperation =
+    !workflow &&
+    !!archive.plan &&
+    archive.plan.items.some((item) => item.status === "applied") &&
+    !archive.operationBusy;
+  const canRecoverOperation =
+    !workflow &&
+    !!archive.plan &&
+    ["applying", "unknown", "recovery_required"].includes(
+      archive.plan.status,
+    ) &&
+    !archive.operationBusy;
+  const canRetryOperation =
+    !workflow &&
+    !!archive.plan &&
+    ["failed", "partial"].includes(archive.plan.status) &&
+    archive.saved?.revision === archive.plan.candidateRevision &&
+    !archive.operationBusy;
   const automatic =
     archive.current?.formatStatus === "valid" && archive.current.schema === "2"
       ? archive.current.value.automatic
@@ -118,19 +204,135 @@ export function RulesOverview({
           icon="active"
           title={t(workflow ? "workflowApply" : "controlApply")}
           detail={t(
-            workflow ? "workflowApplyHint" : "controlProviderUnverified",
+            workflow
+              ? "workflowApplyHint"
+              : archive.plan
+                ? "operationPlanReadyHint"
+                : "operationPlanMissing",
           )}
-          disabled={!canSimulate}
+          disabled={workflow ? !canSimulate : !canApplyOperation}
           action={() => {
             if (canSimulate) setReview(revision);
+            if (canApplyOperation) setReviewOperation("apply");
           }}
         />
+        {!workflow && (
+          <>
+            <SettingsRow
+              title={t("operationPlan")}
+              detail={
+                archive.plan
+                  ? [
+                      t(operationStatusMessage(archive.plan.status)),
+                      archive.plan.candidateRevision.slice(0, 12),
+                      archive.plan.reason
+                        ? t(
+                            (operationReasons[archive.plan.reason] ??
+                              "operationReasonMismatch") as Parameters<Translate>[0],
+                          )
+                        : undefined,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
+                  : t("operationPlanMissing")
+              }
+            />
+            {archive.plan && (
+              <SettingsRow
+                title={t("operationCandidateRevision")}
+                detail={archive.plan.candidateRevision}
+              />
+            )}
+            {archive.plan && (
+              <SettingsRow
+                title={t("workflowEffect")}
+                detail={[
+                  t(
+                    archive.plan.effectStatus === "verified"
+                      ? "operationEffectVerified"
+                      : archive.plan.effectStatus === "partial"
+                        ? "operationEffectPartial"
+                        : "operationEffectPending",
+                  ),
+                  t("operationEffectSeparate"),
+                ].join(" · ")}
+              />
+            )}
+            <SettingsRow
+              icon="active"
+              title={t("operationVerify")}
+              detail={t("operationVerifyHint")}
+              disabled={!canVerifyOperation}
+              action={() => void archive.verifyOperation()}
+            />
+            {archive.plan &&
+              ["applying", "unknown", "recovery_required"].includes(
+                archive.plan.status,
+              ) && (
+                <SettingsRow
+                  icon="restore"
+                  title={t("operationRecover")}
+                  detail={t("operationRecoverHint")}
+                  disabled={!canRecoverOperation}
+                  action={() => void archive.recoverOperation()}
+                />
+              )}
+            {archive.plan &&
+              ["failed", "partial"].includes(archive.plan.status) && (
+                <SettingsRow
+                  icon="restore"
+                  title={t("operationRetry")}
+                  detail={t("operationRetryHint")}
+                  disabled={!canRetryOperation}
+                  action={() => setReviewOperation("retry")}
+                />
+              )}
+            {archive.plan && (
+              <SettingsRow
+                icon="status"
+                title={t("operationInspect")}
+                disabled={archive.operationBusy}
+                action={() => void archive.inspectOperation()}
+              />
+            )}
+          </>
+        )}
         <SettingsRow
           title={t("controlLastApplication")}
           detail={
-            report && workflow ? t(report.outcome) : t("controlNoReceipt")
+            report && workflow
+              ? t(report.outcome)
+              : archive.report
+                ? t(operationStatusMessage(archive.report.status))
+                : t("controlNoReceipt")
           }
         />
+        {!workflow &&
+          archive.plan?.items.map((item) => {
+            const category =
+              categoryMessages[item.category as keyof typeof categoryMessages];
+            const reason =
+              operationReasons[item.reason as keyof typeof operationReasons];
+            const status = operationStatusMessage(item.status);
+            return (
+              <SettingsRow
+                key={item.id}
+                icon="status"
+                title={`${category ? t(category) : item.category} · ${t(item.intent === "remove" ? "archiveRemoved" : item.intent === "update" ? "archiveChanged" : "archiveAdded")}`}
+                detail={[
+                  t(status),
+                  reason ? t(reason as Parameters<Translate>[0]) : item.reason,
+                  item.effect
+                    ? t(
+                        item.effect.observed
+                          ? "operationEffectObserved"
+                          : "operationEffectUnobserved",
+                      )
+                    : t("operationEffectPending"),
+                ].join("\n")}
+              />
+            );
+          })}
         {report && workflow && (
           <>
             <SettingsRow
@@ -196,7 +398,10 @@ export function RulesOverview({
           archive={bridge}
           workflow={workflow}
           archiveImport={status.control?.archiveImport === true}
-          onSaved={() => void archive.refresh()}
+          onSaved={(plan) => {
+            archive.adoptPlan(plan);
+            void archive.refresh();
+          }}
           t={t}
         />
       </section>
@@ -248,6 +453,55 @@ export function RulesOverview({
           </DialogActions>
         </M3eDialog>
       )}
+      <M3eDialog
+        opened={reviewOperation !== undefined}
+        onClose={() => setReviewOperation(undefined)}
+        title={t(
+          reviewOperation === "retry" ? "operationRetry" : "controlApply",
+        )}
+      >
+        <p>
+          {t(
+            reviewOperation === "retry"
+              ? "operationConfirmRetry"
+              : "operationConfirmWarning",
+          )}
+        </p>
+        {archive.plan && (
+          <p>
+            {t("operationCandidateRevision")}: {archive.plan.candidateRevision}
+          </p>
+        )}
+        <DialogActions>
+          <Button
+            variant="subtle"
+            onClick={() => setReviewOperation(undefined)}
+          >
+            {t("ruleCancel")}
+          </Button>
+          <Button
+            variant="subtle"
+            disabled={
+              (reviewOperation === "retry"
+                ? !canRetryOperation
+                : !canApplyOperation) || archive.operationBusy
+            }
+            onClick={async () => {
+              const success =
+                reviewOperation === "retry"
+                  ? await archive.retryOperation()
+                  : await archive.applyOperation();
+              if (success) setReviewOperation(undefined);
+            }}
+          >
+            {t(
+              reviewOperation === "retry"
+                ? "operationConfirmRetryAction"
+                : "operationConfirmApply",
+            )}
+          </Button>
+        </DialogActions>
+      </M3eDialog>
       <section className={styles.capabilities}>
         <h2>{t("compatibility")}</h2>
         <SettingsList label={t("compatibility")}>

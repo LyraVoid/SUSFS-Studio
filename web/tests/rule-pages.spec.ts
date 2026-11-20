@@ -336,7 +336,7 @@ async function host(
     "ruleCall",
     async (_, command: string, upload: string) => {
       const match =
-        /^\/system\/bin\/timeout (?:5|15) \/data\/adb\/modules\/susfs_studio\/bin\/studioctl (read|stage|save|import)(?: ([0-9a-f]{32}))?$/.exec(
+        /^\/system\/bin\/timeout (?:5|10|15) \/data\/adb\/modules\/susfs_studio\/bin\/studioctl (read|stage|save|import|plan)(?: ([0-9a-f]{32}))?$/.exec(
           command,
         );
       const action = match?.[1];
@@ -375,6 +375,30 @@ async function host(
           uploadPath: `/data/adb/susfs-studio/.staging/${token}.input`,
           baseline,
           revision: baseline === undefined ? undefined : digest(baseline),
+        });
+      }
+      if (action === "plan" && match?.[2] === token) {
+        return reply({
+          planVersion: 2,
+          id: token,
+          baselineRevision: baseline === undefined ? null : digest(baseline),
+          candidateRevision: digest(upload),
+          provider: {
+            implementation: "unknown",
+            version: "unreported",
+            variant: "unknown",
+            audited: false,
+            features: [],
+            bootId: "test-boot",
+            uid: 0,
+            procNodes: [],
+          },
+          status: "blocked",
+          effectStatus: "unverified",
+          reason: "PROVIDER_DIAGNOSTIC_FAILED",
+          createdAt: "1",
+          updatedAt: "1",
+          items: [],
         });
       }
       if ((action !== "save" && action !== "import") || match?.[2] !== token)
