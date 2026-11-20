@@ -1,5 +1,5 @@
 import { Button } from "@mantine/core";
-import { useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import type { RuleRoute } from "../app/routes";
 import { syncAppBar } from "../components/molecules/FlexiblePageHeader";
 import {
@@ -63,6 +63,18 @@ export function CapabilityPage({
   const provider =
     !stale && status.kind === "active" ? status.provider : undefined;
   const chrome = useRef<HTMLDivElement>(null);
+  const navigation = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const nav = navigation.current;
+    const active = nav?.querySelector<HTMLElement>(`a[href="#${route}"]`);
+    if (!nav || !active) return;
+    const bounds = nav.getBoundingClientRect();
+    const selected = active.getBoundingClientRect();
+    if (selected.left < bounds.left)
+      nav.scrollLeft += selected.left - bounds.left;
+    else if (selected.right > bounds.right)
+      nav.scrollLeft += selected.right - bounds.right;
+  }, [route]);
   return (
     <div className={pageStyles.rulesPage} data-testid="rules-page">
       <div
@@ -89,6 +101,7 @@ export function CapabilityPage({
           </div>
         </header>
         <nav
+          ref={navigation}
           className={pageStyles.subnav}
           aria-label={t("ruleNavigation")}
           data-testid="rules-tabs"

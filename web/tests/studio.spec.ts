@@ -212,6 +212,40 @@ test("three-item main navigation and six SUSFS tabs", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "设置" })).toBeVisible();
 });
 
+test("Rules tabs keep the selected category visible", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 805 });
+  await page.goto("/#/rules/extensions");
+  const tabs = page.getByTestId("rules-tabs");
+  const visible = async () => {
+    const bounds = await tabs.boundingBox();
+    const active = await tabs.locator('a[aria-current="page"]').boundingBox();
+    if (!bounds || !active) throw new Error("Missing tab bounds");
+    expect(active.x).toBeGreaterThanOrEqual(bounds.x - 1);
+    expect(active.x + active.width).toBeLessThanOrEqual(
+      bounds.x + bounds.width + 1,
+    );
+  };
+  await visible();
+  expect(await tabs.evaluate((element) => element.scrollLeft)).toBeGreaterThan(
+    0,
+  );
+  const back = tabs.getByRole("link", { name: "概览" });
+  await back.focus();
+  await page.keyboard.press("Enter");
+  await expect(tabs.getByRole("link", { name: "概览" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await visible();
+  await expect
+    .poll(() => tabs.evaluate((element) => element.scrollLeft))
+    .toBe(0);
+  await page.goto("/#/rules/redirect");
+  await visible();
+  await page.goBack();
+  await visible();
+});
+
 test("Rules page keeps its layout tokens", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 805 });
   await page.addInitScript(() => localStorage.setItem("studio-theme", "dark"));
