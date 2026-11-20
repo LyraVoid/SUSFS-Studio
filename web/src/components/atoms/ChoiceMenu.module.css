@@ -1,0 +1,85 @@
+.menu.menu {
+  width: max-content;
+  min-width: 7.5rem;
+  max-width: min(
+    18rem,
+    calc(100vw - 2rem - var(--safe-left) - var(--safe-right))
+  );
+  max-height: min(
+    19rem,
+    var(--menu-room, 100dvh),
+    calc(100dvh - 2rem - var(--safe-top) - var(--safe-bottom))
+  );
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  gap: 2px;
+  padding: var(--s4);
+  border: 0;
+  border-radius: var(--r24);
+  background: var(--surface-container-low);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--shadow) 22%, transparent);
+}
+.item.item {
+  min-height: var(--hit);
+  padding: var(--s8) var(--s16);
+  border-radius: var(--r4);
+  color: var(--on-surface);
+  background: transparent;
+  font-size: 0.9375rem;
+}
+.item.item:first-child {
+  border-start-start-radius: calc(var(--r24) - var(--s4));
+  border-start-end-radius: calc(var(--r24) - var(--s4));
+}
+.item.item:last-child {
+  border-end-start-radius: calc(var(--r24) - var(--s4));
+  border-end-end-radius: calc(var(--r24) - var(--s4));
+}
+.item.item[data-checked] {
+  border-radius: var(--r-full);
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+}
+@media (hover: hover) {
+  .item.item:hover {
+    background: color-mix(
+      in srgb,
+      var(--surface-container-low),
+      currentColor 8%
+    );
+  }
+  .item.item[data-checked]:hover {
+    background: color-mix(in srgb, var(--secondary-container), currentColor 8%);
+  }
+}
+.item.item:active {
+  background: color-mix(
+    in srgb,
+    var(--surface-container-low),
+    currentColor 12%
+  );
+}
+.item.item[data-checked]:active {
+  background: color-mix(in srgb, var(--secondary-container), currentColor 12%);
+}
+.item.item:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+.label {
+  display: flex;
+  align-items: center;
+  gap: var(--s8);
+  overflow-wrap: anywhere;
+}
+.label svg {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.dismiss {
+  position: fixed;
+  inset: 0;
+  z-index: 299;
+}

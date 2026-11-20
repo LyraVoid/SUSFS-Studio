@@ -1,6 +1,15 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import fixtures from "../../contracts/diagnostic-v1.json" with { type: "json" };
+import { translator } from "../src/i18n/messages";
+
+const choose = async (page: Page, label: string, option: string) => {
+  await page.getByRole("button", { name: label, exact: true }).click();
+  await page
+    .getByRole("menu", { name: label, exact: true })
+    .getByRole("menuitemradio", { name: option, exact: true })
+    .click();
+};
 
 const materialColor = (page: Page, role: string) =>
   page.locator("html").evaluate((root, name) => {
@@ -266,7 +275,7 @@ test("touch feedback, keyboard focus and safe diagnostic dialog", async ({
     .getByRole("navigation", { name: "主导航" })
     .getByRole("link", { name: "设置" })
     .tap();
-  const select = page.getByRole("combobox", { name: "主题" });
+  const select = page.getByRole("button", { name: "主题", exact: true });
   const automatic = page.getByRole("switch", { name: "自动采集" });
   await expect(automatic).toBeDisabled();
   await expect(automatic).not.toBeChecked();
@@ -277,16 +286,113 @@ test("touch feedback, keyboard focus and safe diagnostic dialog", async ({
   await expect(automatic.locator("+ span")).toHaveCSS("height", "32px");
   await expect(automatic.locator("+ span > span")).toHaveCSS("width", "24px");
   await select.tap();
-  const choice = select.locator("..");
-  await expect(choice).toHaveCSS("outline-style", "none");
-  await expect(choice.locator('[data-testid="settings-row"]')).toHaveCSS(
+  const menu = page.getByRole("menu", { name: "主题" });
+  await expect(menu).toBeVisible();
+  await menu.getByRole("menuitemradio", { name: "深色" }).tap();
+  await expect(menu).toBeHidden();
+  await expect(select).toHaveCSS("outline-style", "none");
+  await expect(select).toHaveCSS(
     "background-color",
     await materialColor(page, "surface-bright"),
   );
   await select.blur();
   await page.keyboard.press("Tab");
   await select.focus();
-  await expect(choice).toHaveCSS("outline-style", "solid");
+  await expect(select).toHaveCSS("outline-style", "solid");
+  await context.close();
+});
+
+test("settings menu stays anchored and scrolls on a short phone", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 480 });
+  await page.goto("/#/settings");
+  const trigger = page.getByRole("button", { name: "配色风格", exact: true });
+  await trigger.click();
+  const menu = page.getByRole("menu", { name: "配色风格" });
+  const selected = menu.getByRole("menuitemradio", { checked: true });
+  await expect(selected).toContainText("Tonal Spot");
+  await expect(selected).toHaveCSS(
+    "background-color",
+    await materialColor(page, "secondary-container"),
+  );
+  await expect(selected.locator("svg")).toBeVisible();
+  await expect
+    .poll(async () => {
+      const box = await menu.boundingBox();
+      return (
+        !!box &&
+        box.x >= 15 &&
+        box.y >= 15 &&
+        box.x + box.width <= 305 &&
+        box.y + box.height <= 465
+      );
+    })
+    .toBe(true);
+  expect(
+    await menu.evaluate(
+      (element) => element.scrollHeight > element.clientHeight,
+    ),
+  ).toBe(true);
+  await page.keyboard.press("End");
+  await expect(menu.getByRole("menuitemradio").last()).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await page.mouse.click(2, 2);
+  await expect(menu).toBeHidden();
+  await expect(trigger).toContainText("Tonal Spot");
+});
+
+test("tapping another setting dismisses an open menu without activating the row", async ({
+  page,
+}) => {
+  await page.goto("/#/settings");
+  const theme = page.getByRole("button", { name: "主题", exact: true });
+  const contrast = page.getByRole("button", {
+    name: "配色对比度",
+    exact: true,
+  });
+  const box = await contrast.boundingBox();
+  if (!box) throw new Error("Missing contrast trigger");
+  await theme.click();
+  await expect(page.getByRole("menu", { name: "主题" })).toBeVisible();
+  await page.mouse.click(box.x + 20, box.y + box.height / 2);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(contrast).toHaveAttribute("aria-expanded", "false");
+  await contrast.click();
+  await expect(page.getByRole("menu", { name: "配色对比度" })).toBeVisible();
+});
+
+test("settings menu follows different touch positions on the same row", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    reducedMotion: "reduce",
+    viewport: { width: 390, height: 850 },
+  });
+  const page = await context.newPage();
+  await page.goto("/#/settings");
+  const trigger = page.getByRole("button", { name: "主题", exact: true });
+  const bounds = await trigger.boundingBox();
+  if (!bounds) throw new Error("Missing settings trigger");
+  const menu = page.getByRole("menu", { name: "主题" });
+  for (const [x, y] of [
+    [30, 12],
+    [130, 42],
+  ] as const) {
+    await page.touchscreen.tap(bounds.x + x, bounds.y + y);
+    await expect
+      .poll(async () => Math.round((await menu.boundingBox())?.x ?? 0))
+      .toBe(Math.round(bounds.x + x));
+    await expect
+      .poll(async () => Math.round((await menu.boundingBox())?.y ?? 0))
+      .toBe(Math.round(bounds.y + y + 4));
+    await page.touchscreen.tap(2, 2);
+    await expect(menu).toBeHidden();
+  }
   await context.close();
 });
 
@@ -582,7 +688,7 @@ test("distinct demo results and confirmed implementation badges", async ({
     ["failed", "连接失败", ""],
   ] as const) {
     await page.getByRole("link", { name: "设置", exact: true }).click();
-    await page.getByLabel("演示场景").selectOption(scenario);
+    await choose(page, "演示场景", translator("zh")(scenario));
     await page.getByRole("link", { name: "首页" }).click();
     await expect(status).toContainText(label);
     if (badge) {
@@ -603,7 +709,7 @@ test("a non-LKM sample keeps extension edits blocked with a reason", async ({
   page,
 }) => {
   await page.goto("/#/settings");
-  await page.getByLabel("演示场景").selectOption("builtin24");
+  await choose(page, "演示场景", translator("zh")("builtin24"));
   await page.getByRole("link", { name: "规则", exact: true }).click();
   await page
     .getByRole("navigation", { name: "规则分类" })
@@ -942,8 +1048,8 @@ test("mobile and desktop breakpoint, persisted preferences and axe", async ({
   const darkSurface = await page
     .locator("body")
     .evaluate((body) => getComputedStyle(body).backgroundColor);
-  await page.getByLabel("主题").selectOption("light");
-  await page.getByLabel("语言").selectOption("en");
+  await choose(page, "主题", "浅色");
+  await choose(page, "语言", "English");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator("html")).toHaveAttribute(
@@ -965,10 +1071,13 @@ test("Material profiles update all pages and dialogs, persist, and reset indepen
   const root = page.locator("html");
   await expect(root).toHaveAttribute("data-mantine-color-scheme", "dark");
   const nav = page.getByRole("navigation", { name: "主导航" });
-  const spec = page.getByRole("combobox", { name: "配色规范" });
-  const scheme = page.getByRole("combobox", { name: "配色风格" });
-  const contrast = page.getByRole("combobox", { name: "配色对比度" });
-  const appearance = page.getByRole("combobox", { name: "主题" });
+  const spec = page.getByRole("button", { name: "配色规范", exact: true });
+  const scheme = page.getByRole("button", { name: "配色风格", exact: true });
+  const contrast = page.getByRole("button", {
+    name: "配色对比度",
+    exact: true,
+  });
+  const appearance = page.getByRole("button", { name: "主题", exact: true });
   const shell = page.getByTestId("shell");
   const originalPrimary = await materialColor(page, "primary");
   const originalSurface = await materialColor(page, "surface-container");
@@ -994,22 +1103,25 @@ test("Material profiles update all pages and dialogs, persist, and reset indepen
   const seedSurface = await materialColor(page, "surface-container");
 
   await spec.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("menuitemradio", { name: "2025" })).toBeFocused();
   await page.keyboard.press("ArrowUp");
-  await expect(spec).toHaveValue("2021");
+  await page.keyboard.press("Enter");
+  await expect(spec).toContainText("2021");
   await expect
     .poll(() => materialColor(page, "surface-container"))
     .not.toBe(seedSurface);
   const oldSecondary = await materialColor(page, "secondary-container");
-  await scheme.selectOption("vibrant");
+  await choose(page, "配色风格", "鲜明（Vibrant）");
   await expect
     .poll(() => materialColor(page, "secondary-container"))
     .not.toBe(oldSecondary);
   const standardPrimary = await materialColor(page, "primary");
-  await contrast.selectOption("high");
+  await choose(page, "配色对比度", "高");
   await expect
     .poll(() => materialColor(page, "primary"))
     .not.toBe(standardPrimary);
-  await appearance.selectOption("light");
+  await choose(page, "主题", "浅色");
   await expect(root).toHaveAttribute("data-mantine-color-scheme", "light");
   await expect(shell).not.toHaveCSS("background-color", originalSurface);
   expect((await nav.boundingBox())?.width).toBe(originalWidth);
@@ -1076,22 +1188,24 @@ test("Material profiles update all pages and dialogs, persist, and reset indepen
 
   await nav.getByRole("link", { name: "设置" }).click();
   await page.reload();
-  await expect(appearance).toHaveValue("light");
-  await expect(spec).toHaveValue("2021");
-  await expect(scheme).toHaveValue("vibrant");
-  await expect(contrast).toHaveValue("high");
+  await expect(appearance).toContainText("浅色");
+  await expect(spec).toContainText("2021");
+  await expect(scheme).toContainText("Vibrant");
+  await expect(contrast).toContainText("高");
   await expect(page.getByRole("radio", { name: "海蓝" })).toBeChecked();
   await sharedRoles();
-  await spec.selectOption("2025");
-  await scheme.selectOption("monochrome");
-  await expect(spec).toHaveValue("2025");
+  await choose(page, "配色规范", "2025");
+  await choose(page, "配色风格", "单色（Monochrome）");
+  await expect(spec).toContainText("2021");
+  await spec.click();
   await expect(
-    page.getByTestId("settings-row-detail").filter({ hasText: /^2021$/ }),
-  ).toBeVisible();
-  await page
-    .getByRole("combobox", { name: "演示场景" })
-    .selectOption("builtin24");
-  await page.getByRole("combobox", { name: "语言" }).selectOption("en");
+    page.getByRole("menuitemradio", { name: "2025" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("menuitemradio", { name: "2025" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(spec).toBeFocused();
+  await choose(page, "演示场景", translator("zh")("builtin24"));
+  await choose(page, "语言", "English");
   const reset = page.getByRole("button", { name: "Restore default colors" });
   await expect(reset).toContainText(
     "Dark · Slate · 2025 · Tonal Spot · Standard",
@@ -1101,17 +1215,17 @@ test("Material profiles update all pages and dialogs, persist, and reset indepen
   await expect(root).toHaveAttribute("data-mantine-color-scheme", "dark");
   await expect(shell).toHaveCSS("background-color", originalSurface);
   await expect(
-    page.getByRole("combobox", { name: "Demo scenario" }),
-  ).toHaveValue("builtin24");
+    page.getByRole("button", { name: "Demo scenario", exact: true }),
+  ).toContainText(translator("en")("builtin24"));
   await page.reload();
   await expect(page.getByRole("radio", { name: "Slate" })).toBeChecked();
   await expect(
-    page.getByRole("combobox", { name: "Color specification" }),
-  ).toHaveValue("2025");
-  await expect(page.getByRole("combobox", { name: "Color style" })).toHaveValue(
-    "tonalSpot",
-  );
+    page.getByRole("button", { name: "Color specification", exact: true }),
+  ).toContainText("2025");
   await expect(
-    page.getByRole("combobox", { name: "Color contrast" }),
-  ).toHaveValue("standard");
+    page.getByRole("button", { name: "Color style", exact: true }),
+  ).toContainText("Tonal Spot");
+  await expect(
+    page.getByRole("button", { name: "Color contrast", exact: true }),
+  ).toContainText("Standard");
 });

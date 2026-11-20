@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Icon, type IconName } from "../atoms/Icon";
 import styles from "./SettingsList.module.css";
 
@@ -30,6 +30,8 @@ export function SettingsRow({
   disabled,
   dataAvailability,
   role,
+  className,
+  ...trigger
 }: {
   icon?: IconName;
   title: string;
@@ -40,7 +42,16 @@ export function SettingsRow({
   disabled?: boolean;
   dataAvailability?: "available" | "unavailable" | "unknown" | "loading";
   role?: "alert" | "status";
-}) {
+} & Pick<
+  ComponentProps<"button">,
+  | "ref"
+  | "onClick"
+  | "className"
+  | "aria-haspopup"
+  | "aria-expanded"
+  | "aria-controls"
+  | "aria-description"
+>) {
   const content = (
     <>
       {icon && (
@@ -59,12 +70,13 @@ export function SettingsRow({
       {trailing}
     </>
   );
-  if (action || disabled)
+  if (action || disabled || trigger.onClick)
     return (
       <button
-        className={`${styles.row} ${styles.action} ${icon ? "" : styles.noIcon}`}
+        className={`${styles.row} ${styles.action} ${icon ? "" : styles.noIcon} ${className ?? ""}`}
         type="button"
         onClick={action}
+        {...trigger}
         disabled={disabled}
         aria-label={title}
         data-availability={dataAvailability}

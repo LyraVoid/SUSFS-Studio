@@ -1,8 +1,9 @@
 import { useComputedColorScheme, useMantineColorScheme } from "@mantine/core";
 import { hexFromArgb } from "@material/material-color-utilities";
 import { useId, useMemo } from "react";
+import { ChoiceMenu } from "../components/atoms/ChoiceMenu";
 import { ExpressiveSwitch } from "../components/atoms/ExpressiveSwitch";
-import { Icon, type IconName } from "../components/atoms/Icon";
+import type { IconName } from "../components/atoms/Icon";
 import { FlexiblePageHeader } from "../components/molecules/FlexiblePageHeader";
 import {
   SettingsList,
@@ -42,42 +43,20 @@ function ChoiceRow<T extends Message>({
   detail?: string;
   t: Translate;
 }) {
-  const id = useId();
   return (
-    <div className={styles.choice}>
+    <ChoiceMenu
+      label={t(label)}
+      value={value}
+      options={options.map((value) => ({ value, label: t(value) }))}
+      onChange={change}
+    >
       <SettingsRow
         icon={icon}
         title={t(label)}
-        detail={detail ?? t(value)}
-        id={id}
-        trailing={<Icon name="chevron" />}
+        aria-description={detail ?? t(value)}
+        trailing={<span className={styles.value}>{detail ?? t(value)}</span>}
       />
-      <select
-        aria-labelledby={id}
-        onPointerDown={(event) => {
-          event.currentTarget.dataset.pointerFocus = "true";
-        }}
-        onKeyDown={(event) => {
-          delete event.currentTarget.dataset.pointerFocus;
-        }}
-        onBlur={(event) => {
-          delete event.currentTarget.dataset.pointerFocus;
-        }}
-        value={value}
-        onChange={(event) => {
-          const next = options.find(
-            (option) => option === event.currentTarget.value,
-          );
-          if (next) change(next);
-        }}
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {t(option)}
-          </option>
-        ))}
-      </select>
-    </div>
+    </ChoiceMenu>
   );
 }
 
