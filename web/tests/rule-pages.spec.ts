@@ -58,10 +58,10 @@ test("explicit sample scenario closes the workflow without a host bridge", async
   await expect(dialog).toContainText("/cmdline");
   await dialog.getByRole("button", { name: "确认保存", exact: true }).click();
   for (const outcome of [
+    "模拟：等待重启",
+    "模拟：已受理",
     "模拟：部分成功",
     "模拟：已拒绝",
-    "模拟：结果未知",
-    "模拟：已受理",
   ]) {
     await apply.click();
     await dialog.getByRole("radio", { name: outcome, exact: true }).click();
@@ -70,12 +70,57 @@ test("explicit sample scenario closes the workflow without a host bridge", async
       page.getByTestId("settings-row").filter({ hasText: outcome }).first(),
     ).toBeVisible();
   }
+  await apply.click();
+  await dialog
+    .getByRole("radio", { name: "模拟：结果未知", exact: true })
+    .click();
+  await dialog.getByRole("button", { name: "确认模拟" }).click();
+  await expect(
+    page
+      .getByTestId("settings-row")
+      .filter({ hasText: "模拟：结果未知" })
+      .first(),
+  ).toBeVisible();
+  await expect(apply).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "刷新并核对", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "刷新", exact: true }).click();
+  await expect(apply).toBeEnabled();
+  await apply.click();
+  await dialog
+    .getByRole("radio", { name: "模拟：已受理", exact: true })
+    .click();
+  await dialog.getByRole("button", { name: "确认模拟" }).click();
   await expect(page.getByText("未验证", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "模拟效果验证" }).click();
   await expect(page.getByText("模拟：已独立观察")).toBeVisible();
+  await expect(
+    page
+      .getByTestId("settings-row")
+      .filter({ hasText: "案例运行实例" })
+      .first(),
+  ).toContainText("6");
   await page.getByRole("link", { name: "基础设置", exact: true }).click();
+  await page.getByRole("button", { name: "日志记录", exact: true }).click();
+  await dialog.getByRole("radio", { name: "关闭", exact: true }).click();
   await openOverview(page);
   await expect(page.getByText("模拟：已独立观察")).toBeVisible();
+  await expect(
+    page.getByText("该模拟结果对应旧版归档，不代表当前配置。", {
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "检查并确认保存" }).click();
+  await dialog.getByRole("button", { name: "确认保存", exact: true }).click();
+  await expect(
+    page.getByText("该模拟结果对应旧版归档，不代表当前配置。", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "模拟效果验证" }),
+  ).toBeDisabled();
   const exportLabel = "导出案例归档";
   await page.getByRole("button", { name: exportLabel, exact: true }).click();
   const download = page.waitForEvent("download");

@@ -1,21 +1,23 @@
+import { FlexiblePageHeader } from "../components/molecules/FlexiblePageHeader";
 import { ActivationCard } from "../components/organisms/ActivationCard";
 import { DeviceFactsGroup } from "../components/organisms/DeviceFactsGroup";
 import { ProviderSummary } from "../components/organisms/ProviderSummary";
 import type { Translate } from "../i18n/messages";
+import type { HostChannel } from "../transport/host";
 import type { Status } from "../transport/mock";
 import styles from "./Home.module.css";
 
 export function Home({
   status,
   demo,
-  bridgeUnavailable,
+  channel,
   stale,
   refresh,
   t,
 }: {
   status: Status;
   demo: boolean;
-  bridgeUnavailable: boolean;
+  channel: HostChannel;
   stale: boolean;
   refresh: () => void;
   t: Translate;
@@ -32,7 +34,7 @@ export function Home({
           <ProviderSummary
             status={status}
             demo={demo}
-            bridgeUnavailable={bridgeUnavailable}
+            channel={channel}
             stale={stale}
             refresh={refresh}
             t={t}
@@ -43,5 +45,3 @@ export function Home({
     </>
   );
 }
-
-import { FlexiblePageHeader } from "../components/molecules/FlexiblePageHeader";

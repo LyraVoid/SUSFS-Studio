@@ -5,9 +5,11 @@ import { diagnosticSource, readHostStatus } from "../src/transport/host";
 it("treats an invalid injected bridge as an unavailable host", () => {
   expect(diagnosticSource({ studioDiagnostics: undefined } as Window)).toEqual({
     kind: "unavailable",
+    channel: "injected",
   });
   expect(diagnosticSource({ ksu: {} } as Window)).toEqual({
     kind: "unavailable",
+    channel: "ksu",
   });
   expect(diagnosticSource({} as Window)).toEqual({ kind: "demo" });
 });

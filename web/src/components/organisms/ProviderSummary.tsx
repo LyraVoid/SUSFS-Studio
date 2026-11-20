@@ -1,6 +1,7 @@
 import { Button, Stack } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import type { Translate } from "../../i18n/messages";
+import type { HostChannel } from "../../transport/host";
 import { capabilityKeys, type Status } from "../../transport/mock";
 import { FactRow } from "../molecules/FactRow";
 import { DialogActions, M3eDialog } from "../molecules/M3eDialog";
@@ -11,15 +12,15 @@ import styles from "./Panels.module.css";
 export function ProviderSummary({
   status,
   demo,
-  bridgeUnavailable,
   stale,
+  channel,
   refresh,
   t,
 }: {
   status: Status;
   demo: boolean;
-  bridgeUnavailable: boolean;
   stale: boolean;
+  channel: HostChannel;
   refresh: () => void;
   t: Translate;
 }) {
@@ -31,8 +32,8 @@ export function ProviderSummary({
         icon="status"
         label={t("status")}
         detail={t(
-          bridgeUnavailable
-            ? "bridgeUnavailable"
+          channel === "incompatible"
+            ? "hostChannelInaccessible"
             : stale
               ? "refreshing"
               : `${status.kind}Detail`,
@@ -44,8 +45,8 @@ export function ProviderSummary({
           <p>
             {t(demo ? "demo" : "hostDiagnostics")} ·{" "}
             {t(
-              bridgeUnavailable
-                ? "bridgeUnavailable"
+              channel === "incompatible"
+                ? "hostChannelInaccessible"
                 : stale
                   ? "refreshing"
                   : `${status.kind}Detail`,
@@ -83,6 +84,7 @@ export function ProviderSummary({
               demo={demo}
               stale={stale}
               fields={capabilityKeys}
+              channel={channel}
               t={t}
             />
           </SettingsList>

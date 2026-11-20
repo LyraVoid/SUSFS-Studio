@@ -2,6 +2,8 @@
 
 Studio's provider is read-only. Archive validation and comparison are not device application, and feature markers are not permission to write or evidence of effect. The application action on Rules → Overview is disabled, and the CLI apply and verify commands return a structured rejection without sending a rule operation to the provider. No per-rule result is fabricated.
 
+The Rules surface evaluates every capability independently. It distinguishes a missing host interface, failed diagnostics, an absent provider, an unknown protocol, an unreported capability, an explicitly unsupported capability, an unknown implementation, an unconfirmed adapter, stale evidence, missing write authorization, and a fully authorized operation. An available feature whose `providerWrite` authorization is false is blocked for missing authorization rather than relabeled as unsupported. Real application remains disabled for every current provider combination.
+
 ## Review matrix
 
 | Category and archive fields | Minimum capability evidence | Stage restriction | Confirmation and receipt | Effect verification |

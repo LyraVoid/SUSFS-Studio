@@ -24,7 +24,7 @@ import {
 } from "../theme/colorProfile";
 import { colorSchemeManager, createThemeColors, theme } from "../theme/theme";
 import { createDemoArchive } from "../transport/demoArchive";
-import { diagnosticSource } from "../transport/host";
+import { diagnosticSource, hostChannel } from "../transport/host";
 import type { Scenario } from "../transport/mock";
 import { resolveRoute } from "./routes";
 
@@ -50,6 +50,7 @@ function App() {
   useEffect(() => saveColorProfile(profile), [profile]);
   const [source] = useState(() => diagnosticSource(window));
   const demo = source.kind === "demo";
+  const channel = hostChannel(source);
   const [locale, setLocale] = useState(getLocale);
   const [selection, setSelection] = useState<{ scenario: Scenario }>({
     scenario: "lkm23",
@@ -99,7 +100,7 @@ function App() {
           <Home
             status={status}
             demo={demo}
-            bridgeUnavailable={source.kind === "unavailable"}
+            channel={channel}
             stale={stale}
             refresh={() => setRequest((id) => id + 1)}
             t={t}
@@ -131,10 +132,12 @@ function App() {
             report={report}
             setReport={setReport}
             stale={stale}
+            channel={channel}
             archive={rules}
             bridge={activeArchive}
             connected={Boolean(activeArchive)}
             refresh={() => setRequest((id) => id + 1)}
+            refreshGeneration={request}
             t={t}
           />
         ) : (

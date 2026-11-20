@@ -39,6 +39,7 @@ describe("status response boundary", () => {
         ...valid.data.provider,
         variant: "GKI-LKM",
         audited: false,
+        features: ["SUSFS_LKM_MODULES", "CONFIG_KSU_SUSFS_SUS_PATH"],
         capabilities: { paths: "available" },
         staticKstatFields: ["size", "ctime_sec"],
         redirectUidSchemes: [0, 1, 2],
@@ -48,9 +49,25 @@ describe("status response boundary", () => {
       parseStatusResponse(JSON.stringify({ ...valid, data }), "r1"),
     ).toEqual(data);
   });
+  it("keeps adapter and operation authorization explicit", () => {
+    const data = {
+      ...valid.data,
+      control: {
+        archiveImport: true,
+        providerWrite: false,
+        effectVerification: false,
+        adapter: "confirmed",
+      },
+    };
+    expect(
+      parseStatusResponse(JSON.stringify({ ...valid, data }), "r1"),
+    ).toEqual(data);
+  });
   it.each([
     { variant: "" },
     { audited: "false" },
+    { features: ["SUSFS_LKM_MODULES", "SUSFS_LKM_MODULES"] },
+    { features: ["CONFIG_KSU_SUSFS_SUS_PATH\n"] },
     { staticKstatFields: ["size", "size"] },
     { redirectUidSchemes: [-1] },
   ])("rejects malformed provider metadata %#", (metadata) => {
@@ -73,6 +90,47 @@ describe("status response boundary", () => {
     expect(parseStatusResponse(JSON.stringify(response), "status")).toEqual({
       kind: "failed",
       device: { model: "Demo phone" },
+    });
+  });
+  it("rejects malformed or contradictory control facts", () => {
+    for (const control of [
+      null,
+      true,
+      {
+        archiveImport: true,
+        providerWrite: false,
+        effectVerification: false,
+        adapter: "trusted-by-name",
+      },
+    ]) {
+      expect(
+        parseStatusResponse(
+          JSON.stringify({
+            ...valid,
+            data: { kind: "missing", control },
+          }),
+          "r1",
+        ),
+      ).toEqual({ kind: "failed" });
+    }
+  });
+  it("fails closed for a legacy control advertisement", () => {
+    expect(
+      parseStatusResponse(
+        JSON.stringify({
+          ...valid,
+          data: { kind: "missing", control: { archiveImport: true } },
+        }),
+        "r1",
+      ),
+    ).toEqual({
+      kind: "missing",
+      control: {
+        archiveImport: true,
+        providerWrite: false,
+        effectVerification: false,
+        adapter: "unknown",
+      },
     });
   });
   it("retains validated device facts when provider data is malformed", () => {

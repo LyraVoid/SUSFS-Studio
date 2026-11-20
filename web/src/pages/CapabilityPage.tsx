@@ -16,6 +16,7 @@ import type { RuleGroup } from "../features/config/ruleEdits";
 import type { useRuleArchive } from "../features/config/useRuleArchive";
 import type { Message, Translate } from "../i18n/messages";
 import type { ArchiveBridge } from "../transport/archiveBridge";
+import type { HostChannel } from "../transport/host";
 import type { Status } from "../transport/mock";
 import pageStyles from "./CapabilityPage.module.css";
 
@@ -42,10 +43,12 @@ export function CapabilityPage({
   report,
   setReport,
   stale,
+  channel,
   archive,
   bridge,
   connected,
   refresh,
+  refreshGeneration,
   t,
 }: {
   route: RuleRoute;
@@ -55,10 +58,12 @@ export function CapabilityPage({
   report?: WorkflowReport;
   setReport: (report: WorkflowReport) => void;
   stale: boolean;
+  channel: HostChannel;
   archive: ReturnType<typeof useRuleArchive>;
   bridge?: ArchiveBridge;
   connected: boolean;
   refresh: () => void;
+  refreshGeneration: number;
   t: Translate;
 }) {
   const overview = route === "/rules/overview";
@@ -189,7 +194,12 @@ export function CapabilityPage({
             provider={provider}
             leading={
               overview && (
-                <RulesOverviewLead status={status} stale={stale} t={t} />
+                <RulesOverviewLead
+                  status={status}
+                  stale={stale}
+                  channel={channel}
+                  t={t}
+                />
               )
             }
             t={t}
@@ -202,8 +212,11 @@ export function CapabilityPage({
                 report={report}
                 setReport={setReport}
                 stale={stale}
+                channel={channel}
                 archive={archive}
                 bridge={bridge}
+                refresh={refresh}
+                refreshGeneration={refreshGeneration}
                 t={t}
               />
             )}

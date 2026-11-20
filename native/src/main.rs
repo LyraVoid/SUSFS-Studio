@@ -119,6 +119,8 @@ struct Provider {
     kernel_type: &'static str,
     version: String,
     variant: String,
+    audited: bool,
+    features: Vec<String>,
     capabilities: BTreeMap<&'static str, &'static str>,
 }
 
@@ -137,12 +139,14 @@ struct Control {
     archive_import: bool,
     provider_write: bool,
     effect_verification: bool,
+    adapter: &'static str,
 }
 
 impl Control {
     fn supported() -> Self {
         Self {
             archive_import: true,
+            adapter: "confirmed",
             ..Self::default()
         }
     }
@@ -282,6 +286,7 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
         (_, false) => "builtin",
     };
     let capabilities = [
+        ("priorityUidFilter", "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER"),
         ("paths", "CONFIG_KSU_SUSFS_SUS_PATH"),
         ("map", "CONFIG_KSU_SUSFS_SUS_MAP"),
         ("kstat", "CONFIG_KSU_SUSFS_SUS_KSTAT"),
@@ -295,6 +300,8 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
     .filter(|(_, marker)| tokens.contains(marker))
     .map(|(key, _)| (key, "available"))
     .collect();
+    let mut features: Vec<_> = tokens.iter().map(|token| (*token).to_owned()).collect();
+    features.sort();
     Status::Active {
         provider: Provider {
             implementation,
@@ -305,6 +312,8 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
             },
             version: version_text.clone(),
             variant: variant_text.clone(),
+            audited: true,
+            features,
             capabilities,
         },
     }
@@ -540,7 +549,7 @@ mod tests {
                 system: Some("Android 17 (API 37)".into()),
                 kernel: Some("6.6.118-demo".into()),
             });
-            let mut result = serde_json::to_value(response(
+            let result = serde_json::to_value(response(
                 "status",
                 StatusData {
                     status,
@@ -549,15 +558,6 @@ mod tests {
                 },
             ))
             .unwrap();
-            let control = result["data"]
-                .as_object_mut()
-                .unwrap()
-                .remove("control")
-                .unwrap();
-            assert_eq!(
-                control,
-                serde_json::json!({"archiveImport":true,"providerWrite":false,"effectVerification":false})
-            );
             assert_eq!(result, fixtures[name]);
         }
     }
@@ -572,6 +572,8 @@ mod tests {
             matches!(status, Status::Active { provider } if provider.implementation == "lkm"
                 && provider.kernel_type == "GKI"
                 && provider.variant == "GKI-LKM"
+                && provider.audited
+                && provider.features.contains(&"CONFIG_KSU_SUSFS_SUS_PATH".to_owned())
                 && provider.capabilities["paths"] == "available"
                 && provider.capabilities["logging"] == "available")
         );

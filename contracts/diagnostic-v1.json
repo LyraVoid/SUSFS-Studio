@@ -12,11 +12,62 @@
         "kernelType": "GKI",
         "version": "v2.3.0",
         "variant": "GKI-LKM",
+        "audited": true,
+        "features": [
+          "CONFIG_KSU_SUSFS_ENABLE_LOG",
+          "CONFIG_KSU_SUSFS_SUS_PATH",
+          "SUSFS_LKM_MODULES"
+        ],
         "capabilities": { "paths": "available", "logging": "available" }
+      },
+      "control": {
+        "archiveImport": true,
+        "providerWrite": false,
+        "effectVerification": false,
+        "adapter": "confirmed"
       }
     }
   },
-  "missing": { "protocol": 1, "requestId": "status", "ok": true, "data": { "kind": "missing" } },
-  "unknownProtocol": { "protocol": 1, "requestId": "status", "ok": true, "data": { "kind": "unknownProtocol" } },
-  "failed": { "protocol": 1, "requestId": "status", "ok": true, "data": { "kind": "failed" } }
+  "missing": {
+    "protocol": 1,
+    "requestId": "status",
+    "ok": true,
+    "data": {
+      "kind": "missing",
+      "control": {
+        "archiveImport": true,
+        "providerWrite": false,
+        "effectVerification": false,
+        "adapter": "confirmed"
+      }
+    }
+  },
+  "unknownProtocol": {
+    "protocol": 1,
+    "requestId": "status",
+    "ok": true,
+    "data": {
+      "kind": "unknownProtocol",
+      "control": {
+        "archiveImport": true,
+        "providerWrite": false,
+        "effectVerification": false,
+        "adapter": "confirmed"
+      }
+    }
+  },
+  "failed": {
+    "protocol": 1,
+    "requestId": "status",
+    "ok": true,
+    "data": {
+      "kind": "failed",
+      "control": {
+        "archiveImport": true,
+        "providerWrite": false,
+        "effectVerification": false,
+        "adapter": "confirmed"
+      }
+    }
+  }
 }

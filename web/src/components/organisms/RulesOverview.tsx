@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { useRuleArchive } from "../../features/config/useRuleArchive";
 import type { Translate } from "../../i18n/messages";
 import type { ArchiveBridge } from "../../transport/archiveBridge";
+import type { HostChannel } from "../../transport/host";
 import { capabilityKeys, type Status } from "../../transport/mock";
 import {
   DialogActions,
@@ -20,9 +21,12 @@ const outcomes = [
   "workflowPartial",
   "workflowRejected",
   "workflowUnknown",
+  "workflowPendingReboot",
 ] as const;
 export type WorkflowReport = {
   revision: string;
+  instance: number;
+  refreshGeneration: number;
   outcome: (typeof outcomes)[number];
   verified: boolean;
 };
@@ -34,8 +38,11 @@ export function RulesOverview({
   report,
   setReport,
   stale,
+  channel,
   archive,
   bridge,
+  refresh,
+  refreshGeneration,
   t,
 }: {
   status: Status;
@@ -44,17 +51,25 @@ export function RulesOverview({
   report?: WorkflowReport;
   setReport: (report: WorkflowReport) => void;
   stale: boolean;
+  channel: HostChannel;
   archive: ReturnType<typeof useRuleArchive>;
   bridge?: ArchiveBridge;
+  refresh: () => void;
+  refreshGeneration: number;
   t: Translate;
 }) {
   const [review, setReview] = useState<string>();
   const [outcome, setOutcome] =
     useState<(typeof outcomes)[number]>("workflowAccepted");
+  const [instance, setInstance] = useState((report?.instance ?? 0) + 1);
+  const awaitingRefresh =
+    report?.outcome === "workflowUnknown" &&
+    report.refreshGeneration === refreshGeneration;
   const revision = archive.saved?.receipt?.revision;
   const canSimulate =
     workflow &&
     !!revision &&
+    !awaitingRefresh &&
     !archive.draft &&
     !archive.loading &&
     !archive.saving &&
@@ -119,6 +134,10 @@ export function RulesOverview({
         {report && workflow && (
           <>
             <SettingsRow
+              title={t("workflowInstance")}
+              detail={String(report.instance)}
+            />
+            <SettingsRow
               title={t("workflowReportedRevision")}
               detail={report.revision}
             />
@@ -157,6 +176,17 @@ export function RulesOverview({
               }
               action={() => setReport({ ...report, verified: true })}
             />
+            {awaitingRefresh && (
+              <SettingsRow
+                title={t("workflowRefreshCheck")}
+                detail={t("workflowUnknownBlocked")}
+                action={() => {
+                  refresh();
+                  void archive.refresh();
+                }}
+                disabled={archive.loading}
+              />
+            )}
           </>
         )}
       </SegmentedSection>
@@ -165,7 +195,7 @@ export function RulesOverview({
         <ArchivePanel
           archive={bridge}
           workflow={workflow}
-          archiveImport={status.archiveImport === true}
+          archiveImport={status.control?.archiveImport === true}
           onSaved={() => void archive.refresh()}
           t={t}
         />
@@ -201,7 +231,14 @@ export function RulesOverview({
                   canSimulate &&
                   review === revision
                 ) {
-                  setReport({ revision: review, outcome, verified: false });
+                  setReport({
+                    revision: review,
+                    instance,
+                    refreshGeneration,
+                    outcome,
+                    verified: false,
+                  });
+                  setInstance((value) => value + 1);
                   setReview(undefined);
                 }
               }}
@@ -219,6 +256,7 @@ export function RulesOverview({
             demo={demo}
             stale={stale}
             fields={capabilityKeys}
+            channel={channel}
             t={t}
           />
         </SettingsList>
@@ -231,10 +269,12 @@ export function RulesOverview({
 export function RulesOverviewLead({
   status,
   stale,
+  channel,
   t,
 }: {
   status: Status;
   stale: boolean;
+  channel: HostChannel;
   t: Translate;
 }) {
   const provider =
@@ -248,8 +288,35 @@ export function RulesOverviewLead({
       : provider.audited
         ? "controlAudited"
         : "controlUnaudited";
+  const adapter =
+    !stale && status.control
+      ? t(
+          status.control.adapter === "confirmed"
+            ? "adapterConfirmed"
+            : status.control.adapter === "unsupported"
+              ? "adapterUnsupported"
+              : "adapterUnknown",
+        )
+      : t("adapterUnknown");
+  const features =
+    !stale && provider?.features?.length
+      ? provider.features.join("\n")
+      : t("rawFeaturesUnreported");
   return (
     <SegmentedSection title={t("controlProtocol")}>
+      <SettingsRow
+        icon="status"
+        title={t("hostChannel")}
+        detail={t(
+          channel === "demo"
+            ? "hostChannelDemo"
+            : channel === "injected"
+              ? "hostChannelInjected"
+              : channel === "ksu"
+                ? "hostChannelKsu"
+                : "hostChannelInaccessible",
+        )}
+      />
       <SettingsRow
         icon="status"
         title={
@@ -264,7 +331,9 @@ export function RulesOverviewLead({
             : undefined
         }
       />
+      <SettingsRow icon="status" title={t("adapter")} detail={adapter} />
       <SettingsRow icon="status" title={t("controlAudit")} detail={t(audit)} />
+      <SettingsRow icon="status" title={t("rawFeatures")} detail={features} />
     </SegmentedSection>
   );
 }

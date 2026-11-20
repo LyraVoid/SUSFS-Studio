@@ -8,6 +8,8 @@ export interface DiagnosticBridge {
   status(): string | Promise<string>;
 }
 
+export type HostChannel = "demo" | "injected" | "ksu" | "incompatible";
+
 declare global {
   interface Window {
     studioDiagnostics?: DiagnosticBridge;
@@ -17,8 +19,13 @@ declare global {
 
 export type DiagnosticSource =
   | { kind: "demo" }
-  | { kind: "host"; bridge: DiagnosticBridge; archive?: ArchiveBridge }
-  | { kind: "unavailable" };
+  | {
+      kind: "host";
+      channel: "injected" | "ksu";
+      bridge: DiagnosticBridge;
+      archive?: ArchiveBridge;
+    }
+  | { kind: "unavailable"; channel: "injected" | "ksu" };
 
 export function diagnosticSource(host: Window): DiagnosticSource {
   if ("studioDiagnostics" in host) {
@@ -26,8 +33,8 @@ export function diagnosticSource(host: Window): DiagnosticSource {
     return bridge &&
       typeof bridge.hello === "function" &&
       typeof bridge.status === "function"
-      ? { kind: "host", bridge }
-      : { kind: "unavailable" };
+      ? { kind: "host", channel: "injected", bridge }
+      : { kind: "unavailable", channel: "injected" };
   }
   if ("ksu" in host) {
     const bridge = host.ksu;
@@ -39,6 +46,7 @@ export function diagnosticSource(host: Window): DiagnosticSource {
     ) {
       return {
         kind: "host",
+        channel: "ksu",
         bridge: commandBridge(
           host,
           bridge as Parameters<typeof commandBridge>[1],
@@ -49,9 +57,17 @@ export function diagnosticSource(host: Window): DiagnosticSource {
         ),
       };
     }
-    return { kind: "unavailable" };
+    return { kind: "unavailable", channel: "ksu" };
   }
   return { kind: "demo" };
+}
+
+export function hostChannel(source: DiagnosticSource): HostChannel {
+  return source.kind === "host"
+    ? source.channel
+    : source.kind === "unavailable"
+      ? "incompatible"
+      : "demo";
 }
 
 export async function readHostStatus(

@@ -13,7 +13,20 @@ The WebUI supports an injected `window.studioDiagnostics` with two argument-free
 
 The WebUI also adapts a host-provided `ksu.exec` command bridge to these methods. It sends only fixed `hello` and `status` commands for `/data/adb/modules/susfs_studio/bin/studioctl`, using `/system/bin/timeout` with a three-second limit, fixed options, and generated callback identifiers. User input is never sent as a command. The WebUI performs the handshake before the status query and applies a five-second deadline. It validates the request ID, protocol number, success flag, response size, provider fields, and capability values.
 
-Provider metadata is optional and fail-closed. `variant` may identify the reported interface variant and `audited` may record an explicit protocol-audit result. `staticKstatFields` and `redirectUidSchemes` describe only what the provider reports; their absence remains unknown rather than becoming an empty or supported set. These fields do not authorize a write.
+Provider metadata is optional and fail-closed. `variant` may identify the reported interface variant, `audited` may record an explicit protocol-audit result, and `features` may preserve the raw feature tokens returned by the provider. Raw tokens are evidence, not permission to execute a feature. `staticKstatFields` and `redirectUidSchemes` describe only what the provider reports; their absence remains unknown rather than becoming an empty or supported set. These fields do not authorize a write.
+
+An optional `control` object separates the command adapter from archive and device-operation authorization:
+
+```json
+{
+  "archiveImport": true,
+  "providerWrite": false,
+  "effectVerification": false,
+  "adapter": "confirmed"
+}
+```
+
+`adapter` must be `confirmed`, `unknown`, or `unsupported`. A legacy control object containing only `archiveImport` remains readable, but its write and effect authorization default to false and its adapter remains unknown. The Rules surface shows the host channel, raw provider evidence, adapter confirmation, and each capability's operation gate as separate facts. An available capability with `providerWrite=false` is reported as unavailable for writes because authorization is missing, not because the feature is unsupported.
 
 Archive save additionally requires host file operations compatible with `ksu.io()` version 1. The WebUI checks that `io().version()` returns `1`, then uses `FileOutputStream().open(path, false)`, `write(id, base64)`, and `close(id)`. It accepts only the path returned by native `stage` and verifies the exact form `/data/adb/susfs-studio/.staging/<32 lowercase hex>.input`. It never writes a selected file name or user-supplied path through this API. A host without the stream keeps device save disabled but may still use local preview and device export.
 
@@ -106,3 +119,5 @@ Read-only review of the `v1.6.4` tagged source found a local HTTPS asset loader,
 When a compatible command bridge is present, the module uses it for fixed queries and Studio archive storage. A malformed or unavailable bridge reports failure instead of simulated status. The standalone browser remains in demo mode when no host interface is present. If command execution exists but the verified file stream does not, device save remains disabled and names the missing capability.
 
 The command and file bridges remain general-purpose privileged host interfaces. Fixed calls and token paths in this module do not restrict what other JavaScript in the WebView can invoke. Embedded frames and external connections are restricted by the bundled page's CSP, but top-level navigation and interface exposure remain host-dependent. Treat every host version as unverified until local load, navigation, handshake, status, malformed output, timeout, file-stream failure, non-root behavior, and archive round trip have been checked.
+
+The current implementation is independent of FinaSU's `ksud susfs` controller and of the sidex15 module's `ksu_susfs` binary. Provider detection is the fixed native protocol-1 syscall query. Neither reference manager is required to open Studio or operate its private archive, and neither private controller is used as a fallback write channel. Real rule operations remain rejected until their individual authorization and effect evidence is available.

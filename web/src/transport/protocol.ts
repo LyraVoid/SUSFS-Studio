@@ -48,20 +48,42 @@ export function parseStatusResponse(text: string, requestId: string): Status {
       }
     }
   }
-  const facts = {
-    ...(Object.keys(device).length ? { device } : {}),
-    ...(record(data.control) && data.control.archiveImport === true
-      ? { archiveImport: true }
-      : {}),
-  };
+  const facts = { ...(Object.keys(device).length ? { device } : {}) };
+  let control: Status["control"];
+  if (data.control !== undefined) {
+    if (
+      !record(data.control) ||
+      typeof data.control.archiveImport !== "boolean" ||
+      (data.control.providerWrite !== undefined &&
+        typeof data.control.providerWrite !== "boolean") ||
+      (data.control.effectVerification !== undefined &&
+        typeof data.control.effectVerification !== "boolean") ||
+      (data.control.adapter !== undefined &&
+        data.control.adapter !== "confirmed" &&
+        data.control.adapter !== "unknown" &&
+        data.control.adapter !== "unsupported")
+    )
+      return { kind: "failed", ...facts };
+    control = {
+      archiveImport: data.control.archiveImport,
+      providerWrite: data.control.providerWrite === true,
+      effectVerification: data.control.effectVerification === true,
+      adapter:
+        data.control.adapter === "confirmed" ||
+        data.control.adapter === "unsupported"
+          ? data.control.adapter
+          : "unknown",
+    };
+  }
+  const factsWithControl = { ...facts, ...(control && { control }) };
   if (
     data.kind === "missing" ||
     data.kind === "unknownProtocol" ||
     data.kind === "failed"
   )
-    return { kind: data.kind, ...facts };
+    return { kind: data.kind, ...factsWithControl };
   if (data.kind !== "active" || !record(data.provider))
-    return { kind: "failed", ...facts };
+    return { kind: "failed", ...factsWithControl };
   const provider = data.provider;
   if (
     (provider.implementation !== "builtin" &&
@@ -75,7 +97,7 @@ export function parseStatusResponse(text: string, requestId: string): Status {
     /[\u0000-\u001f\u007f]/u.test(provider.version) ||
     !record(provider.capabilities)
   )
-    return { kind: "failed", ...facts };
+    return { kind: "failed", ...factsWithControl };
   const capabilities: Provider["capabilities"] = {};
   for (const key of [...capabilityKeys, "extensions"] as const) {
     const value = provider.capabilities[key];
@@ -85,15 +107,26 @@ export function parseStatusResponse(text: string, requestId: string): Status {
       value !== "unavailable" &&
       value !== "unknown"
     )
-      return { kind: "failed", ...facts };
+      return { kind: "failed", ...factsWithControl };
     if (value !== undefined) capabilities[key] = value;
   }
-  const { variant, audited, staticKstatFields, redirectUidSchemes } = provider;
+  const { variant, audited, features, staticKstatFields, redirectUidSchemes } =
+    provider;
   if (
     (variant !== undefined &&
       (typeof variant !== "string" ||
         !/^[A-Za-z0-9_+.-]{1,64}$/u.test(variant))) ||
     (audited !== undefined && typeof audited !== "boolean") ||
+    (features !== undefined &&
+      (!Array.isArray(features) ||
+        features.length > 256 ||
+        !features.every(
+          (feature: unknown) =>
+            typeof feature === "string" &&
+            (feature === "SUSFS_LKM_MODULES" ||
+              /^CONFIG_KSU_SUSFS_[A-Z0-9_]{1,128}$/u.test(feature)),
+        ) ||
+        new Set(features).size !== features.length)) ||
     (staticKstatFields !== undefined &&
       (!Array.isArray(staticKstatFields) ||
         staticKstatFields.length > 64 ||
@@ -114,10 +147,10 @@ export function parseStatusResponse(text: string, requestId: string): Status {
         ) ||
         new Set(redirectUidSchemes).size !== redirectUidSchemes.length))
   )
-    return { kind: "failed", ...facts };
+    return { kind: "failed", ...factsWithControl };
   return {
     kind: "active",
-    ...facts,
+    ...factsWithControl,
     provider: {
       implementation: provider.implementation,
       kernelType: provider.kernelType,
@@ -125,6 +158,7 @@ export function parseStatusResponse(text: string, requestId: string): Status {
       capabilities,
       ...(variant !== undefined && { variant }),
       ...(audited !== undefined && { audited }),
+      ...(features !== undefined && { features }),
       ...(staticKstatFields !== undefined && { staticKstatFields }),
       ...(redirectUidSchemes !== undefined && { redirectUidSchemes }),
     },

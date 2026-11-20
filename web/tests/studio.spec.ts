@@ -131,6 +131,31 @@ test("a command host executes only fixed diagnostic calls", async ({
   await expect(page.getByRole("status")).toContainText("LKM");
 });
 
+test("host, provider evidence and operation authorization stay separate", async ({
+  page,
+}) => {
+  await page.addInitScript(
+    ({ hello, active }) => {
+      window.studioDiagnostics = {
+        hello: () => JSON.stringify(hello),
+        status: () => JSON.stringify(active),
+      };
+    },
+    { hello: fixtures.hello, active: fixtures.active },
+  );
+  await page.goto("/#/rules/overview");
+  const facts = page.getByTestId("segmented-list").first();
+  await expect(facts).toContainText("已注入的只读诊断接口");
+  await expect(facts).toContainText("已确认 · 协议 1 响应通过边界校验");
+  await expect(facts).toContainText("CONFIG_KSU_SUSFS_SUS_PATH");
+  const path = page
+    .getByTestId("settings-row")
+    .filter({ hasText: "路径规则" })
+    .first();
+  await expect(path).toContainText("接口报告可用");
+  await expect(path).toContainText("操作资格：未授予设备写入权限");
+});
+
 test("an injected host shows its own result and refresh failures", async ({
   page,
 }) => {
@@ -495,7 +520,7 @@ test("Rules page keeps its layout tokens", async ({ page }) => {
   const list = page.getByTestId("segmented-list").first();
   const rows = list.getByTestId("settings-row");
   const first = rows.first();
-  const second = rows.nth(1);
+  const last = rows.last();
   const sectionTitle = page.getByTestId("segmented-section-title").first();
   const style = (locator: Locator, property: string) =>
     locator.evaluate(
@@ -538,7 +563,7 @@ test("Rules page keeps its layout tokens", async ({ page }) => {
   );
   expect(await style(list, "gap")).toBe("2px");
   expect(await style(first, "border-radius")).toBe("16px 16px 4px 4px");
-  expect(await style(second, "border-radius")).toBe("4px 4px 16px 16px");
+  expect(await style(last, "border-radius")).toBe("4px 4px 16px 16px");
   expect(await style(first, "font-size")).toBe("17px");
   expect(await style(first, "line-height")).toBe("22px");
   const detail = first.getByTestId("settings-row-detail");

@@ -1,6 +1,6 @@
 # SUSFS Studio
 
-SUSFS Studio is an offline WebUI for device diagnostics and Studio-owned configuration archives. The standalone browser preview uses simulated diagnostic data and supports local JSON previews. Hosts with a compatible command bridge can read diagnostics; hosts that also provide the verified version-1 file stream can save, refresh, and export a private Studio archive. Archive storage does not apply SUSFS rules. Each host version requires separate validation.
+SUSFS Studio is an independent SUSFS management WebUI for KSU hosts. It reports the device provider and operation eligibility without requiring a manager's built-in SUSFS dashboard, and it maintains Studio-owned configuration archives for paths, maps, kstat, redirects, boot settings, and LKM extensions. The standalone browser preview uses simulated diagnostic data and local JSON previews. Hosts with a compatible command bridge can read diagnostics; hosts that also provide the verified version-1 file stream can save, refresh, and export a private Studio archive. Archive storage and simulated cases do not apply SUSFS rules. Each host and provider combination requires separate validation.
 
 ## Browser preview
 

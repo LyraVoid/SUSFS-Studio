@@ -5,7 +5,7 @@ Follow the [browser preview instructions](../README.md#browser-preview) to open 
 ## Read the diagnostic overview
 
 1. Open **Home** to see the interface activation state, diagnostic summary, and device facts.
-2. Select **Status** to see the implementation, kernel type, and capability information.
+2. Select **Status** to see the implementation, kernel type, and capability information. The diagnostic details identify whether the page uses a standalone case source, an injected interface, or the fixed KernelSU command bridge. A host that is present but provides no compatible fixed diagnostic interface is reported separately from a device with no SUSFS provider.
 3. Select **Refresh diagnostics** to repeat the current query. The previous result remains visible while the refresh is pending and is identified as such.
 
 Open **Rules** for the complete SUSFS surface. Its six tabs are **Overview**, **Basic settings**, **Path hiding**, **File disguise**, **Redirect**, and **Extensions**. The global **Refresh** action rereads diagnostics and the private archive.
@@ -26,9 +26,11 @@ An active result displays a badge when the implementation is known. **Built-In**
 
 Use **Settings → Demo scenario** to switch between simulated outcomes. The default is GKI-LKM with SUSFS 2.3. The built-in sample uses SUSFS 2.4. Rules shows capability labels derived from the selected sample. An unconfirmed capability is displayed separately from an unavailable capability.
 
-**Full workflow (simulation)** adds a separate in-memory archive, fictional applications and boot slots, and simulated application reports. Review and save the sample draft before choosing an application outcome. Simulated acceptance and simulated effect verification are separate actions. Reloading clears the case. It does not read from or write to the device and is not available in a host session.
+**Full workflow (simulation)** adds a separate in-memory archive, fictional applications and boot slots, and simulated application reports. Review and save the sample draft before choosing an accepted, partial, rejected, unknown, or pending-reboot outcome. Each report records the archive revision and a case run instance. An unknown result blocks another attempt until Refresh rereads diagnostics and the archive. Simulated acceptance and simulated effect verification are separate actions. Reloading clears the case. It does not read from or write to the device and is not available in a host session.
 
-The **Rules → Overview** capability list includes priority UID filtering, hide-mounts, logging, AVC spoofing, uname, cmdline, paths, Map, dynamic and static kstat, full clone, redirect, hidden modules, and mount prefixes. `Support not reported` means the current interface did not report that field; it is not evidence of support. Static field names and redirect UID schemes are shown only when the provider reports them. Archive fields remain a separate editable set and are not device support evidence.
+The **Rules → Overview** control section shows the host channel, raw feature tokens returned by the provider, adapter confirmation, and protocol audit result separately from the provider version and implementation. Each capability row then states why an operation is or is not eligible. `Support not reported`, explicit lack of support, unknown protocol, unknown implementation, unconfirmed adapter, stale evidence, and missing write authorization are different results. The current build authorizes Studio to maintain its own archive but reports device writes and effect verification as unauthorized.
+
+The capability list includes priority UID filtering, hide-mounts, logging, AVC spoofing, uname, cmdline, paths, Map, dynamic and static kstat, full clone, redirect, hidden modules, and mount prefixes. Static field names and redirect UID schemes are shown only when the provider reports them. Archive fields remain a separate editable set and are not device support evidence.
 
 ## Preview a configuration archive
 

@@ -1,4 +1,9 @@
+import {
+  type OperationState,
+  operationState,
+} from "../../features/status/operationQualification";
 import type { Message, Translate } from "../../i18n/messages";
+import type { HostChannel } from "../../transport/host";
 import type { Capability, Status } from "../../transport/mock";
 import { SettingsRow } from "../molecules/SettingsList";
 
@@ -19,17 +24,35 @@ const capabilityLabels = {
   mountPrefixes: "controlPrefixes",
 } satisfies Record<Capability, Message>;
 
+const operationLabels = {
+  loading: "operationLoading",
+  stale: "operationStale",
+  hostIncompatible: "operationHostIncompatible",
+  diagnosticsFailed: "operationDiagnosticsFailed",
+  providerMissing: "operationProviderMissing",
+  protocolUnknown: "operationProtocolUnknown",
+  capabilityUnavailable: "operationCapabilityUnavailable",
+  capabilityUnreported: "operationCapabilityUnreported",
+  identityUnknown: "operationIdentityUnknown",
+  adapterUnconfirmed: "operationAdapterUnconfirmed",
+  writeNotAuthorized: "operationWriteNotAuthorized",
+  writeEligibleUnverified: "operationWriteEligibleUnverified",
+  writeEligible: "operationWriteEligible",
+} satisfies Record<OperationState, Message>;
+
 export function Capabilities({
   status,
   demo,
   fields,
   stale,
+  channel,
   t,
 }: {
   status: Status;
   demo: boolean;
   fields: readonly Capability[];
   stale?: boolean;
+  channel: HostChannel;
   t: Translate;
 }) {
   const provider =
@@ -37,6 +60,7 @@ export function Capabilities({
   return (
     <>
       {fields.map((field) => {
+        const operation = operationState(status, field, channel, stale);
         const value =
           status.kind === "loading" || stale
             ? "loading"
@@ -80,6 +104,7 @@ export function Capabilities({
                       : value,
               ),
               detail,
+              t(operationLabels[operation]),
             ]
               .filter(Boolean)
               .join(" · ")}

@@ -3,4 +3,4 @@ name=SUSFS Studio
 version=0.1.0-dev
 versionCode=1
 author=LyraVoid and matsuzaka-yuki
-description=Offline WebUI and read-only diagnostics development bundle
+description=Independent SUSFS diagnostics and configuration manager for KSU
