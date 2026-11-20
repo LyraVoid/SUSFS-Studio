@@ -27,7 +27,7 @@ Before injecting the diagnostic bridge, a host must demonstrate all of the follo
 
 ## Current host evidence
 
-The current host implementation was inspected at the pinned working tree used for the device check:
+The installed build reports revision `64833c00`. Its published `WebViewHelper.kt`, `SuFilePathHandler.java`, `WebViewInterface.kt`, and `WebUIState.kt` were inspected at that revision. The following describes source evidence, not a navigation probe:
 
 | Location | Observed behavior | Consequence |
 | --- | --- | --- |
@@ -40,6 +40,10 @@ The current host implementation was inspected at the pinned working tree used fo
 | `WebViewInterface.kt:105-175` | `spawn` accepts a command, JSON arguments, options, and callback name. | The adapter does not use this method. |
 | `WebViewInterface.kt:205-224` | `moduleInfo()` exposes host module metadata. | It is not a SUSFS diagnostic response and cannot prove provider status. |
 | `WebViewInterface.kt:284-288` and `ui/webui/file/` | `io()` returns a version-1 file API with stream open, read, write, and close operations. | Studio can transfer raw bytes without shell interpolation, subject to native staging checks and host page isolation. |
+
+The local asset handler returns an empty response for missing or rejected paths. That does not enforce an exact document allowlist or deny navigation to another origin. `allowFileAccess` is explicitly disabled; no explicit `allowContentAccess` policy or new-window handler was found in this revision. File selection is delegated to an Android picker, and the download listener delegates eligible HTTP(S) URLs to an external activity. Disposal destroys the WebView and releases its associated interfaces, file chooser callback, and root shell; it is not a per-navigation origin check.
+
+Android's legacy JavaScript interface is available to all frames, without caller-origin metadata. Checking a top-level URL is not sufficient to isolate a general-purpose bridge. A hardened host needs a separate origin-scoped, main-frame-only bridge for bundled documents, fixed operations, and independent navigation and subresource restrictions. The current source does not satisfy that contract. The device was locked during this source review, so the runtime navigation, popup, frame, and bridge-lifetime probes were not performed. No debug manager was installed over the existing package.
 
 Inspection of the installed `v3.3.1` APK also found `io`, `FileOutputStream`, `open`, `write`, and `close` entry points. The file API accepts arbitrary paths and remains a general-purpose privileged interface. Studio's token-bound path limits its own calls; it does not restrict other JavaScript in the same WebView.
 
