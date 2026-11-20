@@ -64,8 +64,8 @@ The automatic backup list and read commands were also verified on the same Andro
 | Environment | Evidence | Status |
 | --- | --- | --- |
 | PKX110, Android 17 API 37, host `v3.3.1-50-g64833c00` (32730), WebView `157.0.8103.50`, kernel `6.6.118-android15-8-g9bc34d5b0c79-abogki537459655-4k`, GKI-LKM provider `v2.3.0` | Host load, archive save/export and the restore round trip below. | Verified only for the stated operations; navigation isolation remains unverified. |
-| Same PKX110, alternate manager build `0f3f42ba` (115404) | Package present. No WebUI or bridge check in this manager. | Installed only; unverified. |
-| Same PKX110, alternate manager build `31.1` (31100) | Package present. No WebUI or bridge check in this manager. | Installed only; unverified. |
+| Same PKX110, alternate manager build `0f3f42ba` (115404) | The app opens but reports its kernel patch missing and system patch inactive. No module WebUI or bridge check is possible from that inactive state. | Inactive; unverified. |
+| Same PKX110, alternate manager build `31.1` (31100) | The app opens and reports its runtime not installed. No module WebUI or bridge check is possible from that inactive state. | Inactive; unverified. |
 | Built-in GKI provider, SUSFS 2.3 | Reference source inspected; no running test target in this round. | Unverified. |
 | Built-in GKI provider, SUSFS 2.4 | A local arm64 reference build exists; see [rule operation boundary](rule-operation-boundary.md#arm64-source-and-artifact-comparison). The device reported a locked bootloader and green verified boot. The image was not booted or flashed. | Artifact only; unverified. |
 | LKM provider, SUSFS 2.4 | No verified matching runtime target. | Unverified. |
