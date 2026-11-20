@@ -55,11 +55,13 @@ This evidence covers one host build and one provider combination. It does not es
 
 | Environment | Evidence | Status |
 | --- | --- | --- |
-| PKX110, Android 17 API 37, host `v3.3.1-50-g64833c00` (32730), WebView `157.0.8103.50`, kernel `6.6.118-android15-8-g9bc34d5b0c79-abogki537459655-4k`, GKI-LKM provider `v2.3.0` | Host load and archive save/export as described above; read-only status reconfirmed on 2026-11-20. | Verified only for the stated operations; navigation isolation and restore remain unverified. |
+| PKX110, Android 17 API 37, host `v3.3.1-50-g64833c00` (32730), WebView `157.0.8103.50`, kernel `6.6.118-android15-8-g9bc34d5b0c79-abogki537459655-4k`, GKI-LKM provider `v2.3.0` | Host load, archive save/export and the restore round trip below. | Verified only for the stated operations; navigation isolation remains unverified. |
 | Other host versions and managers | No device evidence. | Unverified. |
 | Built-in GKI provider or SUSFS 2.4 | No device evidence. | Unverified. |
 
 The bundled CSP restricts connections and frames; the static browser test confirms frame blocking. The smoke host rejects external and unknown top-level navigation, but that behavior is not evidence for the installed manager. The installed manager's general-purpose root command and file bridges are not constrained by Studio's fixed calls. External-link navigation, unknown local paths, frame bridge exposure, and file selection must be separately tested on each actual host; no general isolation claim follows from the smoke host.
+
+On 2026-11-20, a debug build was installed on this device after preserving the installed module. Through the actual manager WebUI and file picker, an 830-byte harmless archive was saved, then a different 125-byte archive was selected, reviewed and restored. The UI receipt and private archive matched SHA-256 `4fa35650ce63b62f79bcbe7ed2193c6f4c3188dd45f12768c8b12fbc36288f7f`; the preserved prior archive matched `46fd15c02ad4c4c0c958a45f6350d601951348e0788f3aaedc96ec818c23ccd9`. The provider's read-only status was unchanged. The generated archive, receipt, backup, staging directory, upload files and installer were removed after copying evidence locally. This does not verify interruption, navigation isolation or other hosts.
 
 ## Decision
 
