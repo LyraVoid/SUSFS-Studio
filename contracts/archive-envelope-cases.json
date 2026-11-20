@@ -6,8 +6,28 @@
   },
   {
     "name": "unknown version",
-    "text": "{\"format\":\"susfs-studio\",\"schema\":2}",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":3}",
     "expected": "unknown"
+  },
+  {
+    "name": "schema two full archive",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":2,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[],\"redirects\":[]},\"automatic\":false,\"settings\":{\"hideMounts\":null,\"logging\":false,\"avcSpoof\":true,\"priorityUidFilter\":[]},\"uname\":{\"release\":\"example\",\"version\":\"example\"},\"cmdline\":\"\",\"lkm\":{\"hiddenModules\":[\"example\"],\"mountPrefixes\":[\"/example\"]}}",
+    "expected": "valid"
+  },
+  {
+    "name": "schema two without rules",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":2}",
+    "expected": "invalid"
+  },
+  {
+    "name": "schema two duplicate packages",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":2,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[],\"redirects\":[]},\"settings\":{\"priorityUidFilter\":[\"app.test\",\"app.test\"]}}",
+    "expected": "invalid"
+  },
+  {
+    "name": "schema two rejects non-tristate settings",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":2,\"rules\":{\"paths\":[],\"maps\":[],\"kstats\":[],\"redirects\":[]},\"settings\":{\"logging\":0}}",
+    "expected": "invalid"
   },
   {
     "name": "fractional schema",
@@ -116,7 +136,7 @@
   },
   {
     "name": "unknown large integer",
-    "text": "{\"format\":\"susfs-studio\",\"schema\":2,\"future\":1844674407370955161600000}",
+    "text": "{\"format\":\"susfs-studio\",\"schema\":3,\"future\":1844674407370955161600000}",
     "expected": "unknown"
   }
 ]

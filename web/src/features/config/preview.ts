@@ -6,6 +6,14 @@ const ruleLimit = 128;
 const depthLimit = 64;
 const changeLimit = 500;
 const encoder = new TextEncoder();
+export const settingsKeys = ["hideMounts", "logging", "avcSpoof"] as const;
+export const versionTwoKeys = [
+  "settings",
+  "uname",
+  "cmdline",
+  "lkm",
+  "automatic",
+] as const;
 export type Json =
   | null
   | boolean
@@ -71,10 +79,9 @@ function number(value: unknown): value is LosslessNumber {
 function id(value: unknown) {
   return (
     typeof value === "string" &&
-    value.trim().length > 0 &&
+    /[^\p{White_Space}]/u.test(value) &&
     encoder.encode(value).length <= 128 &&
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: IDs are single-line metadata.
-    !/[\u0000-\u001f\u007f]/u.test(value)
+    !/\p{Cc}/u.test(value)
   );
 }
 
@@ -84,8 +91,7 @@ export function path(value: unknown) {
     value.startsWith("/") &&
     value !== "/" &&
     encoder.encode(value).length < 256 &&
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: SUSFS paths cannot contain shell controls.
-    !/[\s\u0000-\u001f\u007f]/u.test(value) &&
+    !/[\p{White_Space}\p{Cc}]/u.test(value) &&
     !value.includes("//") &&
     !value.split("/").some((part) => part === "." || part === "..")
   );
@@ -142,7 +148,79 @@ function validRule(
   );
 }
 
-function inspectVersionOne(value: JsonObject): {
+function validList(
+  value: Json | undefined,
+  limit: number,
+  valid: (entry: string) => boolean,
+) {
+  if (value === undefined) return true;
+  if (
+    !Array.isArray(value) ||
+    value.length > limit ||
+    new Set(value).size !== value.length
+  )
+    return false;
+  let size = 0;
+  return value.every((entry) => {
+    if (typeof entry !== "string" || !valid(entry)) return false;
+    size += encoder.encode(entry).length + 1;
+    return size <= 65535;
+  });
+}
+
+function validText(value: unknown, limit: number, multiline = false) {
+  return (
+    typeof value === "string" &&
+    /[^\p{White_Space}]/u.test(value) &&
+    encoder.encode(value).length < limit &&
+    !/\p{Cc}/u.test(multiline ? value.replace(/[\n\t]/g, "") : value)
+  );
+}
+
+function validSettings({
+  settings,
+  uname,
+  cmdline,
+  lkm,
+  automatic,
+}: JsonObject) {
+  return (
+    (automatic === undefined || typeof automatic === "boolean") &&
+    (settings === undefined ||
+      (object(settings) &&
+        settingsKeys.every(
+          (key) => settings[key] == null || typeof settings[key] === "boolean",
+        ) &&
+        validList(
+          settings.priorityUidFilter,
+          65535,
+          (entry) =>
+            entry.length > 0 &&
+            entry.length <= 255 &&
+            !/[^A-Za-z0-9._]/.test(entry) &&
+            entry !== "." &&
+            entry !== "..",
+        ))) &&
+    (uname == null ||
+      (object(uname) &&
+        validText(uname.release, 65) &&
+        validText(uname.version, 65))) &&
+    (cmdline == null || cmdline === "" || validText(cmdline, 8192, true)) &&
+    (lkm === undefined ||
+      (object(lkm) &&
+        validList(
+          lkm.hiddenModules,
+          16,
+          (entry) =>
+            entry.length > 0 &&
+            entry.length <= 63 &&
+            !/[^A-Za-z0-9_]/.test(entry),
+        ) &&
+        validList(lkm.mountPrefixes, 8, path)))
+  );
+}
+
+function inspectRules(value: JsonObject): {
   status: FormatStatus;
   count?: number;
   unknown: string[];
@@ -221,10 +299,19 @@ export function inspectArchive(text: string): ArchivePreview {
     let formatStatus: FormatStatus = "unknown";
     let ruleCount: number | undefined;
     let unknownFields = keys.filter(
-      (key) => !["format", "schema", "rules"].includes(key),
+      (key) =>
+        ![
+          "format",
+          "schema",
+          "rules",
+          ...(schema === "2" ? versionTwoKeys : []),
+        ].includes(key),
     );
-    if (value.format === "susfs-studio" && schema === "1") {
-      const inspection = inspectVersionOne(value);
+    if (value.format === "susfs-studio" && (schema === "1" || schema === "2")) {
+      const inspection =
+        schema === "2" && !validSettings(value)
+          ? { status: "invalid" as const, unknown: [] }
+          : inspectRules(value);
       formatStatus = inspection.status;
       ruleCount = inspection.count;
       unknownFields = unknownFields.concat(inspection.unknown).sort();

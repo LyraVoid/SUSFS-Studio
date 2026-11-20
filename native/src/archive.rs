@@ -112,9 +112,14 @@ pub fn validate_envelope(text: &str) -> Envelope {
         return Envelope::Invalid;
     };
     if !matches!(root.get("format"), Some(Value::String(value)) if value == "susfs-studio")
-        || !matches!(root.get("schema"), Some(Value::Number(value)) if value == "1")
+        || !matches!(root.get("schema"), Some(Value::Number(value)) if matches!(value.as_str(), "1" | "2"))
     {
         return Envelope::Unknown;
+    }
+    if matches!(root.get("schema"), Some(Value::Number(value)) if value == "2")
+        && !valid_settings(&root)
+    {
+        return Envelope::Invalid;
     }
     let Some(Value::Object(rules)) = root.get("rules") else {
         return Envelope::Invalid;
@@ -188,6 +193,73 @@ pub fn validate_envelope(text: &str) -> Envelope {
     Envelope::Valid
 }
 
+fn valid_list(value: Option<&Value>, limit: usize, valid: impl Fn(&str) -> bool) -> bool {
+    let Some(value) = value else { return true };
+    let Value::Array(entries) = value else {
+        return false;
+    };
+    let mut seen = BTreeSet::new();
+    let mut size = 0;
+    entries.len() <= limit
+        && entries.iter().all(|entry| {
+            let Value::String(entry) = entry else {
+                return false;
+            };
+            size += entry.len() + 1;
+            size <= 65535 && valid(entry) && seen.insert(entry)
+        })
+}
+
+fn valid_settings(root: &BTreeMap<String, Value>) -> bool {
+    let switches = |value: Option<&Value>| matches!(value, None | Some(Value::Null | Value::Bool));
+    let text = |value: &str, limit, multiline| {
+        !value.trim().is_empty()
+            && value.len() < limit
+            && value
+                .chars()
+                .all(|c| !c.is_control() || (multiline && matches!(c, '\n' | '\t')))
+    };
+    switches(root.get("automatic"))
+        && !matches!(root.get("automatic"), Some(Value::Null))
+        && match root.get("settings") {
+            None => true,
+            Some(Value::Object(settings)) => {
+                ["hideMounts", "logging", "avcSpoof"]
+                    .iter()
+                    .all(|key| switches(settings.get(*key)))
+                    && valid_list(settings.get("priorityUidFilter"), 65535, |name| {
+                        !name.is_empty()
+                            && name.len() <= 255
+                            && !matches!(name, "." | "..")
+                            && name
+                                .bytes()
+                                .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'_'))
+                    })
+            }
+            _ => false,
+        } && match root.get("uname") {
+        None | Some(Value::Null) => true,
+        Some(Value::Object(uname)) => ["release", "version"].iter().all(
+            |key| matches!(uname.get(*key), Some(Value::String(value)) if text(value, 65, false)),
+        ),
+        _ => false,
+    } && match root.get("cmdline") {
+        None | Some(Value::Null) => true,
+        Some(Value::String(value)) => value.is_empty() || text(value, 8192, true),
+        _ => false,
+    } && match root.get("lkm") {
+        None => true,
+        Some(Value::Object(lkm)) => {
+            valid_list(lkm.get("hiddenModules"), 16, |name| {
+                !name.is_empty()
+                    && name.len() <= 63
+                    && name.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'_')
+            }) && valid_list(lkm.get("mountPrefixes"), 8, valid_path)
+        }
+        _ => false,
+    }
+}
+
 fn valid_id(value: &str) -> bool {
     !value.trim().is_empty() && value.len() <= 128 && !value.chars().any(char::is_control)
 }
@@ -227,63 +299,26 @@ fn canonical_signed(value: Option<&Value>, minimum: i64, maximum: i64) -> bool {
 }
 
 fn valid_static(fields: &BTreeMap<String, Value>) -> bool {
-    let nanos = |name: &str| {
-        fields
-            .get(name)
-            .is_none_or(|value| canonical(Some(value), 999_999_999))
-    };
-    let mut recognized = 0_u8;
+    let mut known = false;
     for (name, value) in fields {
-        recognized += match name.as_str() {
-            "inode" | "device" => u8::from(canonical(Some(value), u64::MAX)),
-            "links" => u8::from(canonical(Some(value), u32::MAX.into())),
-            "size" | "blocks" | "blockSize" => u8::from(canonical_signed(Some(value), 0, i64::MAX)),
+        let valid = match name.as_str() {
+            "inode" | "device" => canonical(Some(value), u64::MAX),
+            "links" => canonical(Some(value), u32::MAX.into()),
+            "size" | "blocks" | "blockSize" => canonical_signed(Some(value), 0, i64::MAX),
             "atimeSeconds" | "mtimeSeconds" | "ctimeSeconds" => {
-                u8::from(canonical_signed(Some(value), i64::MIN, i64::MAX))
+                canonical_signed(Some(value), i64::MIN, i64::MAX)
             }
             "atimeNanoseconds" | "mtimeNanoseconds" | "ctimeNanoseconds" => {
-                u8::from(canonical(Some(value), 999_999_999))
+                canonical(Some(value), 999_999_999)
             }
-            _ => 1,
+            _ => continue,
         };
+        if !valid {
+            return false;
+        }
+        known = true;
     }
-    let known = ["inode", "device", "links", "size", "blocks", "blockSize"]
-        .iter()
-        .any(|name| fields.contains_key(*name))
-        || ["atime", "mtime", "ctime"].iter().any(|prefix| {
-            fields.contains_key(&format!("{prefix}Seconds"))
-                || fields.contains_key(&format!("{prefix}Nanoseconds"))
-        });
     known
-        && recognized > 0
-        && nanos("atimeNanoseconds")
-        && nanos("mtimeNanoseconds")
-        && nanos("ctimeNanoseconds")
-        && fields.iter().all(|(name, value)| {
-            !matches!(
-                name.as_str(),
-                "inode"
-                    | "device"
-                    | "links"
-                    | "size"
-                    | "blocks"
-                    | "blockSize"
-                    | "atimeSeconds"
-                    | "mtimeSeconds"
-                    | "ctimeSeconds"
-                    | "atimeNanoseconds"
-                    | "mtimeNanoseconds"
-                    | "ctimeNanoseconds"
-            ) || match name.as_str() {
-                "inode" | "device" => canonical(Some(value), u64::MAX),
-                "links" => canonical(Some(value), u32::MAX.into()),
-                "size" | "blocks" | "blockSize" => canonical_signed(Some(value), 0, i64::MAX),
-                "atimeSeconds" | "mtimeSeconds" | "ctimeSeconds" => {
-                    canonical_signed(Some(value), i64::MIN, i64::MAX)
-                }
-                _ => canonical(Some(value), 999_999_999),
-            }
-        })
 }
 
 #[cfg(test)]

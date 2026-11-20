@@ -6,6 +6,7 @@ import {
   object,
   type ruleGroups,
   staticFields,
+  versionTwoKeys,
 } from "./preview";
 
 export type RuleGroup = (typeof ruleGroups)[number];
@@ -15,9 +16,19 @@ export type RuleEdit = {
   before?: Rule;
   after?: Rule;
 };
+export type SettingsEdit = (
+  | {
+      section: "settings" | "lkm";
+      key: string;
+    }
+  | { section: "root"; key: "automatic" }
+) & {
+  before?: Json;
+  after?: Json;
+};
 
 export const emptyArchive =
-  '{"format":"susfs-studio","schema":1,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]}}';
+  '{"format":"susfs-studio","schema":2,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]}}';
 
 export function readRules(
   archive: ReturnType<typeof inspectArchive>,
@@ -79,6 +90,21 @@ function locate(text: string) {
   return read();
 }
 
+export function upgradeArchive(text: string) {
+  const base = inspectArchive(text);
+  if (
+    base.formatStatus !== "valid" ||
+    base.unrepresentable ||
+    base.schema !== "1" ||
+    versionTwoKeys.some((key) => Object.hasOwn(base.value, key))
+  )
+    return;
+  const span = locate(text).fields?.get("schema");
+  if (!span) return;
+  const upgraded = `${text.slice(0, span.start)}2${text.slice(span.end)}`;
+  if (inspectArchive(upgraded).formatStatus === "valid") return upgraded;
+}
+
 type Patch = [start: number, end: number, value: string];
 
 function remove(entries: Span[], index: number): Patch {
@@ -138,12 +164,36 @@ function update(
   }
 }
 
-export function applyRuleEdit(
-  text: string,
-  { group, before, after }: RuleEdit,
-) {
+export function applyRuleEdit(text: string, edit: RuleEdit | SettingsEdit) {
   const parsed = inspectArchive(text);
   if (parsed.formatStatus !== "valid" || parsed.unrepresentable) return;
+  if ("section" in edit) {
+    const { section, key, before, after } = edit;
+    if (parsed.schema !== "2") return;
+    const previous = section === "root" ? parsed.value : parsed.value[section];
+    const fields = object(previous) ? previous : {};
+    if (stringify(fields[key]) !== stringify(before)) return;
+    const next = { ...fields };
+    if (after === undefined) delete next[key];
+    else next[key] = after;
+    const patches: Patch[] = [];
+    try {
+      const root = locate(text);
+      const span = section === "root" ? root : root.fields?.get(section);
+      if (span) update(span, fields, next, patches);
+      else
+        update(
+          root,
+          parsed.value,
+          { ...parsed.value, [section]: next },
+          patches,
+        );
+    } catch {
+      return;
+    }
+    return patched(text, patches);
+  }
+  const { group, before, after } = edit;
   const rules = readRules(parsed, group);
   const index = before ? rules.findIndex((rule) => rule.id === before.id) : -1;
   if (before && (index < 0 || stringify(before) !== stringify(rules[index])))
@@ -182,6 +232,10 @@ export function applyRuleEdit(
       `${rules.length ? "," : ""}${stringify(after)}`,
     ]);
   }
+  return patched(text, patches);
+}
+
+function patched(text: string, patches: Patch[]) {
   let result = text;
   for (const [start, end, value] of patches.sort((a, b) => b[0] - a[0]))
     result = result.slice(0, start) + value + result.slice(end);

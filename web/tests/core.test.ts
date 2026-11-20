@@ -82,7 +82,7 @@ describe("archive preview", () => {
     expect(
       await previewArchive(
         new Blob([
-          JSON.stringify({ format: "susfs-studio", schema: 2, rules }),
+          JSON.stringify({ format: "susfs-studio", schema: 3, rules }),
         ]),
       ),
     ).toMatchObject({ formatStatus: "unknown" });
