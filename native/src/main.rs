@@ -271,13 +271,28 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
         .filter(|s| !s.is_empty())
         .collect();
     if replies.iter().any(|reply| reply.error != 0)
-        || version_text.is_empty()
+        || version_text.trim().is_empty()
+        || version_text.chars().any(char::is_control)
         || tokens.is_empty()
+        || tokens.len() > 256
         || !matches!(variant_text.as_str(), "GKI" | "NON-GKI" | "GKI-LKM")
-        || tokens
-            .iter()
-            .any(|token| *token != "SUSFS_LKM_MODULES" && !token.starts_with("CONFIG_KSU_SUSFS_"))
+        || tokens.iter().any(|token| {
+            *token != "SUSFS_LKM_MODULES"
+                && !token
+                    .strip_prefix("CONFIG_KSU_SUSFS_")
+                    .is_some_and(|suffix| {
+                        (1..=128).contains(&suffix.len())
+                            && suffix.bytes().all(|byte| {
+                                byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_'
+                            })
+                    })
+        })
     {
+        return Status::UnknownProtocol;
+    }
+    let mut features: Vec<_> = tokens.iter().map(|token| (*token).to_owned()).collect();
+    features.sort_unstable();
+    if features.windows(2).any(|pair| pair[0] == pair[1]) {
         return Status::UnknownProtocol;
     }
     let implementation = match (variant_text.as_str(), tokens.contains(&"SUSFS_LKM_MODULES")) {
@@ -300,8 +315,6 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
     .filter(|(_, marker)| tokens.contains(marker))
     .map(|(key, _)| (key, "available"))
     .collect();
-    let mut features: Vec<_> = tokens.iter().map(|token| (*token).to_owned()).collect();
-    features.sort();
     Status::Active {
         provider: Provider {
             implementation,
@@ -312,7 +325,10 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
             },
             version: version_text.clone(),
             variant: variant_text.clone(),
-            audited: true,
+            audited: matches!(
+                (implementation, variant_text.as_str(), version_text.as_str()),
+                ("lkm", "GKI-LKM", "v2.3.0") | ("builtin", "GKI", "v2.3.0" | "v2.4.0")
+            ),
             features,
             capabilities,
         },
@@ -586,8 +602,31 @@ mod tests {
             reply("GKI-LKM"),
         );
         assert!(
-            matches!(status, Status::Active { provider } if provider.implementation == "unknown")
+            matches!(status, Status::Active { provider } if provider.implementation == "unknown" && !provider.audited)
         );
+    }
+    #[test]
+    fn unfamiliar_version_is_reported_without_audit() {
+        let status = classify(
+            reply("v9.0.0"),
+            reply("CONFIG_KSU_SUSFS_SUS_PATH"),
+            reply("GKI"),
+        );
+        assert!(matches!(status, Status::Active { provider } if !provider.audited));
+    }
+
+    #[test]
+    fn rejects_feature_reports_the_web_boundary_cannot_accept() {
+        for features in [
+            "CONFIG_KSU_SUSFS_",
+            "CONFIG_KSU_SUSFS_lower",
+            "CONFIG_KSU_SUSFS_PATH\nCONFIG_KSU_SUSFS_PATH",
+        ] {
+            assert!(matches!(
+                classify(reply("v2.3.0"), reply(features), reply("GKI")),
+                Status::UnknownProtocol
+            ));
+        }
     }
     #[test]
     fn never_marks_unknown_response_active() {

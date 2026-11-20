@@ -38,7 +38,7 @@ type ArchiveInspection = {
 type ArchivePreview =
   | (ArchiveInspection & { error?: never })
   | (Partial<Record<keyof ArchiveInspection, never>> & {
-      error: "archiveTooLarge" | "archiveInvalid";
+      error: "archiveTooLarge" | "archiveInvalid" | "archiveUnreadable";
     });
 
 export const ruleGroups = ["paths", "maps", "kstats", "redirects"] as const;
@@ -259,8 +259,14 @@ function inspectRules(value: JsonObject): {
 
 export async function previewArchive(file: Blob): Promise<ArchivePreview> {
   if (file.size > archiveLimit) return { error: "archiveTooLarge" } as const;
+  let bytes: Uint8Array;
   try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    bytes = new Uint8Array(await file.arrayBuffer());
+  } catch {
+    return { error: "archiveUnreadable" } as const;
+  }
+  if (bytes.length > archiveLimit) return { error: "archiveTooLarge" } as const;
+  try {
     if (
       bytes.length >= 3 &&
       bytes[0] === 0xef &&

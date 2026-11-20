@@ -41,6 +41,8 @@ The capability list includes priority UID filtering, hide-mounts, logging, AVC s
 
 Previewing validates file size, encoding, JSON syntax, [Studio schema 1 or 2](archive-format.md), duplicate keys, path boundaries, redirect constraints, and exact static kstat strings. It does not apply rules or prove device compatibility. Unknown fields and exact numeric tokens remain in the original text.
 
+If the system picker returns a file the WebView cannot read, Studio reports a file-read failure rather than invalid JSON. Try copying the file to local Downloads and selecting it again. Studio does not send an unreadable selection to the host or fall back to privileged file access. An error here is not evidence that the file contains invalid JSON.
+
 In archive preview, **Preview upgrade to Schema 2** prepares a candidate from a compatible saved version-1 archive. Review the difference before confirming the save. **SUSFS configuration exchange** converts supported configurations independently of the current provider. Review the original, mapped archive, and device diff before confirming an import. Configuration export refuses values that cannot be represented in the exchange format.
 
 ## Save and export a device archive

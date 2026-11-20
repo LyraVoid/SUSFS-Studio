@@ -274,6 +274,16 @@ describe("archive preview", () => {
       await previewArchive(new Blob([new Uint8Array(archiveLimit + 1)])),
     ).toEqual({ error: "archiveTooLarge" });
   });
+  it("distinguishes an unreadable picker result from invalid JSON", async () => {
+    class UnreadableFile extends Blob {
+      override async arrayBuffer(): Promise<ArrayBuffer> {
+        throw new DOMException("Cannot open selected file", "NotReadableError");
+      }
+    }
+    expect(await previewArchive(new UnreadableFile(["{}"]))).toEqual({
+      error: "archiveUnreadable",
+    });
+  });
   it("uses the same nesting and large-number boundaries as native", async () => {
     const nested = (count: number) =>
       `{"extra":${"[".repeat(count)}0${"]".repeat(count)}}`;

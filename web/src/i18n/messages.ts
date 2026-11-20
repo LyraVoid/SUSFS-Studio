@@ -422,6 +422,7 @@ export const zh = {
   archiveFile: "选择 JSON 归档",
   archiveTooLarge: "文件超过 128 KiB。",
   archiveInvalid: "请选择有效的 UTF-8 JSON 对象。",
+  archiveUnreadable: "无法读取所选文件。请将它复制到本机下载目录，再重新选择。",
   save: "设备保存",
   export: "设备导出",
   restore: "恢复备份",
@@ -926,6 +927,8 @@ export const en = {
   archiveFile: "Choose JSON archive",
   archiveTooLarge: "File exceeds 128 KiB.",
   archiveInvalid: "Choose a valid UTF-8 JSON object.",
+  archiveUnreadable:
+    "Could not read the selected file. Copy it to local Downloads and select it again.",
   save: "Save to device",
   export: "Export from device",
   restore: "Restore backup",

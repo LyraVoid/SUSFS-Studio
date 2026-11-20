@@ -30,6 +30,8 @@ An optional `data.control` advertises `archiveImport`, `providerWrite`, `effectV
 
 The implementation is reported as LKM only when both the variant and feature marker agree. Conflicting evidence leaves the implementation unknown. An implementation badge must not be inferred from the kernel type alone.
 
+The audit flag refers to a reviewed diagnostic response family, not a verified build identity or write ABI. The native CLI sets it only for GKI-LKM 2.3.0 or built-in GKI 2.3.0/2.4.0 with consistent variant evidence. An unfamiliar version can still report an active interface without receiving this flag. Invalid or duplicated feature tokens are rejected as an unknown protocol.
+
 On Android, `status` can include `data.device` with the model, Android release and API level, and kernel release. Each field is optional. The WebUI shows the available fields independently of the provider state.
 
 After a matching protocol-1 response has been received, invalid provider data is reported as a diagnostic failure. Validated device facts remain visible, but no activation state or provider badge is inferred from the malformed provider data. Device fields from a mismatched request or unsupported protocol are not used.
