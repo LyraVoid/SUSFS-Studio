@@ -64,6 +64,7 @@ export function CapabilityPage({
         </h2>
         {rule && demo && <p>{t("ruleCount", { count: 0 })}</p>}
         <p className={styles.muted}>{t(rule ? "ruleNote" : "extensionNote")}</p>
+        {rule && <p>{t("ruleReadOnly")}</p>}
       </section>
     </>
   );

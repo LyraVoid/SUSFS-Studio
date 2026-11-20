@@ -60,6 +60,8 @@ export const zh = {
   rulesUnobserved: "未读取设备规则",
   ruleCount: "规则数：{count}",
   ruleNote: "仅展示能力。归档内容可在设置中离线预览。",
+  ruleReadOnly:
+    "设备规则操作不可用：当前接口只读，能力报告不代表允许写入或确认效果。启动阶段和逐项回执尚未验证。",
   extensionNote: "扩展页展示接口报告的能力。",
   preferences: "界面偏好",
   theme: "主题",
@@ -225,6 +227,8 @@ export const en = {
   ruleCount: "Rules: {count}",
   ruleNote:
     "Capability information only. Preview archives offline in Settings.",
+  ruleReadOnly:
+    "Device rule operations are unavailable: the interface is read-only. Capability reports do not authorize writes or verify effects. Boot stages and per-rule receipts remain unverified.",
   extensionNote: "Extensions shows capabilities reported by the interface.",
   preferences: "Appearance",
   theme: "Theme",
