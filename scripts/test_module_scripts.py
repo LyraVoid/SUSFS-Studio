@@ -30,6 +30,16 @@ class ModuleScriptsTest(unittest.TestCase):
         self.assertNotIn("ksud susfs", combined)
         self.assertNotIn("ksu_susfs", combined)
 
+    def test_module_prop_banner_is_shipped(self):
+        metadata = dict(
+            line.split("=", 1)
+            for line in (ROOT / "module/module.prop").read_text().splitlines()
+            if "=" in line
+        )
+        banner = metadata.get("banner")
+        self.assertIsNotNone(banner)
+        self.assertTrue((ROOT / "module" / banner).is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

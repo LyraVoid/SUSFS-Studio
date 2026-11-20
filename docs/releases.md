@@ -11,6 +11,7 @@ derive a tag from an unreviewed working tree.
 - `version` is the version without a leading `v`.
 - `versionCode` is a positive 32-bit decimal integer.
 - `updateJson` points to the update manifest on the default branch.
+- `banner` names the 16:9 cover image in the module root; hosts that read it show it on the module card.
 
 `update.json` is the source of truth for module updates. Its `zipUrl` and
 `changelog` point to the matching `v<version>` Git tag. The release workflow

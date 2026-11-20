@@ -5,3 +5,4 @@ versionCode=1001
 author=LyraVoid and matsuzaka-yuki
 description=Independent SUSFS diagnostics and configuration manager for KSU
 updateJson=https://raw.githubusercontent.com/LyraVoid/SUSFS-Studio/main/update.json
+banner=banner.webp

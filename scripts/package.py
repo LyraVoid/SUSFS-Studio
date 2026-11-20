@@ -158,6 +158,7 @@ def package(
             version_suffix=version_suffix,
             update_json=update_json,
         ),
+        "banner.webp": read_regular(ROOT / "module/banner.webp"),
         "customize.sh": read_regular(ROOT / "module/customize.sh"),
         "post-fs-data.sh": read_regular(ROOT / "module/post-fs-data.sh"),
         "service.sh": read_regular(ROOT / "module/service.sh"),
