@@ -1,4 +1,5 @@
 import { ActivationCard } from "../components/organisms/ActivationCard";
+import { Capabilities } from "../components/organisms/Capabilities";
 import { DeviceFactsGroup } from "../components/organisms/DeviceFactsGroup";
 import { ProviderSummary } from "../components/organisms/ProviderSummary";
 import type { Translate } from "../i18n/messages";
@@ -40,6 +41,17 @@ export function Home({
         </div>
         <DeviceFactsGroup device={status.device} t={t} />
       </div>
+      <section className={styles.capabilities}>
+        <h2>{t("compatibility")}</h2>
+        <Capabilities
+          status={status}
+          demo={demo}
+          stale={stale}
+          fields={["paths", "map", "kstat", "redirect", "extensions"]}
+          t={t}
+        />
+        <p>{t(demo ? "fixtureOnly" : "hostCapabilities")}</p>
+      </section>
     </>
   );
 }

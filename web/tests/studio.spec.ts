@@ -147,6 +147,7 @@ test("an injected host shows its own result and refresh failures", async ({
   );
   await page.getByRole("button", { name: "刷新诊断" }).click();
   await expect(page.getByRole("dialog")).toContainText("无法读取诊断结果");
+  await expect(page.getByRole("dialog")).not.toContainText("接口报告可用");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("status")).not.toContainText("LKM");
 });
@@ -154,9 +155,15 @@ test("an injected host shows its own result and refresh failures", async ({
 test("six pages, diagnostic dialog and capability labels", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("status")).toContainText("已激活");
+  await expect(page.locator("main h2").allTextContents()).resolves.toEqual([
+    "设备",
+    "能力与兼容性",
+  ]);
+  await expect(page.locator("main dd[data-availability]")).toHaveCount(5);
   const status = page.getByRole("button", { name: /状态/ });
   await status.click();
   await expect(page.getByRole("dialog")).toContainText("能力来自演示夹具");
+  await expect(page.getByRole("dialog")).not.toContainText(/管理者|交接/);
   await page.keyboard.press("Escape");
   await expect(status).toBeFocused();
   const menu = page.getByRole("navigation", { name: "主导航" });
@@ -193,6 +200,12 @@ test("distinct demo results and confirmed implementation badges", async ({
     await page.getByLabel("演示场景").selectOption(scenario);
     await page.getByRole("link", { name: "首页" }).click();
     await expect(status).toContainText(label);
+    if (scenario === "loading" || scenario === "failed") {
+      const availability = scenario === "loading" ? "loading" : "unknown";
+      await expect(
+        page.locator(`main dd[data-availability="${availability}"]`),
+      ).toHaveCount(5);
+    }
     if (badge) {
       await expect(status).toContainText(badge);
       await expect(status).toContainText("2.4.0");

@@ -75,14 +75,6 @@ export function ProviderSummary({
               <dt>{t("version")}</dt>
               <dd>{provider?.version ?? t("absent")}</dd>
             </div>
-            <div>
-              <dt>{t("owner")}</dt>
-              <dd>{t("observedUnknown")}</dd>
-            </div>
-            <div>
-              <dt>{t("receipts")}</dt>
-              <dd>{t("noReceipts")}</dd>
-            </div>
           </dl>
           <h2>{t("compatibility")}</h2>
           <p className={styles.muted}>
@@ -91,6 +83,7 @@ export function ProviderSummary({
           <Capabilities
             status={status}
             demo={demo}
+            stale={stale}
             fields={["paths", "map", "kstat", "redirect", "extensions"]}
             t={t}
           />
