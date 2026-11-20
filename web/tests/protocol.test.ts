@@ -32,6 +32,36 @@ describe("status response boundary", () => {
       valid.data,
     );
   });
+  it("keeps reported metadata separate from inferred capabilities", () => {
+    const data = {
+      ...valid.data,
+      provider: {
+        ...valid.data.provider,
+        variant: "GKI-LKM",
+        audited: false,
+        capabilities: { paths: "available" },
+        staticKstatFields: ["size", "ctime_sec"],
+        redirectUidSchemes: [0, 1, 2],
+      },
+    };
+    expect(
+      parseStatusResponse(JSON.stringify({ ...valid, data }), "r1"),
+    ).toEqual(data);
+  });
+  it.each([
+    { variant: "" },
+    { audited: "false" },
+    { staticKstatFields: ["size", "size"] },
+    { redirectUidSchemes: [-1] },
+  ])("rejects malformed provider metadata %#", (metadata) => {
+    const data = {
+      ...valid.data,
+      provider: { ...valid.data.provider, ...metadata },
+    };
+    expect(
+      parseStatusResponse(JSON.stringify({ ...valid, data }), "r1"),
+    ).toEqual({ kind: "failed" });
+  });
   it("preserves valid optional device facts without changing a failed status", () => {
     const response = {
       ...fixtures.failed,

@@ -20,7 +20,12 @@ import {
   type RuleEdit,
   type RuleGroup,
 } from "../../features/config/ruleEdits";
-import type { Message, Translate } from "../../i18n/messages";
+import {
+  type Message,
+  redirectSchemeLabels,
+  type Translate,
+} from "../../i18n/messages";
+import type { Provider } from "../../transport/mock";
 
 export const modeLabels = {
   normal: "ruleNormal",
@@ -35,6 +40,7 @@ export function RuleForm({
   onEdit,
   onClose,
   readOnly,
+  provider,
   t,
 }: {
   group: RuleGroup;
@@ -43,6 +49,7 @@ export function RuleForm({
   onEdit: (edit: RuleEdit) => boolean;
   onClose: () => void;
   readOnly: boolean;
+  provider?: Provider;
   t: Translate;
 }) {
   const [fields, setFields] = useState<Record<string, string>>(() => ({
@@ -65,6 +72,12 @@ export function RuleForm({
     setError(false);
   };
   const isStatic = group === "kstats" && fields.mode === "static";
+  const schemes = provider?.redirectUidSchemes;
+  const reportedFields = provider?.staticKstatFields;
+  const editableStaticFields =
+    reportedFields === undefined
+      ? staticFields
+      : staticFields.filter((key) => reportedFields.includes(key));
   const redirect = group === "redirects";
   const validDestination =
     path(fields.destination) && fields.destination !== fields.path;
@@ -72,8 +85,8 @@ export function RuleForm({
     path(fields.path) &&
     (!redirect || validDestination) &&
     (!isStatic ||
-      (staticFields.some((key) => field(key) !== "") &&
-        staticFields.every(
+      (editableStaticFields.some((key) => field(key) !== "") &&
+        editableStaticFields.every(
           (key) => !field(key) || validStaticField(key, field(key)),
         )));
   return (
@@ -88,6 +101,7 @@ export function RuleForm({
     >
       <Stack>
         <TextInput
+          data-autofocus
           label={t("rulePath")}
           size="md"
           value={field("path")}
@@ -133,21 +147,32 @@ export function RuleForm({
               onChange={(event) =>
                 change("uidScheme", event.currentTarget.value)
               }
-              data={["0", "1", "2", "3", "4"].map((value) => ({
-                value,
-                label: t("ruleUidValue", { value }),
+              description={t("controlArchiveSchemes")}
+              data={redirectSchemeLabels.map((label, value) => ({
+                value: String(value),
+                label: `${value} · ${t(label)}`,
               }))}
             />
+            <p>
+              {schemes
+                ? t("controlReportedSchemes", {
+                    values: schemes.join(", ") || t("archiveNoKeys"),
+                  })
+                : t("controlUnreportedSchemes")}
+            </p>
           </>
         )}
-        {group === "kstats" && (
+        {group === "kstats" && !isStatic && (
           <NativeSelect
             label={t("ruleMode")}
             size="md"
             value={field("mode")}
             disabled={readOnly}
             onChange={(event) => change("mode", event.currentTarget.value)}
-            data={Object.entries(modeLabels).map(([value, key]) => ({
+            data={Object.entries({
+              normal: modeLabels.normal,
+              fullClone: modeLabels.fullClone,
+            }).map(([value, key]) => ({
               value,
               label: t(key),
             }))}
@@ -155,9 +180,18 @@ export function RuleForm({
         )}
         {isStatic && (
           <>
-            <p>{t("ruleStaticHint")}</p>
+            <p>
+              {t("ruleStaticHint")} {t("controlArchiveFields")}
+            </p>
+            <p>
+              {reportedFields
+                ? t("controlReportedFields", {
+                    values: reportedFields.join(", ") || t("archiveNoKeys"),
+                  })
+                : t("controlUnreportedFields")}
+            </p>
             <SimpleGrid cols={{ base: 1, xs: 2 }}>
-              {staticFields.map((key) => (
+              {editableStaticFields.map((key) => (
                 <TextInput
                   key={key}
                   label={t(key as Message)}

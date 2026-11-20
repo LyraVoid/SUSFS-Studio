@@ -306,6 +306,7 @@ it("keeps language keys and placeholder sets aligned", () => {
 
 it("resolves the rules landing page and rejects unknown routes", () => {
   expect(resolveRoute("")).toBe("/");
-  expect(resolveRoute("#/rules")).toBe("/rules/paths");
+  expect(resolveRoute("#/rules")).toBe("/rules/overview");
+  expect(resolveRoute("#/extensions")).toBe("/rules/extensions");
   expect(resolveRoute("#/invalid")).toBeUndefined();
 });

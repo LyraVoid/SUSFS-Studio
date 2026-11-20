@@ -6,8 +6,7 @@ import styles from "./Shell.module.css";
 
 const links = [
   ["/", "home"],
-  ["/rules/paths", "rules"],
-  ["/extensions", "extensions"],
+  ["/rules/overview", "rules"],
   ["/settings", "settings"],
 ] as const;
 
@@ -35,7 +34,12 @@ export function Shell({
   }, [route]);
 
   return (
-    <div className={styles.shell} data-home={route === "/"}>
+    <div
+      className={styles.shell}
+      data-home={route === "/"}
+      data-rules={route?.startsWith("/rules/")}
+      data-testid="shell"
+    >
       <button
         type="button"
         className={styles.skip}

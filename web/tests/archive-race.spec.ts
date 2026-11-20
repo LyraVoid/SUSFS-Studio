@@ -109,7 +109,7 @@ test("two pages retain independent drafts and must review a newer revision", asy
   const second = await context.newPage();
   const dialogs = await Promise.all(
     [page, second].map(async (tab, index) => {
-      await tab.goto("/#/settings");
+      await tab.goto("/#/rules/overview");
       await tab.getByRole("button", { name: "设备保存" }).click();
       const dialog = tab.getByRole("dialog");
       await dialog

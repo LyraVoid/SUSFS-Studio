@@ -4,9 +4,11 @@ Follow the [browser preview instructions](../README.md#browser-preview) to open 
 
 ## Read the diagnostic overview
 
-1. Open **Home** to see the interface state, model, Android version, kernel version, and reported capabilities.
+1. Open **Home** to see the interface activation state, diagnostic summary, and device facts.
 2. Select **Status** to see the implementation, kernel type, and capability information.
 3. Select **Refresh diagnostics** to repeat the current query. The previous result remains visible while the refresh is pending and is identified as such.
+
+Open **Rules** for the complete SUSFS surface. Its six tabs are **Overview**, **Basic settings**, **Path hiding**, **File disguise**, **Redirect**, and **Extensions**. The global **Refresh** action rereads diagnostics and the private archive.
 
 | Home state | Meaning |
 | --- | --- |
@@ -20,11 +22,13 @@ If a detected host provides neither a dedicated diagnostic bridge nor a compatib
 
 An active result displays a badge when the implementation is known. **Built-In** means the implementation is compiled into the kernel. **LKM** means it is provided as a loadable kernel module. **GKI** describes the kernel type and appears separately in diagnostic details.
 
-Use **Settings → Demo scenario** to switch between simulated outcomes. The default is GKI-LKM with SUSFS 2.3. The built-in sample uses SUSFS 2.4. Rules and Extensions show capability labels derived from the selected sample. An unconfirmed capability is displayed separately from an unavailable capability.
+Use **Settings → Demo scenario** to switch between simulated outcomes. The default is GKI-LKM with SUSFS 2.3. The built-in sample uses SUSFS 2.4. Rules shows capability labels derived from the selected sample. An unconfirmed capability is displayed separately from an unavailable capability.
+
+The **Rules → Overview** capability list includes priority UID filtering, hide-mounts, logging, AVC spoofing, uname, cmdline, paths, Map, dynamic and static kstat, full clone, redirect, hidden modules, and mount prefixes. `Support not reported` means the current interface did not report that field; it is not evidence of support. Static field names and redirect UID schemes are shown only when the provider reports them. Archive fields remain a separate editable set and are not device support evidence.
 
 ## Preview a configuration archive
 
-1. Open **Settings → Offline preview**.
+1. Open **Rules → Overview → Offline preview**.
 2. Select a UTF-8 JSON file up to 128 KiB. The top-level JSON value must be an object.
 3. Review the source file, declared numeric schema, rule count, unknown-field warning, original JSON text, and structural validation result.
 4. Compare the selection with the archive already saved on the device. Optionally select a second archive for a separate comparison. The dialog lists added, removed, and changed JSON Pointer paths. Arrays are compared by position and numeric formatting differences count as changes. Both original texts remain unchanged.
@@ -35,9 +39,9 @@ In archive preview, **Preview upgrade to Schema 2** prepares a candidate from a 
 
 ## Save and export a device archive
 
-Open **Rules → Paths**, **Disguise**, or **Redirect** to edit the saved archive without selecting a file. Disguise separates Map and kstat rules. Select a path to view or edit it, or use the add action. **Update draft** and **Remove rule** affect only the session draft. **Cancel** closes the form without applying its changes; **Discard draft** removes all pending edits. The draft follows you between rule and extension pages but is not kept across a WebUI reload.
+Open **Rules → Path hiding**, **File disguise**, or **Redirect** to edit the saved archive without selecting a file. File disguise separates Map and kstat rules. Select a path to view or edit it, or use the add action. **Update draft** and **Remove rule** affect only the session draft. **Cancel** closes the form without applying its changes; return to **Overview** to review, discard, or save the draft. The draft follows you between rule and extension tabs but is not kept across a WebUI reload. Redirect choices describe archive values; the provider's reported UID schemes appear separately.
 
-**Rules → Basic settings** edits the Schema 2 tri-state values and the archived automatic-apply preference. Priority UID, uname and command-line values are read-only without a verified application or boot-slot source. **Extensions** edits module names and mount prefixes only with a confirmed live LKM result. Even then, edits affect the archive only. **Home** keeps archive preference, device application and effect verification separate; application is disabled without verified write authorization.
+**Rules → Basic settings** edits the Schema 2 tri-state values and the archived automatic-apply preference. Priority UID shows the archived package list and distinguishes an empty managed list from an unmanaged value, but cannot select UIDs without a verified application source. uname and command-line values are read-only without verified boot-slot facts. **Rules → Extensions** edits module names and mount prefixes only with a confirmed live LKM result. Even then, edits affect the archive only. **Rules → Overview** keeps archive preference, device application and effect verification separate; application is disabled without verified write authorization.
 
 Paths, Map, and Redirect also support batch entry. Enter one absolute path per line, or one `source -> destination` pair per line for redirects. A rejected line, duplicate, or archive limit rejects the whole batch without changing the draft. Choose the looping flag or UID scheme once for the batch where applicable. kstat entries are edited individually.
 
@@ -56,7 +60,7 @@ If another writer changed the device archive after review, the save reports a re
 
 **Export from device** rereads the saved archive and downloads its original JSON text, including unknown fields and exact number tokens. To restore, choose **Restore**, select an automatic device backup or choose a previously exported JSON file, review the difference, and confirm separately. A current archive must exist. Studio preserves it in a private backup before replacing it. The automatic list contains backups from previous restores, not ordinary saves; invalid backups cannot be selected. Older device tools may not support the list, but still allow restoration from an exported file. The restored revision is the digest of the selected bytes and can match an older revision. Restore changes only Studio's private archive, not kernel runtime state.
 
-In standalone browser mode, preview works locally. Device save and export require a host. If a host has command execution but no verified file stream, save remains disabled with the reason shown in Settings. Automatic collection is also disabled.
+In standalone browser mode, preview works locally. Device save and export require a host. If a host has command execution but no verified file stream, save remains disabled with the reason shown in Rules → Overview. Automatic collection is also disabled.
 
 ## Change appearance
 

@@ -118,6 +118,7 @@ struct Provider {
     implementation: &'static str,
     kernel_type: &'static str,
     version: String,
+    variant: String,
     capabilities: BTreeMap<&'static str, &'static str>,
 }
 
@@ -280,22 +281,20 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
         ("GKI-LKM", false) | (_, true) => "unknown",
         (_, false) => "builtin",
     };
-    let mut capabilities = BTreeMap::new();
-    for (key, token) in [
+    let capabilities = [
         ("paths", "CONFIG_KSU_SUSFS_SUS_PATH"),
         ("map", "CONFIG_KSU_SUSFS_SUS_MAP"),
         ("kstat", "CONFIG_KSU_SUSFS_SUS_KSTAT"),
         ("redirect", "CONFIG_KSU_SUSFS_OPEN_REDIRECT"),
-    ] {
-        capabilities.insert(
-            key,
-            if tokens.contains(&token) {
-                "available"
-            } else {
-                "unavailable"
-            },
-        );
-    }
+        ("hideMounts", "CONFIG_KSU_SUSFS_SUS_MOUNT"),
+        ("logging", "CONFIG_KSU_SUSFS_ENABLE_LOG"),
+        ("uname", "CONFIG_KSU_SUSFS_SPOOF_UNAME"),
+        ("cmdline", "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG"),
+    ]
+    .into_iter()
+    .filter(|(_, marker)| tokens.contains(marker))
+    .map(|(key, _)| (key, "available"))
+    .collect();
     Status::Active {
         provider: Provider {
             implementation,
@@ -305,6 +304,7 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
                 "unknown"
             },
             version: version_text.clone(),
+            variant: variant_text.clone(),
             capabilities,
         },
     }
@@ -526,7 +526,7 @@ mod tests {
         );
         let active = classify(
             reply("v2.3.0"),
-            reply("CONFIG_KSU_SUSFS_SUS_PATH\nSUSFS_LKM_MODULES"),
+            reply("CONFIG_KSU_SUSFS_SUS_PATH\nCONFIG_KSU_SUSFS_ENABLE_LOG\nSUSFS_LKM_MODULES"),
             reply("GKI-LKM"),
         );
         for (name, status) in [
@@ -565,11 +565,15 @@ mod tests {
     fn recognizes_complete_lkm_response() {
         let status = classify(
             reply("v2.3.0"),
-            reply("CONFIG_KSU_SUSFS_SUS_PATH\nSUSFS_LKM_MODULES"),
+            reply("CONFIG_KSU_SUSFS_SUS_PATH\nCONFIG_KSU_SUSFS_ENABLE_LOG\nSUSFS_LKM_MODULES"),
             reply("GKI-LKM"),
         );
         assert!(
-            matches!(status, Status::Active { provider } if provider.implementation == "lkm" && provider.kernel_type == "GKI" && provider.capabilities["paths"] == "available")
+            matches!(status, Status::Active { provider } if provider.implementation == "lkm"
+                && provider.kernel_type == "GKI"
+                && provider.variant == "GKI-LKM"
+                && provider.capabilities["paths"] == "available"
+                && provider.capabilities["logging"] == "available")
         );
     }
     #[test]

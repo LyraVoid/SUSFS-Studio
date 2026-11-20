@@ -16,6 +16,14 @@
   background: var(--dashboard-bg);
   color: var(--dashboard-text);
 }
+.shell[data-rules="true"] {
+  --nav-bg: var(--rules-bg);
+  --nav-pill: var(--rules-active);
+  --nav-muted: var(--rules-muted);
+  --nav-active: var(--rules-text);
+  background: var(--rules-bg);
+  color: var(--rules-text);
+}
 .main {
   grid-row: 1;
   overflow: auto;
@@ -38,7 +46,7 @@
 .nav {
   grid-row: 2;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   background: var(--nav-bg);
   min-height: calc(var(--nav-height) + env(safe-area-inset-bottom));
   padding: var(--s8) var(--s8) calc(var(--s8) + env(safe-area-inset-bottom));

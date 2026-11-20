@@ -13,6 +13,8 @@ The WebUI supports an injected `window.studioDiagnostics` with two argument-free
 
 The WebUI also adapts a host-provided `ksu.exec` command bridge to these methods. It sends only fixed `hello` and `status` commands for `/data/adb/modules/susfs_studio/bin/studioctl`, using `/system/bin/timeout` with a three-second limit, fixed options, and generated callback identifiers. User input is never sent as a command. The WebUI performs the handshake before the status query and applies a five-second deadline. It validates the request ID, protocol number, success flag, response size, provider fields, and capability values.
 
+Provider metadata is optional and fail-closed. `variant` may identify the reported interface variant and `audited` may record an explicit protocol-audit result. `staticKstatFields` and `redirectUidSchemes` describe only what the provider reports; their absence remains unknown rather than becoming an empty or supported set. These fields do not authorize a write.
+
 Archive save additionally requires host file operations compatible with `ksu.io()` version 1. The WebUI checks that `io().version()` returns `1`, then uses `FileOutputStream().open(path, false)`, `write(id, base64)`, and `close(id)`. It accepts only the path returned by native `stage` and verifies the exact form `/data/adb/susfs-studio/.staging/<32 lowercase hex>.input`. It never writes a selected file name or user-supplied path through this API. A host without the stream keeps device save disabled but may still use local preview and device export.
 
 ## Required host safeguards

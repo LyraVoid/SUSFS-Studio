@@ -96,10 +96,12 @@ export function ArchivePanel({
   t,
   archive,
   archiveImport,
+  onSaved,
 }: {
   t: Translate;
   archive?: ArchiveBridge;
   archiveImport: boolean;
+  onSaved?: () => void;
 }) {
   const [opened, setOpened] = useState(false);
   const [result, setResult] = useState<Preview>();
@@ -251,27 +253,24 @@ export function ArchivePanel({
     }
   };
 
+  const completeDiff =
+    result?.formatStatus === "valid" &&
+    !result.unrepresentable &&
+    savedResult?.value !== undefined &&
+    !savedResult.unrepresentable &&
+    !compareArchives(savedResult.value, result.value).truncated;
+  const canConfirm =
+    hasArchiveWriter(archive) &&
+    completeDiff &&
+    !needsVerification &&
+    !loadingSaved &&
+    (saved?.kind === "empty" || savedResult?.formatStatus === "valid") &&
+    (upgradeBase === undefined || saved?.text === upgradeBase) &&
+    (!importing || (archiveImport && !!archive?.import)) &&
+    (!restoring || (saved?.kind === "saved" && !!archive?.restore));
+
   const save = async () => {
-    if (
-      committing.current ||
-      needsVerification ||
-      loadingSaved ||
-      !archive?.prepare ||
-      !archive.write ||
-      !archive.save ||
-      !result ||
-      !saved ||
-      (saved.kind === "saved" && savedResult?.formatStatus !== "valid") ||
-      result.error ||
-      result.formatStatus !== "valid" ||
-      result.unrepresentable ||
-      (upgradeBase !== undefined && saved.text !== upgradeBase) ||
-      (importing &&
-        (!archiveImport ||
-          !archive.import ||
-          !savedResult?.value ||
-          compareArchives(savedResult.value, result.value).truncated))
-    )
+    if (committing.current || !canConfirm || !archive || !result || !saved)
       return;
     committing.current = true;
     savedRequest.current++;
@@ -301,6 +300,7 @@ export function ArchivePanel({
       setSavedResult(result);
       setConfirming(false);
       setNeedsVerification(false);
+      onSaved?.();
       if (restoring) void refreshBackups();
     } catch (error) {
       const message = archiveErrorMessage(error);
@@ -322,11 +322,6 @@ export function ArchivePanel({
   };
 
   const hasWriter = hasArchiveWriter(archive);
-  const canSave =
-    hasWriter &&
-    (!importing || (archiveImport && !!archive?.import)) &&
-    (saved?.kind === "empty" || savedResult?.formatStatus === "valid");
-  const valid = result && !result.error && result.formatStatus === "valid";
   const upgrade =
     !restoring && !importing && !result && saved?.text
       ? upgradeArchive(saved.text)
@@ -567,6 +562,12 @@ export function ArchivePanel({
                       candidate={result}
                       t={t}
                     />
+                    {saved?.text !== undefined && (
+                      <details>
+                        <summary>{t("controlSavedOriginal")}</summary>
+                        <pre className={styles.preview}>{saved.text}</pre>
+                      </details>
+                    )}
                   </section>
                   <FileInput
                     size="md"
@@ -620,6 +621,9 @@ export function ArchivePanel({
               {upgradeBase !== undefined &&
                 saved?.text !== upgradeBase &&
                 !receipt && <p role="alert">{t("archiveUpgradeStale")}</p>}
+              {result?.formatStatus === "valid" &&
+                savedResult &&
+                !completeDiff && <p role="alert">{t("ruleDiffBlocked")}</p>}
               <Group justify="space-between">
                 <Button
                   variant="subtle"
@@ -639,19 +643,7 @@ export function ArchivePanel({
                     {t(importing ? "archiveExportConfig" : "export")}
                   </Button>
                   <Button
-                    disabled={
-                      !canSave ||
-                      !valid ||
-                      result.unrepresentable ||
-                      (upgradeBase !== undefined &&
-                        saved?.text !== upgradeBase) ||
-                      (importing &&
-                        (!savedResult?.value ||
-                          compareArchives(savedResult.value, result.value)
-                            .truncated)) ||
-                      needsVerification ||
-                      (restoring && saved?.kind !== "saved")
-                    }
+                    disabled={!canConfirm}
                     onClick={() => {
                       setOperationError(undefined);
                       setConfirming(true);
@@ -706,6 +698,16 @@ export function ArchivePanel({
                     candidate={result}
                     t={t}
                   />
+                  {saved?.text !== undefined && (
+                    <details>
+                      <summary>{t("controlSavedOriginal")}</summary>
+                      <pre className={styles.preview}>{saved.text}</pre>
+                    </details>
+                  )}
+                  <details>
+                    <summary>{t("controlCandidateOriginal")}</summary>
+                    <pre className={styles.preview}>{result.text}</pre>
+                  </details>
                 </section>
               )}
               <Alert color="blue">{t("archiveSaveEffect")}</Alert>
@@ -734,7 +736,7 @@ export function ArchivePanel({
                 </Button>
                 <Button
                   loading={saving}
-                  disabled={needsVerification || !saved || loadingSaved}
+                  disabled={!canConfirm}
                   variant="outline"
                   onClick={() => void save()}
                 >

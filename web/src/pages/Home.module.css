@@ -45,3 +45,25 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+.dashboard > section {
+  margin-top: 0;
+}
+.metadata > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s12);
+  flex-wrap: wrap;
+}
+.metadata dd {
+  color: var(--dashboard-muted);
+}
+.capabilities h3 {
+  font-size: 0.875rem;
+  margin: 0;
+}
+.wrap {
+  overflow-wrap: anywhere;
+}
+.facts {
+  margin-top: var(--s16);
+}

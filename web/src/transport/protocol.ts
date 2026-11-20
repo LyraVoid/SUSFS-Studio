@@ -1,4 +1,9 @@
-import type { Device, Status } from "./mock";
+import {
+  capabilityKeys,
+  type Device,
+  type Provider,
+  type Status,
+} from "./mock";
 
 const maxResponseBytes = 512 * 1024;
 
@@ -71,19 +76,8 @@ export function parseStatusResponse(text: string, requestId: string): Status {
     !record(provider.capabilities)
   )
     return { kind: "failed", ...facts };
-  const capabilities: Partial<
-    Record<
-      "paths" | "map" | "kstat" | "redirect" | "extensions",
-      "available" | "unavailable" | "unknown"
-    >
-  > = {};
-  for (const key of [
-    "paths",
-    "map",
-    "kstat",
-    "redirect",
-    "extensions",
-  ] as const) {
+  const capabilities: Provider["capabilities"] = {};
+  for (const key of [...capabilityKeys, "extensions"] as const) {
     const value = provider.capabilities[key];
     if (
       value !== undefined &&
@@ -94,6 +88,33 @@ export function parseStatusResponse(text: string, requestId: string): Status {
       return { kind: "failed", ...facts };
     if (value !== undefined) capabilities[key] = value;
   }
+  const { variant, audited, staticKstatFields, redirectUidSchemes } = provider;
+  if (
+    (variant !== undefined &&
+      (typeof variant !== "string" ||
+        !/^[A-Za-z0-9_+.-]{1,64}$/u.test(variant))) ||
+    (audited !== undefined && typeof audited !== "boolean") ||
+    (staticKstatFields !== undefined &&
+      (!Array.isArray(staticKstatFields) ||
+        staticKstatFields.length > 64 ||
+        !staticKstatFields.every(
+          (field: unknown) =>
+            typeof field === "string" && /^[A-Za-z0-9_]{1,64}$/u.test(field),
+        ) ||
+        new Set(staticKstatFields).size !== staticKstatFields.length)) ||
+    (redirectUidSchemes !== undefined &&
+      (!Array.isArray(redirectUidSchemes) ||
+        redirectUidSchemes.length > 64 ||
+        !redirectUidSchemes.every(
+          (id: unknown) =>
+            typeof id === "number" &&
+            Number.isInteger(id) &&
+            id >= 0 &&
+            id <= 0xffffffff,
+        ) ||
+        new Set(redirectUidSchemes).size !== redirectUidSchemes.length))
+  )
+    return { kind: "failed", ...facts };
   return {
     kind: "active",
     ...facts,
@@ -102,6 +123,10 @@ export function parseStatusResponse(text: string, requestId: string): Status {
       kernelType: provider.kernelType,
       version: provider.version,
       capabilities,
+      ...(variant !== undefined && { variant }),
+      ...(audited !== undefined && { audited }),
+      ...(staticKstatFields !== undefined && { staticKstatFields }),
+      ...(redirectUidSchemes !== undefined && { redirectUidSchemes }),
     },
   };
 }

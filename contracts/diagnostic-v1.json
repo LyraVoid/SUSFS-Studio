@@ -11,7 +11,8 @@
         "implementation": "lkm",
         "kernelType": "GKI",
         "version": "v2.3.0",
-        "capabilities": { "paths": "available", "map": "unavailable", "kstat": "unavailable", "redirect": "unavailable" }
+        "variant": "GKI-LKM",
+        "capabilities": { "paths": "available", "logging": "available" }
       }
     }
   },

@@ -7,11 +7,17 @@ import {
   readRules,
 } from "../../features/config/ruleEdits";
 import type { useRuleArchive } from "../../features/config/useRuleArchive";
-import type { Message, Translate } from "../../i18n/messages";
+import {
+  type Message,
+  redirectSchemeLabels,
+  type Translate,
+} from "../../i18n/messages";
+import type { Provider } from "../../transport/mock";
 import { Icon } from "../atoms/Icon";
 import { BatchRuleForm } from "../molecules/BatchRuleForm";
 import { modeLabels, RuleForm } from "../molecules/RuleForm";
-import { SettingsList, SettingsRow } from "../molecules/SettingsList";
+import { SegmentedSection } from "../molecules/SegmentedSection";
+import { SettingsRow } from "../molecules/SettingsList";
 import { ArchiveDifference } from "./ArchivePanel";
 import styles from "./Panels.module.css";
 import rules from "./RuleArchive.module.css";
@@ -43,6 +49,9 @@ export function RuleArchive({
   state,
   demo,
   connected,
+  provider,
+  leading,
+  mode = "rules",
   children,
   t,
 }: {
@@ -50,9 +59,13 @@ export function RuleArchive({
   state: ReturnType<typeof useRuleArchive>;
   demo: boolean;
   connected: boolean;
+  provider?: Provider;
+  leading?: ReactNode;
+  mode?: "overview" | "rules";
   children?: ReactNode;
   t: Translate;
 }) {
+  const [removeError, setRemoveError] = useState(false);
   const [dialog, setDialog] = useState<Dialog>();
   const [review, setReview] = useState<{
     draft: NonNullable<typeof state.draft>;
@@ -62,6 +75,7 @@ export function RuleArchive({
     state;
   const close = () => {
     if (!saving) {
+      setRemoveError(false);
       setDialog(undefined);
       setReview(undefined);
     }
@@ -107,47 +121,113 @@ export function RuleArchive({
   const receipt = saved?.receipt;
   return (
     <>
-      <section className={styles.panel} aria-label={t("archiveDeviceState")}>
-        <h2>{t("archiveDeviceState")}</h2>
-        <p>{t("ruleArchiveOnly")}</p>
-        {empty && <p>{t("archiveNoSaved")}</p>}
-        {reason && <p className={styles.muted}>{t(reason)}</p>}
-        {draft && <p>{t("ruleDraft")}</p>}
-        {error && (
-          <Alert color="red" role="alert">
-            {t(error)}
-          </Alert>
-        )}
-        {state.verified && receipt && (
-          <Alert color="green" role="status" className={styles.change}>
-            {t("ruleSaved", {
-              revision: receipt.revision,
-              bytes: receipt.bytes,
-            })}
-          </Alert>
-        )}
-        {!state.verified && saved?.kind === "saved" && !receipt && (
-          <p>{t("archiveReceiptMissing")}</p>
-        )}
-        {connected && (
-          <Button
-            variant="outline"
-            className={rules.control}
-            loading={loading}
-            disabled={saving}
-            onClick={() => void state.refresh()}
-          >
-            {t("archiveRefresh")}
-          </Button>
-        )}
-      </section>
+      {mode === "overview" && (
+        <>
+          {leading}
+          <SegmentedSection title={t("archiveDeviceState")}>
+            <SettingsRow
+              icon="archive"
+              title={
+                loading
+                  ? t("loading")
+                  : empty
+                    ? t("archiveNoSaved")
+                    : saved
+                      ? t("archiveSaved")
+                      : t("archiveUnavailable")
+              }
+              detail={t("ruleArchiveOnly")}
+            />
+            {saved?.kind === "saved" && base?.formatStatus === "valid" && (
+              <SettingsRow
+                icon="archive"
+                title={t("archiveRuleCount", {
+                  count: base.ruleCount ?? 0,
+                })}
+              />
+            )}
+            {reason && (
+              <SettingsRow
+                icon="notice"
+                title={t("archiveAvailability")}
+                detail={t(reason)}
+              />
+            )}
+            {draft && <SettingsRow icon="notice" title={t("ruleDraft")} />}
+            {error && (
+              <SettingsRow
+                icon="notice"
+                title={t("archiveOperationFailed")}
+                detail={t(error)}
+                role="alert"
+              />
+            )}
+            {state.verified && receipt && (
+              <SettingsRow
+                icon="active"
+                title={t("archiveSaved")}
+                detail={t("ruleSaved", {
+                  revision: receipt.revision,
+                  bytes: receipt.bytes,
+                })}
+                role="status"
+              />
+            )}
+            {!state.verified && saved?.kind === "saved" && !receipt && (
+              <SettingsRow icon="notice" title={t("archiveReceiptMissing")} />
+            )}
+            <SettingsRow
+              icon="restore"
+              title={t("archiveRefresh")}
+              disabled={!connected || loading || saving}
+              action={() => void state.refresh()}
+            />
+          </SegmentedSection>
+          <SegmentedSection title={t("saveDraft")}>
+            <SettingsRow
+              icon="save"
+              title={t("archiveReviewSave")}
+              detail={t(reason ?? "ruleNoEdits")}
+              disabled={
+                !canEdit ||
+                !draft ||
+                !saved ||
+                !diff?.changes.length ||
+                diff.truncated
+              }
+              action={() => {
+                if (draft && saved) setReview({ draft, saved });
+              }}
+            />
+            {draft && (
+              <>
+                <SettingsRow
+                  icon="restore"
+                  title={t("ruleDiscard")}
+                  disabled={loading || saving}
+                  action={() => setDialog({ kind: "discard" })}
+                />
+                <details className={rules.sourceBlock}>
+                  <summary>{t("ruleDraftText")}</summary>
+                  <pre className={rules.source}>{draft.text}</pre>
+                </details>
+              </>
+            )}
+            {saved?.text !== undefined && (
+              <details className={rules.sourceBlock}>
+                <summary>{t("ruleSourceText")}</summary>
+                <pre className={rules.source}>{saved.text}</pre>
+              </details>
+            )}
+          </SegmentedSection>
+        </>
+      )}
       {children}
       {groups.map((group) => {
         const entries = current ? readRules(current, group) : [];
         return (
-          <section key={group} className={rules.group}>
-            <h2>{t(groupLabels[group])}</h2>
-            <SettingsList label={t(groupLabels[group])}>
+          <div key={group} className={rules.group}>
+            <SegmentedSection title={t(groupLabels[group])}>
               {group === "kstats" && (
                 <SettingsRow
                   icon="add"
@@ -186,7 +266,7 @@ export function RuleArchive({
                     : group === "kstats"
                       ? t(modeLabels[rule.mode as keyof typeof modeLabels])
                       : group === "redirects"
-                        ? `→ ${rule.destination}\n${t("ruleUidValue", { value: String(rule.uidScheme) })}`
+                        ? `→ ${rule.destination}\n${String(rule.uidScheme)} · ${t(redirectSchemeLabels[Number(rule.uidScheme)] ?? "unknown")}`
                         : t("mapRules");
                 return (
                   <SettingsRow
@@ -199,56 +279,30 @@ export function RuleArchive({
                   />
                 );
               })}
-              {!entries.length && current?.formatStatus === "valid" && (
-                <SettingsRow icon={group} title={t("rulesEmpty")} />
-              )}
-            </SettingsList>
-          </section>
+              {!entries.length &&
+                !loading &&
+                !error &&
+                current?.formatStatus === "valid" && (
+                  <SettingsRow icon={group} title={t("rulesEmpty")} />
+                )}
+            </SegmentedSection>
+            {entries.length > 0 && (
+              <p className={rules.removalHint}>{t("ruleRemovalArchiveOnly")}</p>
+            )}
+          </div>
         );
       })}
-      <section className={styles.panel} aria-label={t("archive")}>
-        {diff?.truncated && <p>{t("ruleDiffBlocked")}</p>}
-        {!draft && <p className={styles.muted}>{t(reason ?? "ruleNoEdits")}</p>}
-        <Group>
-          <Button
-            className={rules.control}
-            disabled={
-              !canEdit ||
-              !draft ||
-              !saved ||
-              !diff?.changes.length ||
-              diff.truncated
-            }
-            onClick={() => {
-              if (draft && saved) setReview({ draft, saved });
+      {mode === "rules" && draft && (
+        <SegmentedSection title={t("ruleDraft")}>
+          <SettingsRow
+            icon="notice"
+            title={t("rulesDraftOverview")}
+            action={() => {
+              window.location.hash = "/rules/overview";
             }}
-          >
-            {t("archiveReviewSave")}
-          </Button>
-          {draft && (
-            <Button
-              className={rules.control}
-              variant="subtle"
-              disabled={loading || saving}
-              onClick={() => setDialog({ kind: "discard" })}
-            >
-              {t("ruleDiscard")}
-            </Button>
-          )}
-        </Group>
-        {draft && (
-          <details>
-            <summary>{t("ruleDraftText")}</summary>
-            <pre className={rules.source}>{draft.text}</pre>
-          </details>
-        )}
-        {saved?.text !== undefined && (
-          <details>
-            <summary>{t("ruleSourceText")}</summary>
-            <pre className={rules.source}>{saved.text}</pre>
-          </details>
-        )}
-      </section>
+          />
+        </SegmentedSection>
+      )}
       <Modal
         opened={Boolean(dialog || review)}
         onClose={close}
@@ -311,6 +365,7 @@ export function RuleArchive({
               rule={dialog.rule}
               staticMode={dialog.staticMode}
               readOnly={!canEdit}
+              provider={provider}
               onEdit={state.edit}
               onClose={close}
               t={t}
@@ -329,6 +384,7 @@ export function RuleArchive({
         {dialog?.kind === "batch" && canEdit && (
           <BatchRuleForm
             group={dialog.group}
+            provider={provider}
             onEdit={state.edit}
             onClose={close}
             t={t}
@@ -341,6 +397,7 @@ export function RuleArchive({
                 ? t("ruleDiscardNote")
                 : t("ruleDeleteNote", { path: dialog.rule?.path ?? "" })}
             </p>
+            {removeError && <p role="alert">{t("ruleWaitForRefresh")}</p>}
             <Group justify="flex-end">
               <Button variant="subtle" onClick={close}>
                 {t("ruleCancel")}
@@ -353,8 +410,10 @@ export function RuleArchive({
                   else if (
                     !dialog.rule ||
                     !state.edit({ group: dialog.group, before: dialog.rule })
-                  )
+                  ) {
+                    setRemoveError(true);
                     return;
+                  }
                   close();
                 }}
               >

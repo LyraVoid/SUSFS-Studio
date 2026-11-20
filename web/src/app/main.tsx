@@ -40,11 +40,8 @@ function App() {
     useSyncExternalStore(subscribe, () => window.location.hash),
   );
   const { status, stale } = useStatus(selection, request, source);
-  const archive = source.kind === "host" ? source.archive : undefined;
-  const rules = useRuleArchive(
-    archive,
-    route !== undefined && route !== "/settings",
-  );
+  const bridge = source.kind === "host" ? source.archive : undefined;
+  const rules = useRuleArchive(bridge, route?.startsWith("/rules/") === true);
   const t = translator(locale);
   useEffect(() => {
     document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
@@ -63,7 +60,6 @@ function App() {
           bridgeUnavailable={source.kind === "unavailable"}
           stale={stale}
           refresh={() => setRequest((id) => id + 1)}
-          archive={rules.base}
           t={t}
         />
       ) : route === "/settings" ? (
@@ -78,7 +74,6 @@ function App() {
           locale={locale}
           setLocale={setLocale}
           status={status}
-          archive={archive}
           t={t}
         />
       ) : route ? (
@@ -88,7 +83,9 @@ function App() {
           demo={demo}
           stale={stale}
           archive={rules}
-          connected={Boolean(archive)}
+          bridge={bridge}
+          connected={Boolean(bridge)}
+          refresh={() => setRequest((id) => id + 1)}
           t={t}
         />
       ) : (

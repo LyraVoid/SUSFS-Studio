@@ -8,18 +8,39 @@ export const scenarios = [
   "failed",
 ] as const;
 export type Scenario = (typeof scenarios)[number];
-export type Capability = "paths" | "map" | "kstat" | "redirect" | "extensions";
+export const capabilityKeys = [
+  "priorityUidFilter",
+  "hideMounts",
+  "logging",
+  "avcSpoof",
+  "uname",
+  "cmdline",
+  "paths",
+  "map",
+  "kstat",
+  "fullClone",
+  "staticKstat",
+  "redirect",
+  "hiddenModules",
+  "mountPrefixes",
+] as const;
+export type Capability = (typeof capabilityKeys)[number];
 export type Availability = "available" | "unavailable" | "unknown";
 export type Device = { model?: string; system?: string; kernel?: string };
+export type Provider = {
+  implementation: "builtin" | "lkm" | "unknown";
+  version: string;
+  kernelType: "GKI" | "unknown";
+  variant?: string;
+  audited?: boolean;
+  capabilities: Partial<Record<Capability | "extensions", Availability>>;
+  staticKstatFields?: string[];
+  redirectUidSchemes?: number[];
+};
 type Result =
   | {
       kind: "active";
-      provider: {
-        implementation: "builtin" | "lkm" | "unknown";
-        version: string;
-        kernelType: "GKI" | "unknown";
-        capabilities: Partial<Record<Capability, Availability>>;
-      };
+      provider: Provider;
     }
   | { kind: "missing" | "unknownProtocol" | "failed" };
 export type Status =
@@ -38,13 +59,16 @@ const fixtures = {
     provider: {
       implementation: "lkm",
       version: "2.3.0",
+      variant: "GKI-LKM",
+      audited: false,
       kernelType: "GKI",
       capabilities: {
         paths: "available",
         map: "unknown",
         kstat: "unknown",
         redirect: "unavailable",
-        extensions: "available",
+        hiddenModules: "available",
+        mountPrefixes: "available",
       },
     },
   },
@@ -58,13 +82,20 @@ const fixtures = {
     provider: {
       implementation: "builtin",
       version: "2.4.0",
+      variant: "GKI",
+      audited: true,
+      staticKstatFields: ["size", "ctime_sec"],
+      redirectUidSchemes: [0, 1, 2],
       kernelType: "GKI",
       capabilities: {
         paths: "available",
         map: "available",
         kstat: "unknown",
         redirect: "available",
-        extensions: "unavailable",
+        staticKstat: "available",
+        fullClone: "available",
+        hiddenModules: "unavailable",
+        mountPrefixes: "unavailable",
       },
     },
   },

@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, test } from "@playwright/test";
 import fixtures from "../../contracts/diagnostic-v1.json" with { type: "json" };
 
 test("a late host response cannot overwrite a newer refresh", async ({
@@ -41,7 +41,9 @@ test("a late host response cannot overwrite a newer refresh", async ({
   await page.goto("/");
   await expect(page.getByRole("status")).toContainText("v2.3.0");
   await page.getByRole("button", { name: /状态/ }).click();
-  const refresh = page.getByRole("button", { name: "刷新诊断" });
+  const refresh = page
+    .getByRole("dialog")
+    .getByRole("button", { name: "刷新诊断" });
   await page.evaluate(() =>
     window.dispatchEvent(new Event("delay-next-status")),
   );
@@ -71,7 +73,7 @@ test("a host without a command bridge does not display demo data", async ({
   await expect(page.getByRole("status")).not.toContainText("LKM");
   await expect(page.getByText("宿主未提供安全诊断接口")).toBeVisible();
   await expect(page.getByText("演示数据", { exact: true })).toHaveCount(0);
-  await page.getByRole("link", { name: "设置" }).click();
+  await page.getByRole("link", { name: "设置", exact: true }).click();
   await expect(page.getByLabel("演示场景")).toHaveCount(0);
 });
 
@@ -145,24 +147,23 @@ test("an injected host shows its own result and refresh failures", async ({
       }),
     ),
   );
-  await page.getByRole("button", { name: "刷新诊断" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "刷新诊断" })
+    .click();
   await expect(page.getByRole("dialog")).toContainText("无法读取诊断结果");
   await expect(page.getByRole("dialog")).not.toContainText("接口报告可用");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("status")).not.toContainText("LKM");
 });
 
-test("main navigation, diagnostic dialog and capability labels", async ({
-  page,
-}) => {
+test("three-item main navigation and six SUSFS tabs", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("status")).toContainText("已激活");
   await expect(page.locator("main h2").allTextContents()).resolves.toEqual([
     "设备",
-    "能力与兼容性",
-    "设备应用",
   ]);
-  await expect(page.locator("main dd[data-availability]")).toHaveCount(5);
+  await expect(page.locator("main [data-availability]")).toHaveCount(0);
   const status = page.getByRole("button", { name: /状态/ });
   await status.click();
   await expect(page.getByRole("dialog")).toContainText("能力来自演示夹具");
@@ -170,22 +171,111 @@ test("main navigation, diagnostic dialog and capability labels", async ({
   await page.keyboard.press("Escape");
   await expect(status).toBeFocused();
   const menu = page.getByRole("navigation", { name: "主导航" });
+  await expect(menu.getByRole("link")).toHaveCount(3);
   await menu.getByRole("link", { name: "规则" }).click();
   await expect(
-    page.getByRole("heading", { name: "路径", level: 1 }),
+    page.getByRole("heading", { name: "SUSFS", level: 1 }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "伪装" }).click();
-  await expect(page.getByRole("heading", { name: "伪装" })).toBeVisible();
-  await page.getByRole("link", { name: "重定向" }).click();
-  await expect(
-    page.getByRole("heading", { name: "重定向", level: 1 }),
-  ).toBeVisible();
+  const tabs = page.getByRole("navigation", { name: "规则分类" });
+  await expect(tabs.getByRole("link")).toHaveText([
+    "概览",
+    "基础设置",
+    "路径隐藏",
+    "文件伪装",
+    "重定向",
+    "扩展",
+  ]);
+  await expect(page.locator("main [data-availability]")).toHaveCount(14);
+  await tabs.getByRole("link", { name: "路径隐藏" }).click();
+  await expect(page.getByRole("heading", { name: "路径规则" })).toBeVisible();
+  await tabs.getByRole("link", { name: "文件伪装" }).click();
+  await expect(page.getByRole("heading", { name: "Map 规则" })).toBeVisible();
+  await tabs.getByRole("link", { name: "重定向" }).click();
+  await expect(page.getByRole("heading", { name: "重定向规则" })).toBeVisible();
   await page.goBack();
-  await expect(page.getByRole("heading", { name: "伪装" })).toBeVisible();
-  await menu.getByRole("link", { name: "扩展" }).click();
-  await expect(page.getByRole("heading", { name: "扩展" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Map 规则" })).toBeVisible();
+  await tabs.getByRole("link", { name: "扩展" }).click();
+  await expect(
+    page.getByRole("button", { name: "添加：隐藏模块名" }),
+  ).toBeDisabled();
   await menu.getByRole("link", { name: "设置" }).click();
   await expect(page.getByRole("heading", { name: "设置" })).toBeVisible();
+});
+
+test("Rules page keeps its layout tokens", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 805 });
+  await page.addInitScript(() => localStorage.setItem("studio-theme", "dark"));
+  await page.goto("/#/rules/overview");
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-mantine-color-scheme",
+    "dark",
+  );
+  const rules = page.getByTestId("rules-page");
+  const content = page.getByTestId("rules-content");
+  const tabs = page.getByTestId("rules-tabs");
+  const header = page.getByTestId("rules-header");
+  const toolbar = page.getByTestId("rules-toolbar");
+  const refresh = page.getByRole("button", { name: "刷新", exact: true });
+  const title = header.getByRole("heading", { name: "SUSFS", level: 1 });
+  const active = tabs.locator('a[aria-current="page"]');
+  const inactive = tabs.getByRole("link", { name: "基础设置" });
+  const list = page.getByTestId("segmented-list").first();
+  const rows = list.getByTestId("settings-row");
+  const first = rows.first();
+  const second = rows.nth(1);
+  const sectionTitle = page.getByTestId("segmented-section-title").first();
+  const style = (locator: Locator, property: string) =>
+    locator.evaluate(
+      (element, key) => getComputedStyle(element).getPropertyValue(key),
+      property,
+    );
+  await expect(page.locator("main h2").allTextContents()).resolves.toEqual([
+    "控制协议兼容",
+    "设备归档状态",
+    "保存草稿",
+    "设备应用",
+    "配置",
+    "能力与兼容性",
+  ]);
+  await expect(rules).toHaveCSS("max-width", "840px");
+  await expect(header.getByRole("link")).toHaveCount(0);
+  const toolbarBox = await toolbar.boundingBox();
+  const refreshBox = await refresh.boundingBox();
+  const titleBox = await title.boundingBox();
+  if (!toolbarBox || !refreshBox || !titleBox)
+    throw new Error("Missing rules header bounds");
+  expect(refreshBox.x + refreshBox.width).toBeCloseTo(
+    toolbarBox.x + toolbarBox.width,
+    0,
+  );
+  expect(titleBox.y).toBeGreaterThanOrEqual(toolbarBox.y + toolbarBox.height);
+  expect(await style(content, "gap")).toBe("20px");
+  expect(await style(tabs, "gap")).toBe("6px");
+  expect(await style(tabs, "flex-wrap")).toBe("nowrap");
+  expect(await style(tabs, "overflow-x")).toBe("auto");
+  expect(await style(inactive, "min-height")).toBe("48px");
+  expect(await style(inactive, "padding-left")).toBe("20px");
+  expect(await style(inactive, "border-radius")).toBe("999px");
+  expect(await style(inactive, "background-color")).toBe("rgb(33, 38, 44)");
+  expect(await style(active, "background-color")).toBe("rgb(46, 61, 71)");
+  expect(await style(list, "gap")).toBe("2px");
+  expect(await style(first, "border-radius")).toBe("16px 16px 4px 4px");
+  expect(await style(second, "border-radius")).toBe("4px 4px 16px 16px");
+  expect(await style(first, "font-size")).toBe("17px");
+  expect(await style(first, "line-height")).toBe("22px");
+  const detail = first.getByTestId("settings-row-detail");
+  expect(await style(detail, "font-size")).toBe("15px");
+  expect(await style(detail, "line-height")).toBe("20px");
+  expect(await style(sectionTitle, "font-size")).toBe("14px");
+  expect(await style(sectionTitle, "line-height")).toBe("20px");
+  expect(await style(sectionTitle, "color")).toBe("rgb(175, 193, 206)");
+  expect(await style(sectionTitle, "padding-left")).toBe("16px");
+  expect(await style(sectionTitle, "margin-bottom")).toBe("8px");
+  expect(await style(page.getByTestId("shell"), "background-color")).toBe(
+    "rgb(26, 32, 36)",
+  );
+  await page.setViewportSize({ width: 1200, height: 805 });
+  expect((await rules.boundingBox())?.width).toBe(840);
 });
 
 test("distinct demo results and confirmed implementation badges", async ({
@@ -203,27 +293,53 @@ test("distinct demo results and confirmed implementation badges", async ({
     ["unknownProtocol", "协议未知", ""],
     ["failed", "连接失败", ""],
   ] as const) {
-    await page.getByRole("link", { name: "设置" }).click();
+    await page.getByRole("link", { name: "设置", exact: true }).click();
     await page.getByLabel("演示场景").selectOption(scenario);
     await page.getByRole("link", { name: "首页" }).click();
     await expect(status).toContainText(label);
-    if (scenario === "loading" || scenario === "failed") {
-      const availability = scenario === "loading" ? "loading" : "unknown";
-      await expect(
-        page.locator(`main dd[data-availability="${availability}"]`),
-      ).toHaveCount(5);
-    }
     if (badge) {
       await expect(status).toContainText(badge);
       await expect(status).toContainText("2.4.0");
     } else await expect(status).not.toContainText(/Built-In|LKM/);
+    if (scenario === "loading" || scenario === "failed") {
+      await page.getByRole("link", { name: "规则" }).click();
+      const availability = scenario === "loading" ? "loading" : "unknown";
+      await expect(
+        page.locator(`main [data-availability="${availability}"]`),
+      ).toHaveCount(14);
+    }
   }
+});
+
+test("a non-LKM sample keeps extension edits blocked with a reason", async ({
+  page,
+}) => {
+  await page.goto("/#/settings");
+  await page.getByLabel("演示场景").selectOption("builtin24");
+  await page.getByRole("link", { name: "规则", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "规则分类" })
+    .getByRole("link", {
+      name: "扩展",
+    })
+    .click();
+  await expect(
+    page.getByText(
+      "扩展编辑需要当前设备确认使用 LKM；演示和过期结果不会启用编辑。",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "添加：隐藏模块名" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "添加：挂载路径前缀" }),
+  ).toBeDisabled();
 });
 
 test("archive preview stays local and retains no draft on close", async ({
   page,
 }) => {
-  await page.goto("/#/settings");
+  await page.goto("/#/rules/overview");
   await expect(page.getByRole("button", { name: "设备保存" })).toBeDisabled();
   const preview = page.getByRole("button", { name: "离线预览" });
   await preview.click();
@@ -368,7 +484,7 @@ test("archive save, receipt refresh and export form one confirmed loop", async (
     },
     { hello: fixtures.hello, active: fixtures.active, archive },
   );
-  await page.goto("/#/settings");
+  await page.goto("/#/rules/overview");
   const save = page.getByRole("button", { name: "设备保存" });
   await expect(save).toBeEnabled();
   await save.click();
@@ -488,7 +604,7 @@ test("an uncertain archive save keeps the draft and requires verification", asyn
     },
     { hello: fixtures.hello, active: fixtures.active, archive },
   );
-  await page.goto("/#/settings");
+  await page.goto("/#/rules/overview");
   await page.getByRole("button", { name: "设备保存" }).click();
   const dialog = page.getByRole("dialog");
   await dialog
@@ -530,6 +646,8 @@ test("mobile and desktop breakpoint, persisted preferences and axe", async ({
   const nav = page.getByRole("navigation", { name: "主导航" });
   expect((await nav.boundingBox())?.width).toBe(360);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.setViewportSize({ width: 839, height: 805 });
+  expect((await nav.boundingBox())?.width).toBe(839);
   await page.setViewportSize({ width: 840, height: 805 });
   expect((await nav.boundingBox())?.width).toBe(192);
   await nav.getByRole("link", { name: "设置" }).click();

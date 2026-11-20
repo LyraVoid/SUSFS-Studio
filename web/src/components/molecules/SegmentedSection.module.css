@@ -1,0 +1,12 @@
+.section {
+  display: grid;
+  min-width: 0;
+}
+.section h2 {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  color: var(--primary);
+  padding-inline-start: var(--s16);
+  margin-bottom: var(--s8);
+}

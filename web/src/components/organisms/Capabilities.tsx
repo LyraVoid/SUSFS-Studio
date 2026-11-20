@@ -1,13 +1,22 @@
 import type { Message, Translate } from "../../i18n/messages";
 import type { Capability, Status } from "../../transport/mock";
-import styles from "./Panels.module.css";
+import { SettingsRow } from "../molecules/SettingsList";
 
-export const capabilityLabels = {
-  paths: "paths",
-  map: "map",
-  kstat: "kstat",
-  redirect: "redirect",
-  extensions: "extensions",
+const capabilityLabels = {
+  priorityUidFilter: "controlUid",
+  hideMounts: "controlHideMounts",
+  logging: "controlLogging",
+  avcSpoof: "controlAvcSpoof",
+  uname: "controlUname",
+  cmdline: "controlCmdline",
+  paths: "pathRules",
+  map: "mapRules",
+  kstat: "controlDynamicKstat",
+  fullClone: "ruleClone",
+  staticKstat: "ruleStatic",
+  redirect: "redirectRules",
+  hiddenModules: "controlModules",
+  mountPrefixes: "controlPrefixes",
 } satisfies Record<Capability, Message>;
 
 export function Capabilities({
@@ -19,34 +28,65 @@ export function Capabilities({
 }: {
   status: Status;
   demo: boolean;
-  fields: Capability[];
+  fields: readonly Capability[];
   stale?: boolean;
   t: Translate;
 }) {
+  const provider =
+    !stale && status.kind === "active" ? status.provider : undefined;
   return (
-    <dl className={styles.facts}>
+    <>
       {fields.map((field) => {
         const value =
-          stale || status.kind === "loading"
+          status.kind === "loading" || stale
             ? "loading"
-            : status.kind === "active"
-              ? (status.provider.capabilities[field] ?? "unknown")
-              : "unknown";
+            : (provider?.capabilities[field] ?? "unknown");
+        const detail =
+          field === "staticKstat" && provider
+            ? provider.staticKstatFields === undefined
+              ? t("controlUnreportedFields")
+              : t("controlReportedFields", {
+                  values:
+                    provider.staticKstatFields.join(", ") || t("archiveNoKeys"),
+                })
+            : field === "redirect" && provider
+              ? provider.redirectUidSchemes === undefined
+                ? t("controlUnreportedSchemes")
+                : t("controlReportedSchemes", {
+                    values:
+                      provider.redirectUidSchemes.join(", ") ||
+                      t("archiveNoKeys"),
+                  })
+              : undefined;
         return (
-          <div key={field}>
-            <dt>{t(capabilityLabels[field])}</dt>
-            <dd data-availability={value}>
-              {t(
-                !demo && (value === "available" || value === "unavailable")
-                  ? value === "available"
+          <SettingsRow
+            key={field}
+            icon={
+              value === "available"
+                ? "active"
+                : value === "unavailable"
+                  ? "notice"
+                  : "unknownProtocol"
+            }
+            title={t(capabilityLabels[field])}
+            detail={[
+              t(
+                demo
+                  ? value
+                  : value === "available"
                     ? "reportedAvailable"
-                    : "notReported"
-                  : value,
-              )}
-            </dd>
-          </div>
+                    : value === "unavailable"
+                      ? "reportedUnavailable"
+                      : value,
+              ),
+              detail,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            dataAvailability={value}
+          />
         );
       })}
-    </dl>
+    </>
   );
 }

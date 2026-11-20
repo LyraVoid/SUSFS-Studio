@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
-import { type BrowserContext, expect, test } from "@playwright/test";
+import { type BrowserContext, expect, type Page, test } from "@playwright/test";
 import fixture from "../../contracts/archive-v1.json" with { type: "json" };
 import fixtures from "../../contracts/diagnostic-v1.json" with { type: "json" };
 
@@ -11,6 +11,13 @@ const original = JSON.stringify(fixture, null, 2).replace(
   '"example": 18446744073709551615, "other": 1e+02',
 );
 
+async function openOverview(page: Page) {
+  await page
+    .getByRole("navigation", { name: "规则分类" })
+    .getByRole("link", { name: "概览" })
+    .click();
+}
+
 test("imports only after confirmation and edits Schema 2 settings and extensions", async ({
   context,
   page,
@@ -18,7 +25,7 @@ test("imports only after confirmation and edits Schema 2 settings and extensions
   const session = await host(context);
   await page.setViewportSize({ width: 360, height: 800 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/#/settings");
+  await page.goto("/#/rules/overview");
   const exchange = page.getByRole("button", { name: "SUSFS 配置交换" });
   await exchange.click();
   const dialog = page.getByRole("dialog");
@@ -40,19 +47,44 @@ test("imports only after confirmation and edits Schema 2 settings and extensions
   await page.keyboard.press("Escape");
   await expect(exchange).toBeFocused();
   await page.goto("/#/rules/basic");
-  await expect(page.getByLabel("优先 UID 过滤")).toBeDisabled();
-  const logging = page.getByLabel("日志记录");
-  await expect(logging).toHaveValue("true");
-  await logging.selectOption("false");
-  await page.getByRole("link", { name: "扩展", exact: true }).click();
-  await page.getByLabel("隐藏模块名").fill("test_module");
-  const add = page.getByRole("button", { name: "添加：隐藏模块名" });
-  await add.click();
-  await page.getByLabel("隐藏模块名").fill("test_module");
-  await add.click();
+  const apps = page.getByRole("button", { name: "优先 UID 过滤" });
+  await apps.click();
   await expect(
-    page.getByText("值的格式无效、重复，或列表已达到上限。"),
+    dialog.getByText("没有经验证的应用 UID 列表，仅可查看归档值。"),
   ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(apps).toBeFocused();
+  const logging = page.getByRole("button", { name: "日志记录" });
+  await expect(logging).toContainText("开");
+  await logging.click();
+  await expect(dialog.getByRole("radio", { name: "开" })).toBeChecked();
+  await dialog.getByText("关", { exact: true }).click();
+  await expect(logging).toContainText("关");
+  await page.getByRole("link", { name: "扩展", exact: true }).click();
+  const add = page.getByRole("button", { name: "添加：隐藏模块名" });
+  const update = dialog.getByRole("button", { name: "更新草稿" });
+  await add.click();
+  await dialog.getByLabel("隐藏模块名").fill("test_module");
+  await update.click();
+  await add.click();
+  await dialog.getByLabel("隐藏模块名").fill("test_module");
+  await update.click();
+  await expect(
+    dialog.getByText("值的格式无效、重复，或列表已达到上限。"),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  const entry = page.getByRole("button", { name: "test_module", exact: true });
+  await entry.click();
+  await dialog.getByLabel("隐藏模块名").fill("updated_module");
+  await update.click();
+  await page
+    .getByRole("button", { name: "updated_module", exact: true })
+    .click();
+  const remove = dialog.getByRole("button", { name: "移除规则", exact: true });
+  await remove.click();
+  await expect(dialog.getByText(/从归档草稿移除 updated_module/)).toBeVisible();
+  await dialog.getByRole("button", { name: "取消" }).click();
+  await openOverview(page);
   await page.getByRole("button", { name: "检查并确认保存" }).click();
   await expect(dialog).toContainText("/lkm/hiddenModules");
   await expect(dialog).toContainText("/settings/logging");
@@ -61,9 +93,9 @@ test("imports only after confirmation and edits Schema 2 settings and extensions
     .poll(() => JSON.parse(session.text() ?? "{}"))
     .toMatchObject({
       settings: { logging: false },
-      lkm: { hiddenModules: ["test_module"] },
+      lkm: { hiddenModules: ["updated_module"] },
     });
-  await page.goto("/#/");
+  await page.getByRole("link", { name: "规则", exact: true }).click();
   await expect(page.getByRole("button", { name: "应用到设备" })).toBeDisabled();
 });
 
@@ -72,7 +104,7 @@ test("a reviewed Schema 2 upgrade cannot overwrite a different baseline", async 
   page,
 }) => {
   const session = await host(context, original);
-  await page.goto("/#/settings");
+  await page.goto("/#/rules/overview");
   await page.getByRole("button", { name: "离线预览" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "预览升级至 Schema 2" }).click();
@@ -92,6 +124,7 @@ async function host(
   context: BrowserContext,
   initial?: string,
   writable = true,
+  provider: Record<string, unknown> = {},
 ) {
   let text = initial;
   let failure: string | undefined;
@@ -213,7 +246,11 @@ async function host(
       ...fixtures,
       active: {
         ...fixtures.active,
-        data: { ...fixtures.active.data, control: { archiveImport: true } },
+        data: {
+          ...fixtures.active.data,
+          provider: { ...fixtures.active.data.provider, ...provider },
+          control: { archiveImport: true },
+        },
       },
       writable,
     },
@@ -236,6 +273,21 @@ async function host(
     },
   };
 }
+
+test("static kstat form follows explicitly reported fields", async ({
+  context,
+  page,
+}) => {
+  await host(context, original, true, { staticKstatFields: ["size"] });
+  await page.goto("/#/rules/disguise");
+  await page.getByRole("button", { name: "新增静态 kstat" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("文件大小")).toBeVisible();
+  await expect(dialog.getByLabel("inode 编号")).toHaveCount(0);
+  await expect(dialog.getByLabel("状态变更时间（秒）")).toHaveCount(0);
+  await expect(dialog).toContainText("报告的字段：size");
+  await page.keyboard.press("Escape");
+});
 
 test("all four rule pages edit, validate, remove and cancel before one confirmed save", async ({
   context,
@@ -311,6 +363,7 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
     ).toHaveCount(0);
   }
   expect(store.text()).toBe(original);
+  await openOverview(page);
   await page.getByRole("button", { name: "检查并确认保存" }).click();
   await expect(dialog).toContainText(digest(original));
   await expect(dialog).toContainText("/rules/kstats/0/static/inode");
@@ -323,11 +376,14 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
   );
   expect(store.text()).toContain('"futureStatField": true');
   expect(store.text()).toContain('"inode": "18446744073709551614"');
-  await page.getByRole("button", { name: "刷新设备归档" }).click();
+  await page
+    .getByRole("navigation", { name: "规则分类" })
+    .getByRole("link", { name: "重定向" })
+    .click();
   await expect(
     page.getByRole("button", { name: "/changed-redirect" }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "设置", exact: true }).click();
+  await openOverview(page);
   await page.getByRole("button", { name: "设备导出" }).click();
   const download = page.waitForEvent("download");
   await dialog.getByRole("button", { name: "设备导出" }).click();
@@ -379,6 +435,7 @@ test("two rule sessions rebase only nonconflicting edits and require new review"
     await tab.getByRole("button", { name: current, exact: true }).click();
     await tab.getByRole("dialog").getByLabel("源路径").fill(next);
     await tab.getByRole("button", { name: "更新草稿" }).click();
+    await openOverview(tab);
     await tab.getByRole("button", { name: "检查并确认保存" }).click();
   }
   await page.getByRole("button", { name: "确认保存", exact: true }).click();
@@ -412,11 +469,16 @@ for (const failure of [
   }) => {
     const store = await host(context);
     store.failure(failure);
-    await page.goto("/#/rules/paths");
+    await page.goto("/#/rules/overview");
     await expect(page.getByText("设备上尚无 Studio 归档")).toBeVisible();
+    await page
+      .getByRole("navigation", { name: "规则分类" })
+      .getByRole("link", { name: "路径隐藏" })
+      .click();
     await page.getByRole("button", { name: "新增规则", exact: true }).click();
     await page.getByLabel("源路径").fill("/new-safe-rule");
     await page.getByRole("button", { name: "更新草稿" }).click();
+    await openOverview(page);
     await page.getByRole("button", { name: "检查并确认保存" }).click();
     await page.getByRole("button", { name: "确认保存", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText(
@@ -448,13 +510,17 @@ test("no host, read-only host and unsupported archives do not expose device save
   browser,
   page,
 }) => {
-  await page.goto("/#/rules/paths");
+  await page.goto("/#/rules/overview");
   await expect(page.getByText("演示数据", { exact: true })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "新增规则", exact: true }),
-  ).toBeDisabled();
-  await expect(
     page.getByRole("button", { name: "检查并确认保存" }),
+  ).toBeDisabled();
+  await page
+    .getByRole("navigation", { name: "规则分类" })
+    .getByRole("link", { name: "路径隐藏" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "新增规则", exact: true }),
   ).toBeDisabled();
   for (const [text, writable] of [
     [original, false],
@@ -467,9 +533,13 @@ test("no host, read-only host and unsupported archives do not expose device save
     });
     await host(context, text, writable);
     const tab = await context.newPage();
-    await tab.goto("/#/rules/paths");
+    await tab.goto("/#/rules/overview");
     await tab.getByText("设备归档原文").click();
     await expect(tab.locator("pre")).toHaveText(text);
+    await tab
+      .getByRole("navigation", { name: "规则分类" })
+      .getByRole("link", { name: "路径隐藏" })
+      .click();
     await expect(
       tab.getByRole("button", { name: "新增规则", exact: true }),
     ).toBeDisabled();

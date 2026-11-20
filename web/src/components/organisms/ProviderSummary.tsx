@@ -1,8 +1,9 @@
 import { Button, Modal, Stack } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import type { Translate } from "../../i18n/messages";
-import type { Status } from "../../transport/mock";
+import { capabilityKeys, type Status } from "../../transport/mock";
 import { FactRow } from "../molecules/FactRow";
+import { SettingsList } from "../molecules/SettingsList";
 import { Capabilities } from "./Capabilities";
 import styles from "./Panels.module.css";
 
@@ -80,13 +81,15 @@ export function ProviderSummary({
           <p className={styles.muted}>
             {t(demo ? "fixtureOnly" : "hostCapabilities")}
           </p>
-          <Capabilities
-            status={status}
-            demo={demo}
-            stale={stale}
-            fields={["paths", "map", "kstat", "redirect", "extensions"]}
-            t={t}
-          />
+          <SettingsList label={t("compatibility")}>
+            <Capabilities
+              status={status}
+              demo={demo}
+              stale={stale}
+              fields={capabilityKeys}
+              t={t}
+            />
+          </SettingsList>
           <Button variant="default" size="md" onClick={refresh}>
             {t("refresh")}
           </Button>

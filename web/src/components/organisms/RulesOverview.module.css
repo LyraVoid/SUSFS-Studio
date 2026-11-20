@@ -1,0 +1,28 @@
+.overview {
+  display: grid;
+  gap: var(--s20);
+}
+.archive,
+.capabilities {
+  display: grid;
+  min-width: 0;
+}
+.archive h2,
+.capabilities h2 {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  color: var(--primary);
+  padding-inline-start: var(--s16);
+  margin-bottom: var(--s8);
+}
+.archive > :last-child,
+.capabilities > :last-child {
+  min-width: 0;
+}
+.capabilities > p {
+  color: var(--on-muted);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: var(--s8) var(--s16) 0;
+}

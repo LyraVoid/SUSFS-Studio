@@ -60,3 +60,33 @@
   padding: var(--s12);
   border-radius: var(--r10);
 }
+.capabilityList {
+  display: grid;
+  gap: 2px;
+  overflow: hidden;
+  border-radius: var(--r16);
+}
+.capabilityList > div {
+  display: flex;
+  align-items: center;
+  gap: var(--s12);
+  padding: var(--s8) var(--s12);
+  min-height: 52px;
+  min-width: 0;
+  border-radius: var(--r4);
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+  overflow-wrap: anywhere;
+}
+.capabilityList svg {
+  flex: none;
+}
+.capabilityCopy {
+  display: grid;
+  gap: var(--s4);
+  min-width: 0;
+}
+.capabilityCopy > span:last-child {
+  color: var(--on-muted);
+  font-size: 0.875rem;
+}

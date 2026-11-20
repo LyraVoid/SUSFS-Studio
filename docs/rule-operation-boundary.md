@@ -1,6 +1,6 @@
 # Rule Operation Boundary
 
-Studio's provider is read-only. Archive validation and comparison are not device application, and feature markers are not permission to write or evidence of effect. The Home application action is disabled, and the CLI apply and verify commands return a structured rejection without sending a rule operation to the provider. No per-rule result is fabricated.
+Studio's provider is read-only. Archive validation and comparison are not device application, and feature markers are not permission to write or evidence of effect. The application action on Rules → Overview is disabled, and the CLI apply and verify commands return a structured rejection without sending a rule operation to the provider. No per-rule result is fabricated.
 
 ## Review matrix
 

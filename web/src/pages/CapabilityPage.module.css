@@ -1,19 +1,101 @@
+.rulesPage {
+  --settings-row-surface: var(--rules-card);
+  --surface-container: var(--rules-bg);
+  --surface-container-low: var(--rules-card);
+  --surface-container-high: var(--rules-active);
+  --on-surface: var(--rules-text);
+  --on-container: var(--rules-text);
+  --on-muted: var(--rules-muted);
+  --primary: var(--rules-primary);
+  --settings-row-font-size: 1.0625rem;
+  --settings-row-line-height: 1.375rem;
+  --settings-row-detail-size: 0.9375rem;
+  --settings-row-detail-line-height: 1.25rem;
+  --settings-row-pressed-scale: 0.97;
+  width: 100%;
+  max-width: 52.5rem;
+  margin-inline: auto;
+  color: var(--rules-text);
+}
+.rulesHeader {
+  display: grid;
+  grid-template-rows: 64px 1fr;
+  min-height: 152px;
+  margin: 0;
+  padding: 0;
+}
+.rulesToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.title {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-content: end;
+  align-items: baseline;
+  justify-content: start;
+  gap: var(--s8);
+  min-width: 0;
+  padding-bottom: var(--s16);
+}
+.title h1 {
+  color: var(--rules-text);
+  font-size: 2rem;
+  line-height: 2.5rem;
+  font-weight: 400;
+}
+.title span {
+  color: var(--rules-muted);
+  font-size: 0.75rem;
+}
+.refresh {
+  flex: none;
+  min-height: var(--hit);
+  color: var(--rules-primary);
+  padding-inline: var(--s16);
+  white-space: nowrap;
+}
 .subnav {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--s8);
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding: var(--s8) 0;
+  scrollbar-width: none;
+}
+.subnav::-webkit-scrollbar {
+  display: none;
 }
 .subnav a {
+  flex: none;
   display: grid;
   place-items: center;
   min-height: var(--hit);
-  padding-inline: var(--s16);
-  background: var(--surface-container);
+  padding-inline: 1.25rem;
   border-radius: var(--r-full);
-  color: var(--on-container);
+  background: var(--rules-card);
+  color: var(--rules-muted);
   text-decoration: none;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  transition:
+    background var(--fast),
+    color var(--fast);
 }
-.subnav a[aria-current] {
-  background: var(--secondary-container);
-  color: var(--on-secondary-container);
+.subnav a[aria-current="page"] {
+  background: var(--rules-active);
+  color: var(--rules-text);
+}
+.rulesContent {
+  display: grid;
+  gap: var(--s20);
+  min-width: 0;
+}
+@media (max-width: 839px) {
+  .rulesPage {
+    padding-top: 0;
+  }
 }

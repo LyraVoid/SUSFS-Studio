@@ -13,23 +13,27 @@ import {
   type RuleEdit,
   type RuleGroup,
 } from "../../features/config/ruleEdits";
-import type { Translate } from "../../i18n/messages";
+import { redirectSchemeLabels, type Translate } from "../../i18n/messages";
+import type { Provider } from "../../transport/mock";
 
 export function BatchRuleForm({
   group,
   onEdit,
   onClose,
+  provider,
   t,
 }: {
   group: RuleGroup;
   onEdit: (edits: RuleEdit[]) => boolean;
   onClose: () => void;
+  provider?: Provider;
   t: Translate;
 }) {
   const [text, setText] = useState("");
   const [looping, setLooping] = useState(false);
   const [uid, setUid] = useState("0");
   const [rejected, setRejected] = useState(false);
+  const schemes = provider?.redirectUidSchemes;
   const redirect = group === "redirects";
   const seen = new Set<string>();
   let invalid = 0;
@@ -92,15 +96,25 @@ export function BatchRuleForm({
           />
         )}
         {redirect && (
-          <NativeSelect
-            label={t("ruleUid")}
-            value={uid}
-            onChange={(event) => setUid(event.currentTarget.value)}
-            data={["0", "1", "2", "3", "4"].map((value) => ({
-              value,
-              label: t("ruleUidValue", { value }),
-            }))}
-          />
+          <>
+            <NativeSelect
+              label={t("ruleUid")}
+              description={t("controlArchiveSchemes")}
+              value={uid}
+              onChange={(event) => setUid(event.currentTarget.value)}
+              data={redirectSchemeLabels.map((label, value) => ({
+                value: String(value),
+                label: `${value} · ${t(label)}`,
+              }))}
+            />
+            <p>
+              {schemes
+                ? t("controlReportedSchemes", {
+                    values: schemes.join(", ") || t("archiveNoKeys"),
+                  })
+                : t("controlUnreportedSchemes")}
+            </p>
+          </>
         )}
         {valid && <p>{t("ruleBatchCount", { count: rows.length })}</p>}
         {rejected && <p role="alert">{t("ruleEditInvalid")}</p>}
