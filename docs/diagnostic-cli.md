@@ -70,6 +70,8 @@ The separate serial tests run writers in child processes against ordinary-permis
 
 The two-writer race starts independent processes with distinct candidates staged against the same baseline. Exactly one succeeds; the other reports conflict or lock contention. The Android arm64 race also passed under UID 2000 in an isolated directory on the PKX110. A separate Playwright regression checks two independent pages with a shared test bridge, including draft retention and the required review after refresh. Neither check proves concurrency in the installed manager's WebUI.
 
+The restore fault matrix injects a storage error or sends `SIGKILL` at ten boundaries from backup writing through receipt rename. It checks the archive bytes and digest, receipt association, backup bytes, and stage consumption, then verifies that a subsequent save still works. The Linux and isolated Android arm64 runs passed. Observations after process exit reflect the running filesystem; a visible rename is not proof of persistence across power loss.
+
 On 2026-11-20, the arm64 debug test executable ran these serial tests and `restore_preserves_current_archive_before_replacement` as the shell UID with `TMPDIR=/data/local/tmp` on the PKX110 device described in [host integration](host-integration.md). The test directories and executable were removed. This does not exercise the installed manager or its privileged store.
 
 ## Package the development artifacts

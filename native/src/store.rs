@@ -119,7 +119,33 @@ fn now_millis() -> String {
 }
 
 fn valid_token(token: &str) -> bool {
-    token.len() == 32 && token.bytes().all(|byte| byte.is_ascii_hexdigit())
+    token.len() == 32
+        && token
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+#[cfg(test)]
+static FAULT: std::sync::Mutex<Option<(std::thread::ThreadId, &'static str, bool)>> =
+    std::sync::Mutex::new(None);
+
+#[cfg(test)]
+fn set_fault(fault: Option<(&'static str, bool)>) {
+    *FAULT.lock().unwrap() = fault.map(|(name, kill)| (std::thread::current().id(), name, kill));
+}
+
+#[cfg(test)]
+fn checkpoint(point: &str) -> io::Result<()> {
+    let fault = *FAULT.lock().unwrap();
+    if let Some((_, _, terminate)) =
+        fault.filter(|(thread, name, _)| *thread == std::thread::current().id() && *name == point)
+    {
+        if terminate {
+            unsafe { libc::raise(libc::SIGKILL) };
+        }
+        return Err(io::Error::from_raw_os_error(libc::ENOSPC));
+    }
+    Ok(())
 }
 
 fn random_token() -> io::Result<String> {
@@ -302,21 +328,16 @@ impl Store {
         };
         let base_name = format!(".{token}.base");
         let input_name = format!("{token}.input");
-        let mut baseline = Vec::with_capacity(archive.as_ref().map_or(1, |bytes| bytes.len() + 1));
-        baseline.push(u8::from(archive.is_some()));
-        if let Some(bytes) = &archive {
-            baseline.extend_from_slice(bytes);
-        }
-        let base = Self::write_stage_file(&staging, &base_name, &baseline)?;
-        let input = match Self::write_stage_file(&staging, &input_name, &[]) {
-            Ok(input) => input,
-            Err(error) => {
-                drop(base);
-                let _ = self.remove_stage(&staging, &token);
-                return Err(error);
-            }
-        };
+        let input = Self::write_stage_file(&staging, &input_name, &[])?;
         let result = (|| {
+            #[cfg(test)]
+            checkpoint("stage-input")?;
+            let metadata = input.metadata()?;
+            let mut baseline = Vec::with_capacity(16 + archive.as_ref().map_or(0, Vec::len));
+            baseline.extend_from_slice(&metadata.dev().to_le_bytes());
+            baseline.extend_from_slice(&metadata.ino().to_le_bytes());
+            baseline.extend_from_slice(archive.as_deref().unwrap_or_default());
+            Self::write_stage_file(&staging, &base_name, &baseline)?;
             staging.sync_all()?;
             Ok(Prepared {
                 token: token.clone(),
@@ -335,7 +356,6 @@ impl Store {
             })
         })();
         if result.is_err() {
-            drop(base);
             drop(input);
             let _ = self.remove_stage(&staging, &token);
         }
@@ -375,13 +395,13 @@ impl Store {
             0,
         )?;
         trusted(&base, false)?;
-        let baseline = read_limited(&base, MAX_ARCHIVE as u64 + 1)?;
-        let (flag, bytes) = baseline
-            .split_first()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "empty stage baseline"))?;
-        let expected = match flag {
-            0 if bytes.is_empty() => None,
-            1 if valid_archive(bytes) => Some(bytes.to_vec()),
+        let baseline = read_limited(&base, MAX_ARCHIVE as u64 + 16)?;
+        let (identity, bytes) = baseline
+            .split_at_checked(16)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid stage baseline"))?;
+        let expected = match bytes {
+            [] => None,
+            bytes if valid_archive(bytes) => Some(bytes.to_vec()),
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
@@ -397,6 +417,14 @@ impl Store {
         )?;
         trusted(&input, false)?;
         let before = input.metadata()?;
+        if identity[..8] != before.dev().to_le_bytes()
+            || identity[8..] != before.ino().to_le_bytes()
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "staging file was replaced",
+            ));
+        }
         let candidate = read_limited(&input, MAX_ARCHIVE as u64)?;
         let after = input.metadata()?;
         if before.len() != after.len()
@@ -454,27 +482,33 @@ impl Store {
             )?;
             trusted(&backup, false)?;
             backup.write_all(&current)?;
+            #[cfg(test)]
+            checkpoint("backup-write")?;
             backup.sync_all()?;
             let old = CString::new(name).unwrap();
             let new = CString::new(target).unwrap();
             if unsafe {
-                libc::linkat(
+                libc::syscall(
+                    libc::SYS_renameat2,
                     self.dir.as_raw_fd(),
                     old.as_ptr(),
                     self.dir.as_raw_fd(),
                     new.as_ptr(),
-                    0,
+                    libc::RENAME_NOREPLACE,
                 )
             } != 0
             {
                 return Err(io::Error::last_os_error().into());
             }
-            if unsafe { libc::unlinkat(self.dir.as_raw_fd(), old.as_ptr(), 0) } != 0 {
-                return Err(io::Error::last_os_error().into());
-            }
+            #[cfg(test)]
+            checkpoint("backup-published")?;
             self.dir.sync_all()?;
+            #[cfg(test)]
+            checkpoint("backup-synced")?;
         }
         self.remove_stage(&staging, token)?;
+        #[cfg(test)]
+        checkpoint("stage-consumed")?;
         let receipt = self.save_locked(&input, File::sync_all)?;
         Ok(receipt)
     }
@@ -559,7 +593,11 @@ impl Store {
         trusted(&file, false)?;
         let result = (|| {
             write(&mut file, input)?;
+            #[cfg(test)]
+            checkpoint(&format!("{target}-write"))?;
             sync_file(&file)?;
+            #[cfg(test)]
+            checkpoint(&format!("{target}-sync"))?;
             let old = CString::new(name.as_str()).unwrap();
             let new = CString::new(target).unwrap();
             if unsafe {
@@ -573,6 +611,8 @@ impl Store {
             {
                 return Err(io::Error::last_os_error().into());
             }
+            #[cfg(test)]
+            checkpoint(&format!("{target}-rename")).map_err(SaveError::ResultUnknown)?;
             sync_directory(&self.dir).map_err(SaveError::ResultUnknown)
         })();
         if matches!(result, Err(SaveError::BeforeCommit(_))) {
@@ -848,6 +888,107 @@ mod tests {
         panic!("interruption not reached");
     }
 
+    const RESTORE_POINTS: [&str; 10] = [
+        "backup-write",
+        "backup-published",
+        "backup-synced",
+        "stage-consumed",
+        "archive.json-write",
+        "archive.json-sync",
+        "archive.json-rename",
+        "receipt.json-write",
+        "receipt.json-sync",
+        "receipt.json-rename",
+    ];
+
+    #[test]
+    fn restore_fault_child() {
+        let Ok(path) = std::env::var("STUDIO_FAULT_STORE") else {
+            return;
+        };
+        let point = std::env::var("STUDIO_FAULT_POINT").unwrap();
+        let store = Store::open(Path::new(&path)).unwrap();
+        let prepared = store.prepare().unwrap();
+        fs::write(&prepared.upload_path, fixture()).unwrap();
+        set_fault(Some((
+            RESTORE_POINTS
+                .into_iter()
+                .find(|name| *name == point)
+                .unwrap(),
+            true,
+        )));
+        let _ = store.restore_staged(&prepared.token);
+        panic!("checkpoint not reached");
+    }
+
+    #[test]
+    #[ignore = "run process tests serially"]
+    fn restore_fault_matrix_preserves_bytes_and_commit_boundary() {
+        use std::os::unix::process::ExitStatusExt;
+        let old = br#"{"format":"susfs-studio","schema":1,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]}}"#;
+        for (index, point) in RESTORE_POINTS.into_iter().enumerate() {
+            for terminate in [false, true] {
+                let (dir, store) = test_store(point);
+                let original = store.save(None, old).unwrap();
+                if terminate {
+                    let child = std::process::Command::new(std::env::current_exe().unwrap())
+                        .args(["--exact", "store::tests::restore_fault_child"])
+                        .env("STUDIO_FAULT_STORE", &dir)
+                        .env("STUDIO_FAULT_POINT", point)
+                        .status()
+                        .unwrap();
+                    assert_eq!(child.signal(), Some(libc::SIGKILL), "{point}");
+                } else {
+                    let stage = store.prepare().unwrap();
+                    fs::write(&stage.upload_path, fixture()).unwrap();
+                    set_fault(Some((point, false)));
+                    let failure = store.restore_staged(&stage.token).unwrap_err();
+                    set_fault(None);
+                    assert_eq!(
+                        matches!(failure, SaveError::ResultUnknown(_)),
+                        index >= 6,
+                        "{point}"
+                    );
+                }
+                let current = store.read().unwrap().unwrap();
+                let expected = if index >= 6 { fixture() } else { old };
+                assert_eq!(current.bytes, expected, "{point}");
+                assert_eq!(current.revision, revision(expected), "{point}");
+                if index < 6 {
+                    assert_eq!(current.receipt, Some(original), "{point}");
+                } else {
+                    assert_eq!(current.receipt.is_some(), index == 9, "{point}");
+                }
+                let entries: Vec<_> = fs::read_dir(&dir)
+                    .unwrap()
+                    .map(|entry| entry.unwrap())
+                    .collect();
+                let backups: Vec<_> = entries
+                    .iter()
+                    .filter(|entry| entry.file_name().to_string_lossy().starts_with("backup-"))
+                    .collect();
+                assert_eq!(backups.len(), usize::from(index > 0), "{point}");
+                for backup in backups {
+                    assert_eq!(fs::read(backup.path()).unwrap(), old, "{point}");
+                    assert_eq!(backup.metadata().unwrap().nlink(), 1, "{point}");
+                }
+                assert_eq!(
+                    fs::read_dir(dir.join(".staging")).unwrap().count(),
+                    if index < 3 { 2 } else { 0 },
+                    "{point}"
+                );
+                store.save(Some(expected), fixture()).unwrap();
+                for entry in entries
+                    .iter()
+                    .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
+                {
+                    assert!(entry.path().exists(), "{point}");
+                }
+                cleanup(dir);
+            }
+        }
+    }
+
     #[test]
     #[ignore = "run process tests serially"]
     fn interrupted_process_preserves_old_or_complete_new_archive() {
@@ -1048,6 +1189,20 @@ mod tests {
             Err(SaveError::BeforeCommit(_))
         ));
         drop(store);
+        cleanup(dir);
+    }
+
+    #[test]
+    fn staging_file_cannot_be_replaced_by_a_new_regular_file() {
+        let (dir, store) = test_store("stage_replaced");
+        let prepared = store.prepare().unwrap();
+        fs::rename(&prepared.upload_path, dir.join("original")).unwrap();
+        fs::write(&prepared.upload_path, fixture()).unwrap();
+        fs::set_permissions(&prepared.upload_path, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(
+            matches!(store.save_staged(&prepared.token), Err(SaveError::BeforeCommit(error)) if error.kind() == io::ErrorKind::PermissionDenied)
+        );
+        assert!(store.read().unwrap().is_none());
         cleanup(dir);
     }
 }
