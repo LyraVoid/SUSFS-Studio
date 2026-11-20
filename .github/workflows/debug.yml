@@ -1,0 +1,91 @@
+name: Build debug module
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: debug-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  debug:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.21.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.13.0
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+
+      - name: Install Android NDK and cargo-ndk
+        run: |
+          yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018"
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          cargo install cargo-ndk --version 4.1.2 --locked
+
+      - name: Run native checks
+        working-directory: native
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
+          cargo test --locked -- --ignored --test-threads=1
+
+      - name: Run script checks
+        run: python3 -B -m unittest discover -s scripts -v
+
+      - name: Build WebUI
+        run: |
+          pnpm --dir web install --frozen-lockfile
+          pnpm --dir web check
+          pnpm --dir web build
+
+      - name: Build Android executable
+        working-directory: native
+        run: cargo ndk -t arm64-v8a -P 26 build --locked
+
+      - name: Package debug module
+        env:
+          UPDATE_URL: https://raw.githubusercontent.com/${{ github.repository }}/main/update.json
+        run: |
+          mkdir -p release
+          asset="susfs-studio-${GITHUB_SHA::12}-debug.${GITHUB_RUN_NUMBER}-arm64.zip"
+          python3 -B scripts/package.py \
+            --web web/dist \
+            --cli native/target/aarch64-linux-android/debug/studioctl \
+            --version-suffix ".debug.${GITHUB_RUN_NUMBER}" \
+            --update-json "$UPDATE_URL" \
+            --output "release/$asset"
+          (cd release && sha256sum "$asset" > SHA256SUMS)
+          printf 'ASSET=%s\n' "$asset" >> "$GITHUB_ENV"
+
+      - name: Upload debug module
+        uses: actions/upload-artifact@v4
+        with:
+          name: susfs-studio-debug-${{ github.run_number }}
+          path: |
+            release/${{ env.ASSET }}
+            release/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14

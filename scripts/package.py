@@ -9,6 +9,8 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 
 ROOT = Path(__file__).resolve().parents[1]
+VERSION = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._+-]{0,63}$", re.ASCII)
+UPDATE_URL = re.compile(r"^https://[^\s]+$", re.ASCII)
 
 
 class EntryAssets(HTMLParser):
@@ -49,7 +51,78 @@ def validate_cli(data: bytes) -> None:
     raise ValueError("Expected the Android 64-bit program interpreter")
 
 
-def package(web: Path, cli: Path, output: Path) -> None:
+def module_metadata(path: Path) -> dict[str, str]:
+    text = read_regular(path).decode("utf-8")
+    values = {}
+    for number, line in enumerate(text.splitlines(), 1):
+        if not line or line.startswith("#"):
+            continue
+        key, separator, value = line.partition("=")
+        if not separator or not key or key in values:
+            raise ValueError(f"Invalid module.prop line {number}")
+        values[key] = value
+    for key in ("id", "name", "version", "versionCode"):
+        if not values.get(key):
+            raise ValueError(f"Missing module.prop field: {key}")
+    return values
+
+
+def module_prop(
+    path: Path,
+    *,
+    version: str | None = None,
+    version_code: int | None = None,
+    version_suffix: str | None = None,
+    update_json: str | None = None,
+) -> bytes:
+    values = module_metadata(path)
+    if version is not None and version_suffix is not None:
+        raise ValueError("--version and --version-suffix cannot be combined")
+    if version is not None:
+        values["version"] = version
+    elif version_suffix is not None:
+        values["version"] = values["version"] + version_suffix
+    if not VERSION.fullmatch(values["version"]):
+        raise ValueError("Invalid module version")
+    if version_code is not None:
+        values["versionCode"] = str(version_code)
+    try:
+        code = int(values["versionCode"], 10)
+    except ValueError as error:
+        raise ValueError("versionCode must be a decimal integer") from error
+    if not 1 <= code <= 2_147_483_647:
+        raise ValueError("versionCode is outside the supported range")
+    if update_json is not None:
+        if not UPDATE_URL.fullmatch(update_json):
+            raise ValueError("updateJson must be an HTTPS URL without whitespace")
+        values["updateJson"] = update_json
+
+    lines = read_regular(path).decode("utf-8").splitlines()
+    rendered = []
+    seen = set()
+    for line in lines:
+        key, separator, _ = line.partition("=")
+        if separator and key in values:
+            rendered.append(f"{key}={values[key]}")
+            seen.add(key)
+        else:
+            rendered.append(line)
+    for key, value in values.items():
+        if key not in seen:
+            rendered.append(f"{key}={value}")
+    return ("\n".join(rendered) + "\n").encode()
+
+
+def package(
+    web: Path,
+    cli: Path,
+    output: Path,
+    *,
+    version: str | None = None,
+    version_code: int | None = None,
+    version_suffix: str | None = None,
+    update_json: str | None = None,
+) -> None:
     binary = read_regular(cli)
     validate_cli(binary)
     if web.is_symlink() or not web.is_dir():
@@ -78,7 +151,13 @@ def package(web: Path, cli: Path, output: Path) -> None:
         raise ValueError("WebUI entry point must reference existing relative assets")
 
     entries = {
-        "module.prop": read_regular(ROOT / "module/module.prop"),
+        "module.prop": module_prop(
+            ROOT / "module/module.prop",
+            version=version,
+            version_code=version_code,
+            version_suffix=version_suffix,
+            update_json=update_json,
+        ),
         "customize.sh": read_regular(ROOT / "module/customize.sh"),
         "post-fs-data.sh": read_regular(ROOT / "module/post-fs-data.sh"),
         "service.sh": read_regular(ROOT / "module/service.sh"),
@@ -100,13 +179,25 @@ def package(web: Path, cli: Path, output: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build the arm64 development module ZIP")
+    parser = argparse.ArgumentParser(description="Build the arm64 module ZIP")
     parser.add_argument("--web", type=Path, required=True)
     parser.add_argument("--cli", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--version")
+    parser.add_argument("--version-code", type=int)
+    parser.add_argument("--version-suffix")
+    parser.add_argument("--update-json")
     args = parser.parse_args()
     try:
-        package(args.web, args.cli, args.output)
+        package(
+            args.web,
+            args.cli,
+            args.output,
+            version=args.version,
+            version_code=args.version_code,
+            version_suffix=args.version_suffix,
+            update_json=args.update_json,
+        )
         print(f"{hashlib.sha256(args.output.read_bytes()).hexdigest()}  {args.output}")
     except (OSError, ValueError) as error:
         parser.exit(1, f"Packaging failed: {error}\n")

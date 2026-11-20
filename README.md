@@ -21,6 +21,7 @@ Open [SUSFS Studio](http://127.0.0.1:5176/#/).
 - [Archive format](docs/archive-format.md) defines schema validation, comparison, configuration exchange, private storage, receipts, and export behavior.
 - [WebUI maintenance guide](docs/webui-maintenance.md) covers routing, source ownership, and verification.
 - [Diagnostic CLI](docs/diagnostic-cli.md) describes the Android executable, archive transaction, operation commands, and build commands.
+- [Module releases](docs/releases.md) documents manual release and debug builds, version metadata, and module updates.
 - [Host integration](docs/host-integration.md) records the verified bridge boundary and remaining host requirements.
 - [Security model](docs/security-model.md) defines trust boundaries, threats, limits, and fail-closed behavior.
 - [Design specification](DESIGN.md) defines tokens and visual requirements.

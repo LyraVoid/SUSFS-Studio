@@ -41,6 +41,29 @@ class PackageTest(unittest.TestCase):
                     "author=LyraVoid and matsuzaka-yuki",
                     archive.read("module.prop").decode("utf-8").splitlines(),
                 )
+            release = root / "release.zip"
+            package(
+                web,
+                cli,
+                release,
+                version="0.1.0-beta.1",
+                version_code=1001,
+                update_json="https://raw.githubusercontent.com/LyraVoid/SUSFS-Studio/main/update.json",
+            )
+            with ZipFile(release) as archive:
+                metadata = archive.read("module.prop").decode("utf-8").splitlines()
+                self.assertIn("version=0.1.0-beta.1", metadata)
+                self.assertIn("versionCode=1001", metadata)
+                self.assertIn(
+                    "updateJson=https://raw.githubusercontent.com/LyraVoid/SUSFS-Studio/main/update.json",
+                    metadata,
+                )
+            with self.assertRaisesRegex(ValueError, "Invalid module version"):
+                package(web, cli, root / "newline.zip", version="bad\nversion")
+            with self.assertRaisesRegex(ValueError, "versionCode"):
+                package(web, cli, root / "zero.zip", version_code=0)
+            with self.assertRaisesRegex(ValueError, "updateJson"):
+                package(web, cli, root / "http.zip", update_json="http://example.invalid")
             with self.assertRaises(FileExistsError):
                 package(web, cli, first)
             index.write_text('<script src="https://example.invalid/app.js"></script>')

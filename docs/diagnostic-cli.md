@@ -103,3 +103,8 @@ python3 scripts/package.py \
 ```
 
 The ZIP contains module metadata, executable installation and boot scripts, relative WebUI assets, and `bin/studioctl`. The packager rejects non-arm64 ELF files, remote asset references, symlinked asset directories, and output-path collisions. It prints the archive SHA-256 digest and never overwrites an existing package.
+
+For a versioned artifact, pass `--version`, `--version-code`, and
+`--update-json`. `--version-suffix` is limited to debug builds. The manual
+GitHub release and debug procedures are documented in
+[Module releases](releases.md).
