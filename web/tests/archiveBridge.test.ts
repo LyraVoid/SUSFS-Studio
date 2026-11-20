@@ -303,6 +303,47 @@ it("streams archive bytes in bounded chunks", async () => {
   ]);
 });
 
+it("adds validated host labels and icon URIs to trusted package entries", async () => {
+  const host: Record<string, unknown> = {};
+  const bridge = createArchiveBridge(host as unknown as Window, {
+    exec(_command, _options, callback) {
+      (host[callback] as (code: number, stdout: string) => void)(
+        0,
+        response("apps", {
+          status: "available",
+          packages: [
+            { name: "org.example.reader", uid: 10101 },
+            { name: "org.example.notes", uid: 10102 },
+          ],
+        }),
+      );
+    },
+    pm: () => ({
+      version: () => 1,
+      getPackagesInfo: () =>
+        JSON.stringify([
+          { packageName: "org.example.reader", appLabel: "Reader" },
+          { packageName: "untrusted.package", appLabel: "Ignored" },
+          { packageName: "org.example.notes", appLabel: "bad\nlabel" },
+        ]),
+    }),
+  });
+  await expect(bridge.apps?.()).resolves.toEqual([
+    {
+      name: "org.example.reader",
+      uid: 10101,
+      label: "Reader",
+      icon: "ksu://icon/org.example.reader",
+    },
+    {
+      name: "org.example.notes",
+      uid: 10102,
+      label: undefined,
+      icon: "ksu://icon/org.example.notes",
+    },
+  ]);
+});
+
 it("uses fixed commands for operation planning, apply, verify and recovery", async () => {
   const host: Record<string, unknown> = {};
   const commands: string[] = [];

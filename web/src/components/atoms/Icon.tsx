@@ -33,6 +33,7 @@ const icons = {
   active: CircleCheck,
   loading: LoaderCircle,
   missing: Search,
+  search: Search,
   unknownProtocol: CircleHelp,
   failed: Unplug,
   status: GitFork,

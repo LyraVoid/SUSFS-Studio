@@ -1,4 +1,4 @@
-import { Button, Checkbox, Stack, Textarea, TextInput } from "@mantine/core";
+import { Button, Loader, Stack, Textarea, TextInput } from "@mantine/core";
 import { useEffect, useState } from "react";
 import {
   type Json,
@@ -11,6 +11,8 @@ import type { Message, Translate } from "../../i18n/messages";
 import type { PackageEntry } from "../../transport/archiveBridge";
 import { demoApps, demoSlots } from "../../transport/demoArchive";
 import type { Provider } from "../../transport/mock";
+import { AppIcon } from "../atoms/AppIcon";
+import { Icon } from "../atoms/Icon";
 import {
   DialogActions,
   DialogChoiceGroup,
@@ -35,6 +37,96 @@ const tri = {
 } as const;
 const triValue = (value: unknown) =>
   value === true ? "true" : value === false ? "false" : "unset";
+const isUserApp = (entry: PackageEntry) => {
+  const appId = entry.uid % 100000;
+  return appId >= 10000 && appId <= 19999;
+};
+const appOrder = (left: PackageEntry, right: PackageEntry) =>
+  (left.label ?? left.name).localeCompare(
+    right.label ?? right.name,
+    undefined,
+    {
+      sensitivity: "base",
+    },
+  );
+
+function AppSearch({
+  value,
+  onChange,
+  t,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  t: Translate;
+}) {
+  return (
+    <search className={styles.appSearch}>
+      <Icon name="search" />
+      <input
+        type="search"
+        aria-label={t("controlSearchApps")}
+        placeholder={t("controlSearchApps")}
+        value={value}
+        onChange={(event) => onChange(event.currentTarget.value)}
+      />
+      {value && (
+        <button
+          type="button"
+          aria-label={t("controlClearSearch")}
+          onClick={() => onChange("")}
+        >
+          <Icon name="close" />
+        </button>
+      )}
+    </search>
+  );
+}
+
+function AppChoice({
+  entry,
+  checked,
+  disabled,
+  missing,
+  onChange,
+  t,
+}: {
+  entry: PackageEntry;
+  checked: boolean;
+  disabled: boolean;
+  missing?: boolean;
+  onChange: (checked: boolean) => void;
+  t: Translate;
+}) {
+  return (
+    <label
+      className={styles.appChoice}
+      data-selected={checked}
+      data-missing={missing}
+    >
+      <AppIcon name={entry.name} label={entry.label} icon={entry.icon} />
+      <span className={styles.appCopy}>
+        <span className={styles.appLabel}>{entry.label ?? entry.name}</span>
+        <span className={styles.appMeta}>
+          {entry.name}
+          {!missing && ` · UID ${entry.uid}`}
+        </span>
+        {missing && (
+          <span className={styles.appWarning}>{t("controlAppMissing")}</span>
+        )}
+      </span>
+      <span className={styles.appCheck} aria-hidden="true">
+        {checked && <Icon name="check" />}
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        aria-label={entry.name}
+        onChange={(event) => onChange(event.currentTarget.checked)}
+      />
+    </label>
+  );
+}
 
 function BootSlotSource({
   dialog,
@@ -159,7 +251,7 @@ export function BasicArchive({
   >();
   const [query, setQuery] = useState("");
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
-  const [availableApps, setAvailableApps] = useState<string[]>();
+  const [availableApps, setAvailableApps] = useState<PackageEntry[]>();
   const [appsError, setAppsError] = useState(false);
   const [sourceTab, setSourceTab] = useState<"manual" | "source">("manual");
   const [releaseInput, setReleaseInput] = useState("");
@@ -197,17 +289,28 @@ export function BasicArchive({
     : dialog === "stopUid"
       ? "controlStopManaging"
       : dialog === "apps"
-        ? "controlAppList"
+        ? "controlProtectedApps"
         : dialog === "uname"
           ? "controlUname"
           : "controlCmdline";
-  const filtered = (
-    workflow
-      ? [...new Set([...demoApps, ...(names ?? [])])]
-      : availableApps
-        ? [...new Set([...availableApps, ...(names ?? [])])]
-        : names
-  )?.filter((name) => name.toLowerCase().includes(query.trim().toLowerCase()));
+  const appSource = workflow ? demoApps : availableApps;
+  const installedNames = new Set(appSource?.map((entry) => entry.name));
+  const needle = query.trim().toLocaleLowerCase();
+  const matches = (entry: PackageEntry) =>
+    !needle ||
+    (entry.label ?? "").toLocaleLowerCase().includes(needle) ||
+    entry.name.toLocaleLowerCase().includes(needle);
+  const visibleApps = appSource?.filter(matches).sort(appOrder);
+  const missingApps: PackageEntry[] =
+    appSource && !workflow
+      ? (names ?? [])
+          .filter((name) => !installedNames.has(name))
+          .map((name) => ({ name, uid: 0 }))
+          .filter(matches)
+          .sort(appOrder)
+      : appSource
+        ? []
+        : (names ?? []).map((name) => ({ name, uid: 0 })).filter(matches);
   useEffect(() => {
     if (
       workflow ||
@@ -221,7 +324,7 @@ export function BasicArchive({
     void appsSource().then(
       (packages) => {
         if (current)
-          setAvailableApps(packages.map((entry) => entry.name).sort());
+          setAvailableApps(packages.filter(isUserApp).sort(appOrder));
       },
       () => {
         if (current) setAppsError(true);
@@ -368,41 +471,86 @@ export function BasicArchive({
             <p>{t("controlUidStopDraftHint")}</p>
           ) : dialog === "apps" ? (
             <>
-              <TextInput
-                data-autofocus
-                label={t("controlSearchApps")}
-                value={query}
-                onChange={(e) => setQuery(e.currentTarget.value)}
-              />
-              <p>
-                {t(
-                  workflow
-                    ? "workflowNotice"
-                    : availableApps
-                      ? "controlTrustedApps"
-                      : "controlNoAppSource",
-                )}
-              </p>
-              {appsError && <p role="alert">{t("controlNoAppSource")}</p>}
-              {filtered?.map((name) => (
-                <Checkbox
-                  key={name}
-                  label={name}
-                  checked={selectedApps.includes(name)}
-                  disabled={disabled || (!workflow && !availableApps)}
-                  onChange={(event) =>
-                    setSelectedApps(
-                      event.currentTarget.checked
-                        ? [...selectedApps, name]
-                        : selectedApps.filter((item) => item !== name),
-                    )
-                  }
-                />
-              ))}
-              {names?.length === 0 && <p>{t("controlUidEmpty")}</p>}
-              {(workflow || Boolean(names?.length)) && !filtered?.length && (
-                <p>{t("controlUidNoMatches")}</p>
+              <AppSearch value={query} onChange={setQuery} t={t} />
+              <div className={styles.appPickerIntro}>
+                <strong>
+                  {t("controlSelectedApps", { count: selectedApps.length })}
+                </strong>
+                <span>{t("controlAppSharedUid")}</span>
+                <span>
+                  {t(
+                    workflow
+                      ? "workflowNotice"
+                      : availableApps
+                        ? "controlTrustedApps"
+                        : appsError
+                          ? "controlNoAppSource"
+                          : "controlAppsLoading",
+                  )}
+                </span>
+              </div>
+              {appsError && (
+                <p role="alert" className={styles.appError}>
+                  {t("controlAppLoadError")}
+                </p>
               )}
+              <fieldset
+                className={styles.appList}
+                aria-label={t("controlProtectedApps")}
+                aria-busy={!workflow && !availableApps && !appsError}
+              >
+                {!workflow && !availableApps && !appsError ? (
+                  <output className={styles.appState}>
+                    <Loader size="small" />
+                    <span>{t("controlAppsLoading")}</span>
+                  </output>
+                ) : visibleApps?.length || missingApps.length ? (
+                  <>
+                    {missingApps.map((entry) => (
+                      <AppChoice
+                        key={`missing:${entry.name}`}
+                        entry={entry}
+                        checked={selectedApps.includes(entry.name)}
+                        disabled={disabled || (!workflow && !availableApps)}
+                        missing
+                        onChange={(checked) =>
+                          setSelectedApps(
+                            checked
+                              ? [...selectedApps, entry.name]
+                              : selectedApps.filter(
+                                  (item) => item !== entry.name,
+                                ),
+                          )
+                        }
+                        t={t}
+                      />
+                    ))}
+                    {visibleApps?.map((entry) => (
+                      <AppChoice
+                        key={entry.name}
+                        entry={entry}
+                        checked={selectedApps.includes(entry.name)}
+                        disabled={disabled || (!workflow && !availableApps)}
+                        onChange={(checked) =>
+                          setSelectedApps(
+                            checked
+                              ? [...selectedApps, entry.name]
+                              : selectedApps.filter(
+                                  (item) => item !== entry.name,
+                                ),
+                          )
+                        }
+                        t={t}
+                      />
+                    ))}
+                  </>
+                ) : (
+                  <div className={styles.appState}>
+                    <strong>{t("controlUidNoMatches")}</strong>
+                    <span>{t("controlUidNoMatchesHint")}</span>
+                  </div>
+                )}
+              </fieldset>
             </>
           ) : (
             <>
@@ -519,14 +667,17 @@ export function BasicArchive({
             <Button variant="subtle" onClick={close}>
               {t("close")}
             </Button>
-            {(dialog === "uname" ||
+            {(dialog === "apps" ||
+              dialog === "uname" ||
               dialog === "cmdline" ||
-              dialog === "stopUid" ||
-              (workflow && dialog === "apps")) && (
+              dialog === "stopUid") && (
               <Button
                 variant="subtle"
                 disabled={
                   disabled ||
+                  (dialog === "apps" &&
+                    !workflow &&
+                    (!availableApps || appsError)) ||
                   (dialog === "uname"
                     ? !validUname
                     : dialog === "cmdline"

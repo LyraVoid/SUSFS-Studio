@@ -68,7 +68,7 @@
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
-.content input:not([type="radio"]):not([type="checkbox"]),
+.content input:not([type="radio"]):not([type="checkbox"]):not([type="search"]),
 .content textarea,
 .content select {
   min-height: 3.5rem;
@@ -87,7 +87,8 @@
 .content textarea::placeholder {
   color: var(--on-muted);
 }
-.content input:not([type="radio"]):not([type="checkbox"]):focus,
+.content
+  input:not([type="radio"]):not([type="checkbox"]):not([type="search"]):focus,
 .content textarea:focus,
 .content select:focus {
   border-color: var(--primary);

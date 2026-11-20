@@ -6,9 +6,9 @@ import {
 } from "./archiveBridge";
 
 export const demoApps = [
-  "org.example.reader",
-  "org.example.notes",
-  "org.example.gallery",
+  { name: "org.example.reader", uid: 10101, label: "Reader" },
+  { name: "org.example.notes", uid: 10102, label: "Notes" },
+  { name: "org.example.gallery", uid: 10103, label: "Gallery" },
 ];
 export const demoSlots = [
   {

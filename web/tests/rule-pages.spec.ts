@@ -30,8 +30,8 @@ test("explicit sample scenario closes the workflow without a host bridge", async
   await page.getByRole("link", { name: "基础设置", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await page.getByRole("button", { name: "受保护的应用", exact: true }).click();
-  await dialog.getByRole("textbox").fill("reader");
-  await dialog.getByRole("checkbox", { name: "org.example.reader" }).check();
+  await dialog.getByRole("searchbox").fill("reader");
+  await dialog.getByRole("checkbox", { name: "org.example.reader" }).click();
   await dialog.getByRole("button", { name: "更新草稿" }).click();
   await page.getByRole("button", { name: "伪装 uname", exact: true }).click();
   await dialog.getByRole("tab", { name: "启动槽来源" }).click();
@@ -260,9 +260,18 @@ test("a reported UID source preloads applications before opening the picker", as
   context,
   page,
 }) => {
-  await host(context, original, true, {
-    capabilities: { priorityUidFilter: "available" },
-  });
+  const session = await host(
+    context,
+    JSON.stringify({
+      format: "susfs-studio",
+      schema: 2,
+      rules: { paths: [], maps: [], kstats: [], redirects: [] },
+    }),
+    true,
+    {
+      capabilities: { priorityUidFilter: "available" },
+    },
+  );
   await page.goto("/#/rules/basic");
   const apps = page.getByRole("button", {
     name: "受保护的应用",
@@ -270,9 +279,46 @@ test("a reported UID source preloads applications before opening the picker", as
   });
   await expect(apps).toContainText("已报告 2 个应用与 UID。");
   await apps.click();
+  const dialog = page.getByRole("dialog");
   await expect(
-    page.getByRole("dialog").getByText("org.example.reader", { exact: true }),
+    dialog.getByRole("heading", { name: "受保护的应用", exact: true }),
   ).toBeVisible();
+  const search = dialog.getByRole("searchbox", {
+    name: "搜索应用或包名",
+  });
+  await expect(search).toHaveCSS("min-height", "56px");
+  await expect(search).toHaveCSS("border-style", "none");
+  await expect(
+    dialog.getByText("已选择 0 个应用", { exact: true }),
+  ).toBeVisible();
+  await expect(dialog.getByText("Reader", { exact: true })).toBeVisible();
+  await expect(
+    dialog.getByText("org.example.reader · UID 10101", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    dialog.locator('[data-icon-uri="ksu://icon/org.example.reader"]'),
+  ).toHaveCount(1);
+  await dialog.getByRole("checkbox", { name: "org.example.reader" }).click();
+  await expect(
+    dialog.getByText("已选择 1 个应用", { exact: true }),
+  ).toBeVisible();
+  await search.fill("missing");
+  await expect(
+    dialog.getByText("没有匹配的应用。", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByText("尝试输入应用名称或完整包名。", { exact: true }),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: "清除搜索" }).click();
+  await dialog.getByRole("button", { name: "更新草稿" }).click();
+  await expect(apps).toContainText("已归档 1 个应用");
+  await openOverview(page);
+  await page.getByRole("button", { name: "检查并确认保存" }).click();
+  await expect(dialog).toContainText("新增字段: /settings");
+  await dialog.getByRole("button", { name: "确认保存", exact: true }).click();
+  await expect
+    .poll(() => JSON.parse(session.text() ?? "{}").settings.priorityUidFilter)
+    .toEqual(["org.example.reader"]);
 });
 
 test("imports only after confirmation and edits Schema 2 settings and extensions", async ({
@@ -444,6 +490,7 @@ async function host(
           packages: [
             { name: "org.example.reader", uid: 10101 },
             { name: "org.example.notes", uid: 10102 },
+            { name: "android", uid: 1000 },
           ],
         });
       }
@@ -543,6 +590,22 @@ async function host(
               }),
             })
           : undefined,
+        pm: () => ({
+          version: () => 1,
+          getPackagesInfo: (packages: string) => {
+            const labels: Record<string, string> = {
+              "org.example.reader": "Reader",
+              "org.example.notes": "Notes",
+            };
+            return JSON.stringify(
+              (JSON.parse(packages) as string[]).flatMap((name) =>
+                labels[name]
+                  ? [{ packageName: name, appLabel: labels[name] }]
+                  : [],
+              ),
+            );
+          },
+        }),
       };
     },
     {

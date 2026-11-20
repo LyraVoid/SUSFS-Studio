@@ -13,6 +13,8 @@ The WebUI supports an injected `window.studioDiagnostics` with two argument-free
 
 The WebUI also adapts a host-provided `ksu.exec` command bridge to these methods. It sends only fixed `hello` and `status` commands for `/data/adb/modules/susfs_studio/bin/studioctl`, using `/system/bin/timeout` with a three-second limit, fixed options, and generated callback identifiers. User input is never sent as a command. The WebUI performs the handshake before the status query and applies a five-second deadline. It validates the request ID, protocol number, success flag, response size, provider fields, and capability values.
 
+Protected-app presentation may additionally use the host's existing read-only `ksu.pm()` version-1 `getPackagesInfo()` metadata and `ksu://icon/<package>` image scheme. The package names and UIDs remain authoritative from Studio's native `apps` command; host metadata can supply only a validated display label, and icons are decorative. If that host interface is absent or malformed, the picker keeps the native package list and uses a text fallback. Studio does not require the host to add or modify an interface.
+
 Provider metadata is optional and fail-closed. `variant` may identify the reported interface variant, `audited` may record an explicit protocol-audit result, and `features` may preserve the raw feature tokens returned by the provider. Raw tokens are evidence, not permission to execute a feature. `staticKstatFields` and `redirectUidSchemes` describe only what the provider reports; their absence remains unknown rather than becoming an empty or supported set. These fields do not authorize a write.
 
 An optional `control` object separates the command adapter from archive and device-operation authorization:

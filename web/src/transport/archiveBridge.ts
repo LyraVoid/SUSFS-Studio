@@ -45,6 +45,8 @@ export type ArchiveBackup = {
 export type PackageEntry = {
   name: string;
   uid: number;
+  label?: string;
+  icon?: string;
 };
 
 export type ArchiveBridge = {
@@ -77,7 +79,15 @@ type KsuIo = {
   FileOutputStream(): KsuStream;
 };
 
-type KsuHost = CommandBridge & { io?: () => KsuIo };
+type KsuPm = {
+  version(): number;
+  getPackagesInfo(packageNamesJson: string): string;
+};
+
+type KsuHost = CommandBridge & {
+  io?: () => KsuIo;
+  pm?: () => KsuPm;
+};
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -234,6 +244,57 @@ function packages(value: unknown): PackageEntry[] {
     names.add(entry.name);
     return { name: entry.name, uid: entry.uid as number };
   });
+}
+
+function packageLabels(value: unknown, names: Set<string>) {
+  if (!Array.isArray(value) || value.length > 8192)
+    return new Map<string, string>();
+  const labels = new Map<string, string>();
+  for (const item of value) {
+    if (
+      !record(item) ||
+      typeof item.packageName !== "string" ||
+      !names.has(item.packageName) ||
+      typeof item.appLabel !== "string" ||
+      !item.appLabel.trim() ||
+      item.appLabel.length > 256 ||
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: host labels must be printable.
+      /[\u0000-\u001f\u007f]/u.test(item.appLabel)
+    )
+      continue;
+    labels.set(item.packageName, item.appLabel.trim());
+  }
+  return labels;
+}
+
+async function enrichPackages(entries: PackageEntry[], host: KsuHost) {
+  let labels = new Map<string, string>();
+  try {
+    const pm = host.pm?.();
+    if (
+      record(pm) &&
+      typeof pm.version === "function" &&
+      pm.version() === 1 &&
+      typeof pm.getPackagesInfo === "function"
+    ) {
+      const response = await Promise.resolve(
+        pm.getPackagesInfo(JSON.stringify(entries.map((entry) => entry.name))),
+      );
+      if (typeof response !== "string" || response.length > 2 * 1024 * 1024)
+        return entries;
+      labels = packageLabels(
+        JSON.parse(response),
+        new Set(entries.map((entry) => entry.name)),
+      );
+    }
+  } catch {
+    // The native package source remains authoritative when host metadata is absent.
+  }
+  return entries.map((entry) => ({
+    ...entry,
+    label: labels.get(entry.name),
+    icon: `ksu://icon/${entry.name}`,
+  }));
 }
 
 function base64(bytes: Uint8Array) {
@@ -405,8 +466,15 @@ export function createArchiveBridge(
       );
     },
     apps: async () =>
-      packages(
-        await call("apps", `/system/bin/timeout 10 ${executable} apps`, 12000),
+      enrichPackages(
+        packages(
+          await call(
+            "apps",
+            `/system/bin/timeout 10 ${executable} apps`,
+            12000,
+          ),
+        ),
+        bridge,
       ),
     prepare: io
       ? async () => {

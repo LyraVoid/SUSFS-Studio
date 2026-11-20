@@ -398,11 +398,17 @@ export const zh = {
   controlBootArbitration:
     "无法核实启动槽与当前生效值，也无法判断是否需重启；不会安排写入。",
   controlCmdlineReset: "已归档显式重置",
-  controlAppList: "应用列表",
-  controlSearchApps: "搜索已归档应用",
+  controlSearchApps: "搜索应用或包名",
+  controlClearSearch: "清除搜索",
   controlUidCount: "已归档 {count} 个应用",
   controlUidEmpty: "已管理 · 空列表",
-  controlUidNoMatches: "没有匹配的归档应用。",
+  controlUidNoMatches: "没有匹配的应用。",
+  controlUidNoMatchesHint: "尝试输入应用名称或完整包名。",
+  controlSelectedApps: "已选择 {count} 个应用",
+  controlAppSharedUid:
+    "共用应用 ID 的应用以及其他 Android 用户可能一起受到影响。",
+  controlAppMissing: "当前未安装或暂时无法读取，取消选择可移除。",
+  controlAppLoadError: "应用名称和图标读取失败；受信任的包名和 UID 仍会保留。",
   controlStopManaging: "停止管理",
   controlUidHint:
     "应用与 UID 来自设备固定包管理查询；选择只写入草稿，保存前仍需确认。",
@@ -449,7 +455,8 @@ export const zh = {
   controlUnameVersion: "uname version",
   controlCmdline: "伪装 cmdline / bootconfig",
   controlNoAppSource: "没有经验证的应用 UID 列表，仅可查看归档值。",
-  controlTrustedApps: "应用与 UID 来自当前设备的固定包管理查询；不记录到日志。",
+  controlTrustedApps:
+    "UID 来自 Studio 的固定设备查询；应用名称和图标来自当前宿主的只读包管理接口，不记录到日志。",
   controlAppsLoading: "正在读取当前设备的应用与 UID。",
   controlAppsReported: "已报告 {count} 个应用与 UID。",
   controlNoBootFacts:
@@ -969,11 +976,19 @@ export const en = {
   controlBootArbitration:
     "Studio cannot confirm the boot slot, active value, or whether a restart is needed. No write will be scheduled.",
   controlCmdlineReset: "An explicit reset is archived",
-  controlAppList: "Application list",
-  controlSearchApps: "Search archived apps",
+  controlSearchApps: "Search apps or packages",
+  controlClearSearch: "Clear search",
   controlUidCount: "{count} apps in the archive",
   controlUidEmpty: "Managed · empty list",
-  controlUidNoMatches: "No matching archived apps.",
+  controlUidNoMatches: "No matching apps.",
+  controlUidNoMatchesHint: "Try an app name or the full package name.",
+  controlSelectedApps: "{count} apps selected",
+  controlAppSharedUid:
+    "Apps sharing an app ID, including other Android users, may be affected together.",
+  controlAppMissing:
+    "Not installed or currently unavailable. Clear the selection to remove it.",
+  controlAppLoadError:
+    "Could not read app names and icons. The trusted package names and UIDs remain available.",
   controlStopManaging: "Stop managing",
   controlUidHint:
     "Applications and UIDs come from the device's fixed package query. Selection updates only the draft and still requires confirmation.",
@@ -1028,7 +1043,7 @@ export const en = {
   controlNoAppSource:
     "No verified application UID list. Only the archived value can be viewed.",
   controlTrustedApps:
-    "Applications and UIDs come from the current device's fixed package query and are not logged.",
+    "UIDs come from Studio's fixed device query. App names and icons come from the current host's read-only package interface and are not logged.",
   controlAppsLoading: "Reading applications and UIDs from the device.",
   controlAppsReported: "{count} applications and UIDs reported.",
   controlNoBootFacts:

@@ -27,6 +27,7 @@ Studio's native executable is the authority for archive structure, Provider iden
 | Short write or failed sync | Upload writes are checked, staged files are re-read, and archive/receipt updates use same-directory temporary files, `fsync`, and rename. A result after replacement is reported unknown until readback. | Visible rename is not proof of persistence across sudden power loss. |
 | Provider spoofing or stale capability evidence | Detection requires syscall version, raw features, variant consistency, implementation classification, adapter confirmation, runtime proc nodes, boot ID, and current execution UID. Unknown versions report active diagnostics without write authorization. | A compromised kernel can lie to all userspace probes. |
 | Sensitive data in logs and receipts | Public plans omit archive text, redact per-item values, use identity digests, and bound item counts, field lengths, effects, and journal size. Boot logs contain phase names and opaque plan IDs only. | Exported archives are user-controlled files and may contain sensitive paths chosen by the user. |
+| Host app metadata or icon confusion | Studio keeps package names and UIDs from its native fixed query. Optional host labels must refer to a name in that set and pass length and control-character checks. Host icon URIs are decorative and fall back to a text tile. | A malicious host can mislabel an app or supply a misleading icon, but cannot change the selected package name or native UID resolution through this presentation path. |
 
 ## Result semantics
 

@@ -80,3 +80,199 @@
   color: var(--on-muted);
   font-size: 0.875rem;
 }
+.appSearch {
+  display: flex;
+  align-items: center;
+  gap: var(--s12);
+  min-height: 3.5rem;
+  padding-inline: var(--s16) var(--s4);
+  border-radius: var(--r-full);
+  background: var(--surface-container-highest);
+  color: var(--on-muted);
+}
+.appSearch > svg {
+  flex: none;
+}
+.appSearch input {
+  min-width: 0;
+  flex: 1;
+  min-height: 3.5rem;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--on-surface);
+  font: inherit;
+  font-size: 1rem;
+}
+.appSearch input::-webkit-search-cancel-button {
+  display: none;
+}
+.appSearch button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--hit);
+  height: var(--hit);
+  border: 0;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--on-muted);
+}
+.appSearch:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.appPickerIntro {
+  display: grid;
+  gap: var(--s4);
+  color: var(--on-muted);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.appPickerIntro strong {
+  color: var(--primary);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.appError {
+  color: var(--on-error-container);
+}
+.appList {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  min-height: 12rem;
+  max-height: 46dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--r16);
+}
+.appChoice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s12);
+  width: 100%;
+  min-height: 4.75rem;
+  padding: var(--s12) var(--s16);
+  border: 0;
+  border-radius: var(--r4);
+  background: var(--surface-container-highest);
+  color: var(--on-surface);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.appChoice:first-child {
+  border-start-start-radius: var(--r16);
+  border-start-end-radius: var(--r16);
+}
+.appChoice:last-child {
+  border-end-start-radius: var(--r16);
+  border-end-end-radius: var(--r16);
+}
+.appChoice[data-selected="true"] {
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+}
+.appChoice:active {
+  background: color-mix(
+    in srgb,
+    var(--on-surface) 8%,
+    var(--surface-container-highest)
+  );
+}
+.appChoice[data-selected="true"]:active {
+  background: color-mix(
+    in srgb,
+    var(--on-secondary-container) 8%,
+    var(--secondary-container)
+  );
+}
+.appChoice:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.appChoice[data-selected="true"]:has(input:focus-visible) {
+  outline-color: var(--on-secondary-container);
+}
+.appChoice:has(input:disabled) {
+  opacity: 0.56;
+  cursor: default;
+}
+.appChoice > input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.appCopy {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.appLabel,
+.appMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appLabel {
+  font-size: 1rem;
+  line-height: 1.375rem;
+  font-weight: 500;
+}
+.appMeta {
+  color: var(--on-muted);
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+.appChoice[data-selected="true"] .appMeta {
+  color: inherit;
+  opacity: 0.78;
+}
+.appWarning {
+  color: var(--status-warning);
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+.appCheck {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid currentColor;
+  border-radius: var(--r4);
+}
+.appCheck svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 3;
+}
+.appChoice[data-selected="true"] .appCheck {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.appChoice[data-selected="true"] .appCheck svg {
+  color: var(--on-primary);
+}
+.appState {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--s8);
+  min-height: 12rem;
+  padding: var(--s24);
+  color: var(--on-muted);
+  text-align: center;
+}
+.appState strong {
+  color: var(--on-surface);
+  font-weight: 500;
+}
