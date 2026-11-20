@@ -1,10 +1,7 @@
-import {
-  Switch,
-  useComputedColorScheme,
-  useMantineColorScheme,
-} from "@mantine/core";
+import { useComputedColorScheme, useMantineColorScheme } from "@mantine/core";
 import { hexFromArgb } from "@material/material-color-utilities";
 import { useId, useMemo } from "react";
+import { ExpressiveSwitch } from "../components/atoms/ExpressiveSwitch";
 import { Icon, type IconName } from "../components/atoms/Icon";
 import { FlexiblePageHeader } from "../components/molecules/FlexiblePageHeader";
 import {
@@ -234,13 +231,7 @@ export function Settings({
           title={t("automatic")}
           detail={t("hostPending")}
           trailing={
-            <Switch
-              aria-label={t("automatic")}
-              checked={false}
-              disabled
-              size="md"
-              thumbIcon="×"
-            />
+            <ExpressiveSwitch label={t("automatic")} checked={false} disabled />
           }
         />
         <SettingsRow

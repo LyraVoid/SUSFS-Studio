@@ -267,6 +267,15 @@ test("touch feedback, keyboard focus and safe diagnostic dialog", async ({
     .getByRole("link", { name: "设置" })
     .tap();
   const select = page.getByRole("combobox", { name: "主题" });
+  const automatic = page.getByRole("switch", { name: "自动采集" });
+  await expect(automatic).toBeDisabled();
+  await expect(automatic).not.toBeChecked();
+  await expect(
+    page.getByText("等待 Android 宿主和启动阶段验证。", { exact: true }),
+  ).toBeVisible();
+  await expect(automatic.locator("+ span")).toHaveCSS("width", "52px");
+  await expect(automatic.locator("+ span")).toHaveCSS("height", "32px");
+  await expect(automatic.locator("+ span > span")).toHaveCSS("width", "24px");
   await select.tap();
   const choice = select.locator("..");
   await expect(choice).toHaveCSS("outline-style", "none");

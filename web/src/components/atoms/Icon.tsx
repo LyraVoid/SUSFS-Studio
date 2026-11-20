@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   Archive,
+  Check,
   ChevronRight,
   CircleCheck,
   CircleHelp,
@@ -25,6 +26,7 @@ import {
   Smartphone,
   Unplug,
   Upload,
+  X,
 } from "lucide-react";
 
 const icons = {
@@ -55,6 +57,8 @@ const icons = {
   maps: MemoryStick,
   kstats: Database,
   redirects: Route,
+  check: Check,
+  close: X,
 };
 export type IconName = keyof typeof icons;
 
