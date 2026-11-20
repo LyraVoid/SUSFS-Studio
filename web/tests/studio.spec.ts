@@ -434,9 +434,14 @@ test("an uncertain archive save keeps the draft and requires verification", asyn
   await expect(dialog).toContainText("保存结果未知");
   await expect(dialog).toContainText("uncertain.json");
   await expect(dialog.getByRole("button", { name: "确认保存" })).toBeDisabled();
-  await dialog.getByRole("button", { name: "刷新设备归档" }).click();
-  await expect(dialog.getByRole("button", { name: "确认保存" })).toBeDisabled();
   await dialog.getByRole("button", { name: "返回检查" }).click();
+  await expect(
+    dialog.getByRole("button", { name: "检查并确认保存" }),
+  ).toBeDisabled();
+  await dialog.getByRole("button", { name: "刷新设备归档" }).click();
+  await expect(
+    dialog.getByRole("button", { name: "检查并确认保存" }),
+  ).toBeEnabled();
   await expect(dialog).toContainText("uncertain.json");
 });
 

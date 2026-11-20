@@ -236,15 +236,24 @@ export function createArchiveBridge(
       ? async (token) => {
           if (!tokenPattern.test(token) || !stagePaths.has(token))
             throw new ArchiveCommandError("BAD_REQUEST");
-          const data = await call(
-            "save",
-            `/system/bin/timeout 15 ${executable} save ${token}`,
-            17000,
-          );
-          const value = receipt(data);
-          if (!value) throw new ArchiveCommandError("BAD_RESPONSE");
           stagePaths.delete(token);
-          return value;
+          try {
+            const data = await call(
+              "save",
+              `/system/bin/timeout 15 ${executable} save ${token}`,
+              17000,
+            );
+            const value = receipt(data);
+            if (!value) throw new ArchiveCommandError("BAD_RESPONSE");
+            return value;
+          } catch (error) {
+            if (
+              error instanceof ArchiveCommandError &&
+              !["BAD_RESPONSE", "UNSUPPORTED_PROTOCOL"].includes(error.code)
+            )
+              throw error;
+            throw new ArchiveCommandError("RESULT_UNKNOWN");
+          }
         }
       : undefined,
   };

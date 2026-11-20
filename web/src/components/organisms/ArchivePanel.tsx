@@ -135,6 +135,8 @@ export function ArchivePanel({
       if (id !== savedRequest.current) return;
       setSaved(next);
       setSavedResult(parsed);
+      if (needsVerification) setConfirming(false);
+      setNeedsVerification(false);
     } catch (error) {
       if (id === savedRequest.current) setOperationError(errorMessage(error));
     } finally {
@@ -214,8 +216,13 @@ export function ArchivePanel({
       if (
         error instanceof ArchiveCommandError &&
         (error.code === "REVISION_CONFLICT" || error.code === "RESULT_UNKNOWN")
-      )
+      ) {
         setNeedsVerification(true);
+        setSaved(undefined);
+        setSavedResult(undefined);
+        savedRequest.current++;
+        setLoadingSaved(false);
+      }
     } finally {
       setSaving(false);
     }
@@ -428,11 +435,10 @@ export function ArchivePanel({
                     {t("export")}
                   </Button>
                   <Button
-                    disabled={!canSave || !valid}
+                    disabled={!canSave || !valid || needsVerification}
                     onClick={() => {
                       setOperationError(undefined);
                       setConfirming(true);
-                      setNeedsVerification(false);
                     }}
                   >
                     {t("archiveReviewSave")}
@@ -479,7 +485,6 @@ export function ArchivePanel({
                   disabled={saving}
                   onClick={() => {
                     setConfirming(false);
-                    setNeedsVerification(false);
                   }}
                 >
                   {t("archiveBack")}
@@ -493,7 +498,7 @@ export function ArchivePanel({
                 </Button>
                 <Button
                   loading={saving}
-                  disabled={needsVerification}
+                  disabled={needsVerification || !saved || loadingSaved}
                   onClick={() => void save()}
                 >
                   {t("archiveConfirmSaveAction")}

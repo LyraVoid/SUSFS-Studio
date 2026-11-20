@@ -142,6 +142,35 @@ it("preserves stable native error codes", async () => {
   );
 });
 
+it("treats an invalid save receipt as unknown and consumes the token", async () => {
+  const host: Record<string, unknown> = {};
+  const bridge = createArchiveBridge(host as unknown as Window, {
+    exec(command, _options, callback) {
+      (host[callback] as (code: number, stdout: string) => void)(
+        0,
+        command.endsWith(" stage")
+          ? response("stage", { token, uploadPath })
+          : response("save", {}),
+      );
+    },
+    io: () => ({
+      version: () => 1,
+      FileOutputStream: () => ({
+        open: () => "stream",
+        write: () => true,
+        close: () => true,
+      }),
+    }),
+  });
+  await bridge.prepare?.();
+  await expect(bridge.save?.(token)).rejects.toMatchObject({
+    code: "RESULT_UNKNOWN",
+  });
+  await expect(bridge.save?.(token)).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+  });
+});
+
 it("streams archive bytes in bounded chunks", async () => {
   const host: Record<string, unknown> = {};
   const chunks: string[] = [];
