@@ -95,14 +95,14 @@ The YAML color values are reference samples for the default profile in light mod
 
 ## Typography and Adaptive Layout
 
-- Use 32/40 for standard page titles, 36/44 expanded and 22/28 collapsed for the Rules flexible app-bar title, 17/22 for Rules row titles, 15/20 for Rules supporting text, and 14/20 for Rules section titles and navigation labels. Home uses its own typography below. Use rem units with system sans-serif and monospace fallbacks.
+- Use 36/44 expanded and 22/28 collapsed for flexible app-bar titles, 17/22 for Rules row titles, 15/20 for Rules supporting text, and 14/20 for Rules section titles and navigation labels. Use system sans-serif and monospace fallbacks.
 - Use a 4px spacing step. On phones, keep 16px content gutters and three bottom navigation items: Home, Rules, Settings. Use left navigation from 840 CSS px. Add the top and bottom safe-area insets to the immersive Rules surface and the 74px navigation content height.
 
 ## Shape and Components
 
 - Use connected lists in Rules and Settings. Rules rows may omit a leading icon. Use a 14/20 primary section title with 16px start padding and 8px bottom spacing. Use 16px outer corners, 4px inner corners, and 2px gaps. Keep pending host actions visible with the reason they are unavailable.
 - Use a pill for the selected navigation indicator and 28px corners for the archive dialog. Pages and business components use the semantic tokens in `web/src/theme/`.
-- Use a Material 3 Expressive large flexible top app bar on Rules. It is 120px high with a 64px toolbar row when expanded, collapses to 64px across the first 56px of vertical scroll, and keeps the refresh action in the leading toolbar row. The title moves into that row as it collapses. Pin the app bar and six tab pills together so the title can change size without losing navigation.
+- Use a pinned Material 3 Expressive large flexible top app bar on Home, Rules, and Settings. Excluding the top safe inset, it is 120px high when expanded and collapses to 64px across the first 56px of vertical scroll. Home and Settings keep a stable scroll extent as the sticky header changes size and remain collapsible even with short content. Rules also pins its refresh action and six tab pills above its separate scroll area.
 - Use the shared M3E dialog shell for every modal flow. It uses a centered 28px container, a 24/32 title, no header close icon, a scrollable body, and right-aligned sticky text actions. Choice dialogs use connected 4px-radius rows with 24px outer ends, a trailing radio indicator, and a selected tonal fill. Inputs use 16px outlined fields. Destructive actions stay textual and use the error color; dialogs do not mix filled navigation buttons with text actions.
 
 ## Interaction and Validation
@@ -118,7 +118,7 @@ Use a viewport width of 360 CSS px as the mobile baseline. Measure top and botto
 
 | Element | Mobile layout |
 |---|---|
-| Heading | Left-align `SUSFS Studio` at 28px with a 36px line height and weight 500. At the mobile baseline, start approximately 96px from the top and 20px from the left. |
+| Heading | Left-align `SUSFS Studio` in the flexible top app bar at the 16px gutter plus the left safe inset. Keep the diagnostic source label in the toolbar area. |
 | Activation card | Use 16px page gutters and a full-width, borderless card approximately 96px tall with 16px corners. Align the ringed checkmark with the icon column below. Stack the localized Active label above the SUSFS version. Put a verified `LKM` or `Built-In` badge in its own column on the right and center it vertically. Use approximately 20px for the title, 14px for the version, and 12px at weight 600 for the badge. |
 | Status card | Place it 16px below the activation card. Use an approximately 72px height and 16px corners. A branch icon precedes the state title and a diagnostic summary. Report facts confirmed by the current result. |
 | Device group | List model, system, and kernel in that order. Rows start at approximately 72px and can grow with content. Use gaps of approximately 2px, outer corners of 16px, and inner corners of approximately 2px. Align the device, system, and chip icons. Use approximately 16px for labels and 14px for values. Allow long kernel strings to wrap. |

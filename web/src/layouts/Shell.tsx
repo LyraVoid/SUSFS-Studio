@@ -1,6 +1,7 @@
 import { type ReactNode, useLayoutEffect, useRef } from "react";
 import type { Route } from "../app/routes";
 import { Icon } from "../components/atoms/Icon";
+import { syncAppBar } from "../components/molecules/FlexiblePageHeader";
 import type { Translate } from "../i18n/messages";
 import styles from "./Shell.module.css";
 
@@ -22,21 +23,27 @@ export function Shell({
   const main = useRef<HTMLElement>(null);
   const positions = useRef(new Map<Route | undefined, number>());
   const visited = useRef(false);
+  const flexible = route === "/" || route === "/settings";
   useLayoutEffect(() => {
     const content = main.current;
     if (!content) return;
     content.scrollTop = positions.current.get(route) ?? 0;
+    if (flexible) syncAppBar(content, content.scrollTop);
     if (visited.current) content.focus({ preventScroll: true });
     visited.current = true;
-    const remember = () => positions.current.set(route, content.scrollTop);
+    const remember = () => {
+      positions.current.set(route, content.scrollTop);
+      if (flexible) syncAppBar(content, content.scrollTop);
+    };
     content.addEventListener("scroll", remember);
     return () => content.removeEventListener("scroll", remember);
-  }, [route]);
+  }, [route, flexible]);
 
   return (
     <div
       className={styles.shell}
       data-home={route === "/"}
+      data-flexible={flexible}
       data-rules={route?.startsWith("/rules/")}
       data-testid="shell"
     >

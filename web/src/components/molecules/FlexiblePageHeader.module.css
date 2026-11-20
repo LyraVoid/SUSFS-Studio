@@ -1,0 +1,28 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  align-self: start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s8);
+  height: calc(var(--top-app-bar-height, 120px) + var(--safe-top));
+  padding-inline: calc(var(--page-gutter) + var(--safe-left))
+    calc(var(--page-gutter) + var(--safe-right));
+  background: var(--canvas);
+}
+.header h1 {
+  align-self: start;
+  margin-top: calc(var(--safe-top) + var(--top-app-bar-title-top, 48px));
+  overflow-wrap: anywhere;
+  font-size: var(--top-app-bar-title-size, 36px);
+  line-height: var(--top-app-bar-title-line, 44px);
+  font-weight: 400;
+}
+.aside {
+  align-self: start;
+  margin-top: calc(var(--safe-top) + 1.25rem);
+  color: var(--on-muted);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}

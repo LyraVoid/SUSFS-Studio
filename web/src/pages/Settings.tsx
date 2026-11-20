@@ -6,6 +6,7 @@ import {
 import { hexFromArgb } from "@material/material-color-utilities";
 import { useId, useMemo } from "react";
 import { Icon, type IconName } from "../components/atoms/Icon";
+import { FlexiblePageHeader } from "../components/molecules/FlexiblePageHeader";
 import {
   SettingsList,
   SettingsRow,
@@ -23,7 +24,6 @@ import {
 } from "../theme/colorProfile";
 import { createColorScheme } from "../theme/theme";
 import { type Scenario, type Status, scenarios } from "../transport/mock";
-import page from "./PageHeader.module.css";
 import styles from "./Settings.module.css";
 
 const seedOptions = Object.keys(seeds) as Seed[];
@@ -126,9 +126,7 @@ export function Settings({
   });
   return (
     <>
-      <header className={page.header}>
-        <h1>{t("settings")}</h1>
-      </header>
+      <FlexiblePageHeader title={t("settings")} />
       <SettingsList label={t("colorPreferences")}>
         <ChoiceRow
           icon="palette"

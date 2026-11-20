@@ -1,4 +1,5 @@
 .shell {
+  --page-gutter: var(--s16);
   --nav-bg: var(--canvas);
   --nav-pill: var(--secondary-container);
   --nav-muted: var(--on-muted);
@@ -30,9 +31,21 @@
   display: grid;
   gap: var(--s16);
 }
+.shell[data-flexible="true"] .main {
+  scroll-padding-top: calc(64px + var(--safe-top));
+}
+.shell[data-flexible="true"] .content {
+  min-height: calc(100% + 56px);
+  padding: 0 0 var(--s24);
+  grid-template-rows: calc(120px + var(--safe-top));
+  align-content: start;
+}
+.shell[data-flexible="true"] .content > :not(header) {
+  margin-inline: calc(var(--page-gutter) + var(--safe-left))
+    calc(var(--page-gutter) + var(--safe-right));
+}
 .shell[data-home="true"] .content {
-  padding-top: calc(6rem + var(--safe-top));
-  gap: 0;
+  row-gap: 0;
 }
 .shell[data-rules="true"] .content {
   height: 100%;
@@ -103,6 +116,7 @@
 }
 @media (min-width: 840px) {
   .shell {
+    --page-gutter: var(--s32);
     grid-template-columns: 12rem minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
   }
@@ -129,8 +143,5 @@
   .content {
     padding-inline: calc(var(--s32) + var(--safe-left))
       calc(var(--s32) + var(--safe-right));
-  }
-  .shell[data-home="true"] .content {
-    padding-top: calc(var(--s32) + var(--safe-top));
   }
 }

@@ -1,6 +1,7 @@
 import { Button } from "@mantine/core";
 import { useRef } from "react";
 import type { RuleRoute } from "../app/routes";
+import { syncAppBar } from "../components/molecules/FlexiblePageHeader";
 import {
   BasicArchive,
   LkmArchive,
@@ -62,27 +63,6 @@ export function CapabilityPage({
   const provider =
     !stale && status.kind === "active" ? status.provider : undefined;
   const chrome = useRef<HTMLDivElement>(null);
-  const syncChrome = (scrollTop: number) => {
-    const element = chrome.current;
-    if (!element) return;
-    const progress = Math.min(1, Math.max(0, scrollTop / 56));
-    element.style.setProperty(
-      "--top-app-bar-height",
-      `${120 - 56 * progress}px`,
-    );
-    element.style.setProperty(
-      "--top-app-bar-title-top",
-      `${48 - 32 * progress}px`,
-    );
-    element.style.setProperty(
-      "--top-app-bar-title-size",
-      `${36 - 14 * progress}px`,
-    );
-    element.style.setProperty(
-      "--top-app-bar-title-line",
-      `${44 - 16 * progress}px`,
-    );
-  };
   return (
     <div className={pageStyles.rulesPage} data-testid="rules-page">
       <div
@@ -127,7 +107,10 @@ export function CapabilityPage({
       <div
         className={pageStyles.rulesContent}
         data-testid="rules-content"
-        onScroll={(event) => syncChrome(event.currentTarget.scrollTop)}
+        onScroll={(event) => {
+          if (chrome.current)
+            syncAppBar(chrome.current, event.currentTarget.scrollTop);
+        }}
       >
         <RuleArchive
           key={route}

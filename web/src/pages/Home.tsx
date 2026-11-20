@@ -22,10 +22,10 @@ export function Home({
 }) {
   return (
     <>
-      <header className={styles.header}>
-        <h1>{t("app")}</h1>
-        <span>{t(demo ? "demo" : "hostDiagnostics")}</span>
-      </header>
+      <FlexiblePageHeader
+        title={t("app")}
+        aside={t(demo ? "demo" : "hostDiagnostics")}
+      />
       <div className={styles.dashboard}>
         <div className={styles.overview}>
           <ActivationCard status={status} t={t} />
@@ -43,3 +43,5 @@ export function Home({
     </>
   );
 }
+
+import { FlexiblePageHeader } from "../components/molecules/FlexiblePageHeader";

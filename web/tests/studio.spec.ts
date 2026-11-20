@@ -372,6 +372,56 @@ test("flexible app bar stays stable between expanded and collapsed", async ({
   );
 });
 
+test("Home and Settings keep their large app bars pinned while scrolling", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(() =>
+    document.documentElement.style.setProperty("--safe-area-inset-top", "24px"),
+  );
+  const main = page.getByRole("main");
+  const header = page.getByTestId("flexible-page-header");
+  const title = header.getByRole("heading", { level: 1 });
+  const nav = page.getByRole("navigation", { name: "主导航" });
+  const top = () =>
+    header.evaluate((element) => element.getBoundingClientRect().top);
+  await expect(title).toHaveText("SUSFS Studio");
+  await expect(header).toHaveCSS("height", "144px");
+  await expect(title).toHaveCSS("font-size", "36px");
+  const card = page.locator('output[data-state="active"]');
+  await expect(card).toBeVisible();
+  const headerBox = await header.boundingBox();
+  const cardBox = await card.boundingBox();
+  if (!headerBox || !cardBox) throw new Error("Missing home layout bounds");
+  expect(cardBox.y).toBeCloseTo(headerBox.y + headerBox.height, 0);
+  await main.hover({ position: { x: 120, y: 240 } });
+  await page.mouse.wheel(0, 28);
+  await expect(header).toHaveCSS("height", "116px");
+  await expect(title).toHaveCSS("font-size", "29px");
+  expect(await top()).toBe(0);
+  await page.mouse.wheel(0, 80);
+  await expect(header).toHaveCSS("height", "88px");
+  await expect(title).toHaveCSS("font-size", "22px");
+  expect(await top()).toBe(0);
+  await nav.getByRole("link", { name: "设置" }).click();
+  await expect(title).toHaveText("设置");
+  await expect(header).toHaveCSS("height", "144px");
+  await main.evaluate((element) => {
+    element.scrollTop = 400;
+  });
+  await expect(header).toHaveCSS("height", "88px");
+  expect(await top()).toBe(0);
+  await nav.getByRole("link", { name: "首页" }).click();
+  await expect(title).toHaveText("SUSFS Studio");
+  await expect(header).toHaveCSS("height", "88px");
+  await main.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await expect(header).toHaveCSS("height", "144px");
+  await nav.getByRole("link", { name: "设置" }).click();
+  await expect(header).toHaveCSS("height", "88px");
+});
+
 test("distinct demo results and confirmed implementation badges", async ({
   page,
 }) => {

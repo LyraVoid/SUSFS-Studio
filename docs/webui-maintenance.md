@@ -19,7 +19,7 @@ Route definitions live in [`web/src/app/routes.ts`](../web/src/app/routes.ts). T
 
 The [navigation shell](../web/src/layouts/Shell.tsx) has exactly three destinations: Home, Rules and Settings. It restores the main content scroll position when revisiting a route within the session. Below 840 CSS px it uses bottom navigation. At 840 CSS px and above it uses left navigation. Rules owns six scrollable tabs in the order Overview, Basic settings, Path hiding, File disguise, Redirect and Extensions.
 
-When the host exposes `ksu.enableEdgeToEdge`, the WebUI requests immersive layout and reads the host-injected `--safe-area-inset-*` variables. The shell background continues through the status and gesture areas while content and navigation remain inside safe bounds. Rules uses the M3E large flexible top app bar: 36/44 expanded, 22/28 collapsed, 120px to 64px over the first 56px of vertical scroll.
+When the host exposes `ksu.enableEdgeToEdge`, the WebUI requests immersive layout and reads the host-injected `--safe-area-inset-*` variables. The shell background continues through the status and gesture areas while content and navigation remain inside safe bounds. Home, Rules, and Settings use the M3E large flexible top app bar: 36/44 expanded, 22/28 collapsed, 120px to 64px over the first 56px of vertical scroll. Home and Settings scroll inside the shell with a sticky title and fixed expanded header track; Rules pins its title and tabs above its own scrolling content.
 
 ## Source ownership
 
