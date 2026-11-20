@@ -213,8 +213,8 @@ fn capability(
     action: &DeviceAction,
     marker: &str,
 ) -> Result<(), String> {
-    if !provider.audited {
-        return Err("PROVIDER_UNAUDITED".to_owned());
+    if !matches!(provider.implementation.as_str(), "builtin" | "lkm") {
+        return Err("PROVIDER_IDENTITY_UNKNOWN".to_owned());
     }
     if provider.boot_id.is_empty() {
         return Err("INSTANCE_UNKNOWN".to_owned());
@@ -1450,6 +1450,35 @@ mod tests {
             .push("CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER".to_owned());
         let operations = runtime_operations(before, after, &lkm);
         assert_eq!(operations[0].item.reason, "ABI_NOT_AUDITED");
+    }
+
+    #[test]
+    fn unaudited_known_provider_families_do_not_gate_operations() {
+        let before = r#"{"format":"susfs-studio","schema":2,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]}}"#;
+        let after = r#"{"format":"susfs-studio","schema":2,"rules":{"paths":[{"id":"p","path":"/data/p","looping":false}],"maps":[],"kstats":[],"redirects":[]}}"#;
+
+        let mut lkm = provider(&["susfs_path"]);
+        lkm.version = "v2.4.0".to_owned();
+        lkm.audited = false;
+        let operations = runtime_operations(before, after, &lkm);
+        assert_eq!(operations[0].item.eligibility, "eligible");
+
+        let mut builtin = builtin();
+        builtin.version = "v2.3.0".to_owned();
+        builtin.audited = false;
+        let operations = runtime_operations(before, after, &builtin);
+        assert_eq!(operations[0].item.eligibility, "eligible");
+    }
+
+    #[test]
+    fn unknown_provider_identity_still_blocks_operations() {
+        let before = r#"{"format":"susfs-studio","schema":2,"rules":{"paths":[],"maps":[],"kstats":[],"redirects":[]}}"#;
+        let after = r#"{"format":"susfs-studio","schema":2,"rules":{"paths":[{"id":"p","path":"/data/p","looping":false}],"maps":[],"kstats":[],"redirects":[]}}"#;
+        let mut provider = provider(&["susfs_path"]);
+        provider.implementation = "unknown".to_owned();
+        provider.audited = false;
+        let operations = runtime_operations(before, after, &provider);
+        assert_eq!(operations[0].item.reason, "PROVIDER_IDENTITY_UNKNOWN");
     }
 
     #[test]

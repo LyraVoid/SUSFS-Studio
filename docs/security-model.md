@@ -43,4 +43,4 @@ The automatic boot path performs a fixed host GKI-LKM load only when the Studio 
 
 ## Verification limits
 
-The strongest current evidence is for LKM SUSFS 2.3.0, GKI-LKM, arm64, kernel 6.6, and the stated KernelSU build. Built-In 2.3/2.4, NON-GKI kernels, other architectures, unknown Provider versions, unobserved redirect schemes, and other hosts remain unverified. A host that does not enforce origin-scoped bridge exposure remains a host-level security limitation even when Studio's own inputs are fixed.
+The strongest current evidence is for LKM SUSFS 2.3.0 and Built-In GKI SUSFS 2.4.0 on the stated arm64, kernel 6.6 and KernelSU/FinaSU hosts. Built-In 2.3, LKM 2.4, NON-GKI kernels, other architectures, unknown Provider versions, unobserved redirect schemes, and other hosts remain unverified. They are still operable when implementation identity and protocol are known; missing evidence does not silently become successful effect evidence. A host that does not enforce origin-scoped bridge exposure remains a host-level security limitation even when Studio's own inputs are fixed.

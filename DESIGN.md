@@ -143,4 +143,4 @@ Basic settings uses labeled three-state rows and manual archive fields. Device-s
 
 Protected apps opens the shared M3E dialog with a 56px pill search field, selected count, shared-app-ID warning, and a connected scrollable app list. Each installed app row uses a 40px icon, app label, package name and UID, and a trailing checkbox indicator; a missing archived app remains selectable so it can be removed. Loading, load failure, no matches, and a search clear action are explicit. App icons come from the host's read-only icon scheme when available and fall back to a tonal initial tile. The dialog keeps Close and Update draft as text actions.
 
-When the active Provider is not an audited LKM implementation, the Extensions tab shows one connected unavailable row and its reason. Hide the module and prefix add actions, entries and empty states until a supported LKM Provider is active.
+When the active Provider is not a known LKM implementation, the Extensions tab shows one connected unavailable row and its reason. Hide the module and prefix add actions, entries and empty states until a supported LKM Provider is active.

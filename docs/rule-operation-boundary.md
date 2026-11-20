@@ -1,22 +1,22 @@
 # Rule Operation Boundary
 
-Studio's provider operation layer uses its own archive, operation plan, journal, fixed executable arguments, and effect probes. A feature marker, a loaded kernel module, an archive receipt, or a returned syscall value alone does not authorize an operation or prove its effect. Every item must have a known Provider implementation and audited ABI, the required runtime proc extension, an eligible stage and UID, an independent effect probe, and a recovery path.
+Studio's provider operation layer uses its own archive, operation plan, journal, fixed executable arguments, and effect probes. A feature marker, a loaded kernel module, an archive receipt, or a returned syscall value alone does not authorize an operation or prove its effect. Every item must have a known Provider implementation, a compatible protocol, the reported feature, the required runtime proc extension, an eligible stage and UID, an independent effect probe, and a recovery path. `audited` is evidence annotation only; it does not decide writability.
 
-The Rules surface keeps host access, Provider identity, raw features, adapter confirmation, per-item eligibility, operation state, effect state, and recovery state separate. A missing host, absent Provider, unknown protocol, unreported feature, explicitly unsupported feature, unaudited ABI, missing proc extension, stale evidence, missing authorization, deferred boot-stage work, and pending reboot are distinct results.
+The Rules surface keeps host access, Provider identity, raw features, adapter confirmation, per-item eligibility, unsupported Priority UID backend, operation state, effect state, and recovery state separate. A missing host, absent Provider, unknown protocol, unreported feature, explicitly unsupported feature, missing proc extension, stale evidence, missing authorization, deferred boot-stage work, and pending reboot are distinct results. An `audited=false` label is evidence context and does not by itself block a known implementation.
 
 ## Provider ABI matrix
 
-The table describes the evidence level, not a claim that every combination behaves identically. Unknown builds stay fail-closed until their runtime identity and request/response layout are re-audited.
+The table describes the evidence level, not a claim that every combination behaves identically. A known Built-In or LKM implementation remains writable through the same reported-capability and per-item checks when it is not in the tested set. Its version stays labelled unaudited until matching device evidence exists. Unknown implementation identity remains blocked.
 
 | Provider family | Versions and variants | Current evidence | Operation disposition |
 | --- | --- | --- | --- |
 | LKM | SUSFS 2.3.0, GKI-LKM, arm64, kernel 6.6, KernelSU `v3.3.1-50-g64833c00` | Real-device request, return, effect, restart, and cleanup tests completed for the supported operations below. | Eligible when the per-item proc extension and capability checks pass. |
-| LKM | Other 2.3 builds, NON-GKI, other kernels, other architectures | No matching runtime test. The source/layout review is not build-identity proof. | Blocked as unaudited or unreported. |
-| LKM | SUSFS 2.4 | No matching running Provider was tested in this pass. | Blocked until runtime dispatch, return semantics, effects, and recovery are verified. |
+| LKM | Other 2.3 builds, NON-GKI, other kernels, other architectures | No matching runtime test. The source/layout review is not build-identity proof. | Allowed only when the variant classifies as LKM and the reported feature and required proc extension pass; remains unaudited with per-effect evidence pending. |
+| LKM | SUSFS 2.4 | No matching running Provider was tested in this pass. | Uses the same LKM feature/proc gates as 2.3 and remains labelled unaudited until matching dispatch, return, effect, and recovery tests exist. |
 | Built-In | GKI 2.4.0, arm64, kernel 6.6, PKX110 / Android 17 | Runtime request, return, item effect, restart reset, and cleanup tested for the operations below. | Eligible when the subfeature is reported and its per-item ABI and probe pass. |
-| Built-In | GKI 2.3.0 | Reference-source evidence only. | Blocked as unaudited at runtime. |
-| Built-In | NON-GKI or unknown | No audited runtime target. | Blocked. |
-| Any | Unknown version, implementation, or protocol | The interface may remain visible for diagnostics. | No write eligibility. |
+| Built-In | GKI 2.3.0 or another unreported version | Reference-source or classification evidence only unless a matching device test exists. | Uses the same Built-In feature and supercall gates; remains unaudited with per-effect evidence pending. |
+| Built-In | NON-GKI | No matching runtime test. | Allowed when the Provider classifies as Built-In and reports the feature; remains unaudited. |
+| Any | Unknown implementation or incompatible protocol | The interface may remain visible for diagnostics. | No write eligibility because the write protocol cannot be selected safely. |
 
 Runtime capability detection reads the Provider version, features, variant, readable proc extensions, static-kstat field list, and redirect UID scheme report. A `CONFIG_*` token alone does not authorize a subfeature when the corresponding proc extension or exact ABI is absent. LKM module hiding and mount-prefix operations additionally require a live LKM identity and the exact extension nodes.
 
@@ -51,8 +51,8 @@ Runtime capability detection reads the Provider version, features, variant, read
 | Hide mounts | Unmanaged, explicit off/on | Live tri-state write. | App-range mountinfo observation. Inverse toggle. |
 | Logging | Unmanaged, explicit off/on | Live proc write. | Independent proc-state probe. Inverse toggle. |
 | AVC spoof | Unmanaged, explicit off/on | Live proc write when the extension is reported. | App-domain SELinux trigger and `enter`/`hits` state observation. Inverse toggle. |
-| Priority UID filter | Unmanaged, explicit empty list, add/remove | LKM is blocked as `ABI_NOT_AUDITED`. A Built-In app/UID source is exposed only for an audited Built-In Provider. | No device effect is claimed for LKM. |
-| uname | Unmanaged, manual values, real-value reset | Live for the audited LKM ABI. Manual spoof and reboot restoration were tested. | `uname(2)` probe and post-reboot real-value check. |
+| Priority UID filter | Unmanaged, explicit empty list, add/remove | LKM is blocked because FinaSU and Studio expose only the Built-In backend. A Built-In app/UID source is exposed when the feature and capability are reported. | No device effect is claimed for LKM. |
+| uname | Unmanaged, manual values, real-value reset | Live for the tested LKM ABI. Manual spoof and reboot restoration were tested. | `uname(2)` probe and post-reboot real-value check. |
 | cmdline / bootconfig | Unmanaged, manual value, explicit reset intent | The tested LKM writes `/proc/bootconfig`, not `/proc/cmdline`. Empty reset returns an unsupported boundary and becomes `pending_reboot`. | Proc probe before/after and post-reboot real bootconfig check. |
 | LKM hidden modules | Add/remove/apply | Live list mutation with name and count validation. | Module visibility plus Provider state observed independently. Removal restores the list. |
 | LKM mount prefixes | Add/remove/apply | Live absolute-path list mutation with count validation. | Mountinfo plus Provider state in the target context. Bind-mount test resource was removed after verification. |
@@ -74,4 +74,4 @@ Studio does not invoke FinaSU's `ksud susfs` controller or sidex15's `ksu_susfs`
 
 An earlier host configuration autoloaded LKM 2.3 even though the kernel exposed Built-In 2.4. Studio did not modify that private host configuration. After the host was changed to the Built-In Provider, the Studio-owned boot sequence completed without a new KO load.
 
-No current evidence covers an arbitrary Built-In runtime, Built-In GKI 2.3, NON-GKI kernels, other architectures, LKM 2.4, every host autoload policy, or redirect schemes not reported by a Provider. Those combinations remain visible and fail closed with a concrete reason.
+No current evidence covers an arbitrary Built-In runtime, Built-In GKI 2.3, NON-GKI kernels, other architectures, LKM 2.4, every host autoload policy, or redirect schemes not reported by a Provider. They are not rejected solely because that evidence is absent: known implementation families use the reported feature/proc gates and keep their unaudited and unverified-effect labels. Unknown implementation identity, incompatible protocols, missing features, missing proc extensions, and unreported schemes still block the affected item.

@@ -91,6 +91,17 @@ describe("operation qualification", () => {
     ).toBe("writeEligible");
   });
 
+  it("treats an unaudited known Provider as an evidence label, not an operation gate", () => {
+    const unaudited = active("available", {
+      ...control,
+      providerWrite: true,
+      effectVerification: true,
+    }) as Extract<Status, { kind: "active" }>;
+    unaudited.provider.audited = false;
+    unaudited.provider.version = "v2.4.0";
+    expect(operationState(unaudited, "paths", "ksu")).toBe("writeEligible");
+  });
+
   it("fails closed for stale evidence and an unconfirmed adapter", () => {
     expect(operationState(active("available"), "paths", "ksu", true)).toBe(
       "stale",

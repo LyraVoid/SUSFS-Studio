@@ -8,7 +8,7 @@
 | --- | --- |
 | `studioctl hello` | Confirms executable startup and protocol version 1. |
 | `studioctl status` | Queries Provider version, implementation, kernel type, variant, audit state, raw features, runtime proc extensions, static-kstat fields, redirect UID schemes, device facts, and bounded active-slot boot facts. Root is required for a live Provider query. |
-| `studioctl apps` | Returns package names and UIDs only when an audited Built-In Provider reports priority-UID support. LKM currently returns `TRUSTED_UID_SOURCE_UNAVAILABLE`. |
+| `studioctl apps` | Returns package names and UIDs only when a Built-In Provider reports priority-UID support. LKM currently returns `TRUSTED_UID_SOURCE_UNAVAILABLE`, matching FinaSU's Built-In-only Priority UID backend. |
 | `studioctl preview` | Reads at most 128 KiB from standard input and classifies the Studio envelope without storing it. |
 | `studioctl effect-probe map <path>` | Runs a fixed app-domain mapping probe for an already configured path. The path is validated as an absolute non-dot path; it is not inserted into a shell. |
 | `studioctl effect-probe stat <path>` | Returns the 12 native stat values used by static-kstat verification. The path uses the same absolute non-dot validation and is not inserted into a shell. |

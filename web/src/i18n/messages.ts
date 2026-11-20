@@ -113,7 +113,8 @@ export const zh = {
     "确认后，Studio 将按计划逐项写入 Provider。每项写入前先保存预写日志；未知结果禁止自动重试。",
   operationConfirmApply: "确认应用计划",
   operationReasonVerified: "能力与所需 ABI 已确认",
-  operationReasonAbiUnaudited: "该 Provider 组合的 ABI 尚未审计",
+  operationReasonAbiUnaudited: "该 Provider 尚未提供 Priority UID 过滤后端",
+  operationReasonProviderIdentity: "Provider 实现类型未知，不能选择写入协议",
   operationReasonProcMissing: "Provider 未提供可用的所需 proc 扩展",
   operationReasonUnreported: "Provider 未报告此能力",
   operationReasonKstatStage: "实时会话错过了挂载前快照阶段",
@@ -643,7 +644,9 @@ export const en = {
   operationConfirmApply: "Confirm plan application",
   operationReasonVerified: "Capability and required ABI verified",
   operationReasonAbiUnaudited:
-    "The ABI for this provider combination has not been audited",
+    "This Provider does not expose a Priority UID filter backend",
+  operationReasonProviderIdentity:
+    "The Provider implementation is unknown, so no write protocol can be selected",
   operationReasonProcMissing:
     "The provider does not expose the required writable proc extension",
   operationReasonUnreported: "The provider did not report this capability",

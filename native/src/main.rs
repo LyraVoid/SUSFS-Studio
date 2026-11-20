@@ -155,13 +155,78 @@ struct Control {
 
 impl Control {
     fn for_status(status: &Status) -> Self {
-        let active = matches!(status, Status::Active { provider } if provider.audited);
+        let active = matches!(
+            status,
+            Status::Active { provider }
+                if matches!(provider.implementation, "builtin" | "lkm")
+        );
         Self {
             archive_import: true,
             provider_write: active,
             effect_verification: active,
             adapter: "confirmed",
         }
+    }
+}
+
+#[cfg(any(target_os = "android", test))]
+fn refine_provider(provider: &mut Provider, proc_nodes: Vec<String>) {
+    provider.proc_nodes = proc_nodes;
+    let proc = |node: &str| provider.proc_nodes.iter().any(|value| value == node);
+    let kstat = provider.capabilities.get("kstat") == Some(&"available");
+    let redirect = provider.capabilities.get("redirect") == Some(&"available");
+    let lkm = provider.implementation == "lkm";
+    let builtin = provider.implementation == "builtin";
+    if kstat {
+        provider.static_kstat_fields = vec![
+            "ino",
+            "dev",
+            "nlink",
+            "size",
+            "atime_sec",
+            "atime_nsec",
+            "mtime_sec",
+            "mtime_nsec",
+            "ctime_sec",
+            "ctime_nsec",
+            "blocks",
+            "blksize",
+        ];
+    }
+    if redirect {
+        provider.redirect_uid_schemes = if lkm {
+            vec![0, 1, 2, 3, 4]
+        } else if builtin {
+            vec![0, 1, 2]
+        } else {
+            Vec::new()
+        };
+    }
+    for (key, available) in [
+        ("avcSpoof", (lkm && proc("susfs_avc_spoof")) || builtin),
+        ("fullClone", kstat && (builtin || proc("susfs_kstat"))),
+        ("staticKstat", kstat),
+        ("hiddenModules", lkm && proc("susfs_hide_modules")),
+        ("mountPrefixes", lkm && proc("susfs_hide_mounts")),
+    ] {
+        provider.capabilities.insert(
+            key,
+            if available {
+                "available"
+            } else {
+                "unavailable"
+            },
+        );
+    }
+    if lkm
+        && provider
+            .features
+            .iter()
+            .any(|feature| feature == "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER")
+    {
+        provider
+            .capabilities
+            .insert("priorityUidFilter", "unavailable");
     }
 }
 
@@ -334,7 +399,7 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
             variant: variant_text.clone(),
             audited: matches!(
                 (implementation, variant_text.as_str(), version_text.as_str()),
-                ("lkm", "GKI-LKM", "v2.3.0") | ("builtin", "GKI", "v2.3.0" | "v2.4.0")
+                ("lkm", "GKI-LKM", "v2.3.0") | ("builtin", "GKI", "v2.4.0")
             ),
             features,
             capabilities,
@@ -358,69 +423,8 @@ fn status() -> Status {
             query::<16>(0x555e3),
         );
         if let Status::Active { provider } = &mut status {
-            provider.proc_nodes = device::probe_proc_nodes();
-            let proc = |node: &str| provider.proc_nodes.iter().any(|value| value == node);
-            let kstat = provider.capabilities.get("kstat") == Some(&"available");
-            let redirect = provider.capabilities.get("redirect") == Some(&"available");
-            let lkm = provider.implementation == "lkm";
-            let builtin = provider.implementation == "builtin";
-            if kstat && provider.audited {
-                provider.static_kstat_fields = vec![
-                    "ino",
-                    "dev",
-                    "nlink",
-                    "size",
-                    "atime_sec",
-                    "atime_nsec",
-                    "mtime_sec",
-                    "mtime_nsec",
-                    "ctime_sec",
-                    "ctime_nsec",
-                    "blocks",
-                    "blksize",
-                ];
-            }
-            if redirect && provider.audited {
-                provider.redirect_uid_schemes = if lkm {
-                    vec![0, 1, 2, 3, 4]
-                } else if builtin {
-                    vec![0, 1, 2]
-                } else {
-                    Vec::new()
-                };
-            }
-            for (key, available) in [
-                (
-                    "avcSpoof",
-                    (lkm && proc("susfs_avc_spoof")) || (builtin && provider.audited),
-                ),
-                (
-                    "fullClone",
-                    kstat && provider.audited && (builtin || proc("susfs_kstat")),
-                ),
-                ("staticKstat", kstat && provider.audited),
-                ("hiddenModules", lkm && proc("susfs_hide_modules")),
-                ("mountPrefixes", lkm && proc("susfs_hide_mounts")),
-            ] {
-                provider.capabilities.insert(
-                    key,
-                    if available {
-                        "available"
-                    } else {
-                        "unavailable"
-                    },
-                );
-            }
-            if lkm
-                && provider
-                    .features
-                    .iter()
-                    .any(|feature| feature == "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER")
-            {
-                provider
-                    .capabilities
-                    .insert("priorityUidFilter", "unavailable");
-            }
+            let proc_nodes = device::probe_proc_nodes();
+            refine_provider(provider, proc_nodes);
             provider.boot_facts = boot_facts::read();
         }
         status
@@ -783,8 +787,7 @@ fn main() {
         Some("apps") => {
             let status = status();
             let allowed = matches!(&status, Status::Active { provider }
-                if provider.audited
-                    && provider.implementation == "builtin"
+                if provider.implementation == "builtin"
                     && provider.capabilities.get("priorityUidFilter") == Some(&"available"));
             if !allowed {
                 serde_json::to_string(&response(
@@ -1058,6 +1061,47 @@ mod tests {
             reply("GKI"),
         );
         assert!(matches!(status, Status::Active { provider } if !provider.audited));
+    }
+
+    #[test]
+    fn unaudited_known_provider_families_keep_reported_capabilities() {
+        let lkm = classify(
+            reply("v2.4.0"),
+            reply(
+                "SUSFS_LKM_MODULES\nCONFIG_KSU_SUSFS_SUS_PATH\nCONFIG_KSU_SUSFS_SUS_KSTAT\nCONFIG_KSU_SUSFS_OPEN_REDIRECT\nCONFIG_KSU_SUSFS_PRIORITY_UID_FILTER",
+            ),
+            reply("GKI-LKM"),
+        );
+        assert!(Control::for_status(&lkm).provider_write);
+        let Status::Active { mut provider } = lkm else {
+            panic!("expected an active LKM provider");
+        };
+        assert!(!provider.audited);
+        refine_provider(&mut provider, vec!["susfs_kstat".to_owned()]);
+        assert_eq!(provider.capabilities["paths"], "available");
+        assert_eq!(provider.capabilities["fullClone"], "available");
+        assert_eq!(provider.capabilities["staticKstat"], "available");
+        assert_eq!(provider.capabilities["priorityUidFilter"], "unavailable");
+        assert_eq!(provider.redirect_uid_schemes, vec![0, 1, 2, 3, 4]);
+
+        let builtin = classify(
+            reply("v2.3.0"),
+            reply(
+                "CONFIG_KSU_SUSFS_SUS_KSTAT\nCONFIG_KSU_SUSFS_OPEN_REDIRECT\nCONFIG_KSU_SUSFS_PRIORITY_UID_FILTER",
+            ),
+            reply("GKI"),
+        );
+        assert!(Control::for_status(&builtin).provider_write);
+        let Status::Active { mut provider } = builtin else {
+            panic!("expected an active Built-In provider");
+        };
+        assert!(!provider.audited);
+        refine_provider(&mut provider, Vec::new());
+        assert_eq!(provider.capabilities["avcSpoof"], "available");
+        assert_eq!(provider.capabilities["fullClone"], "available");
+        assert_eq!(provider.capabilities["staticKstat"], "available");
+        assert_eq!(provider.capabilities["priorityUidFilter"], "available");
+        assert_eq!(provider.redirect_uid_schemes, vec![0, 1, 2]);
     }
 
     #[test]

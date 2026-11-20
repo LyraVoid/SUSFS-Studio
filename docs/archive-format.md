@@ -193,7 +193,7 @@ The verified GKI-LKM 2.3.0 combination uses the following stages:
 
 | Category | Stage and recovery |
 | --- | --- |
-| Path, Map, redirect, static kstat, settings, uname, cmdline/bootconfig, hidden modules, prefixes | Live mutation where the audited ABI permits it. Each accepted entry has a fixed proc deletion, inverse toggle, real-uname reset, or provider reapply recovery. |
+| Path, Map, redirect, static kstat, settings, uname, cmdline/bootconfig, hidden modules, prefixes | Live mutation where a known Provider implementation, reported feature, and required ABI evidence permit it. Each accepted entry has a fixed proc deletion, inverse toggle, real-uname reset, or provider reapply recovery. |
 | Dynamic kstat | `pre-mount` captures the snapshot and defers post-mount completion; `late-pre-mount` deduplicates the snapshot; `post-mount` performs the redirect. A live request is `pending_reboot` and cannot synthesize the missed pre-mount state. |
 | LKM cmdline empty reset | The tested Provider rejects the empty write. Studio records `pending_reboot` and does not claim an online reset. |
 | Previously hidden path/rule replacement | Use the audited add/remove ABI when possible. Unsupported deletion or combinations wait for reboot rather than inventing an ABI. |

@@ -56,6 +56,7 @@ const operationReasons: Record<string, string> = {
   PROVIDER_MISSING: "operationProviderMissing",
   PROVIDER_UNKNOWN_PROTOCOL: "operationProtocolUnknown",
   PROVIDER_DIAGNOSTIC_FAILED: "operationDiagnosticsFailed",
+  PROVIDER_IDENTITY_UNKNOWN: "operationReasonProviderIdentity",
   EXPLICIT_RESET_REQUIRES_REBOOT: "operationReasonCmdlineReset",
 };
 const categoryMessages = {
