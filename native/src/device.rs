@@ -26,6 +26,18 @@ const KSU_FEATURE_AVC_SPOOF: u32 = 6;
 const KSU_IOCTL_GET_FEATURE: libc::c_ulong = 0xc000_4b0d;
 const APP_PROBE_CONTEXT: &str = "u:r:untrusted_app:s0:c123,c256,c512,c768";
 
+#[cfg(target_os = "android")]
+pub(crate) fn property(name: &std::ffi::CStr) -> Option<String> {
+    let mut value = [0_u8; 92];
+    // The Android property API requires a buffer of PROP_VALUE_MAX bytes.
+    let length = unsafe { libc::__system_property_get(name.as_ptr(), value.as_mut_ptr().cast()) };
+    let length = usize::try_from(length).ok()?;
+    if length == 0 || length >= value.len() {
+        return None;
+    }
+    Some(std::str::from_utf8(&value[..length]).ok()?.to_owned())
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderSnapshot {

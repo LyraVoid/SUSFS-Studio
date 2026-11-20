@@ -7,7 +7,7 @@
 | Command | Behavior |
 | --- | --- |
 | `studioctl hello` | Confirms executable startup and protocol version 1. |
-| `studioctl status` | Queries Provider version, implementation, kernel type, variant, audit state, raw features, runtime proc extensions, static-kstat fields, redirect UID schemes, and device facts. Root is required for a live Provider query. |
+| `studioctl status` | Queries Provider version, implementation, kernel type, variant, audit state, raw features, runtime proc extensions, static-kstat fields, redirect UID schemes, device facts, and bounded active-slot boot facts. Root is required for a live Provider query. |
 | `studioctl apps` | Returns package names and UIDs only when an audited Built-In Provider reports priority-UID support. LKM currently returns `TRUSTED_UID_SOURCE_UNAVAILABLE`. |
 | `studioctl preview` | Reads at most 128 KiB from standard input and classifies the Studio envelope without storing it. |
 | `studioctl effect-probe map <path>` | Runs a fixed app-domain mapping probe for an already configured path. The path is validated as an absolute non-dot path; it is not inserted into a shell. |
@@ -15,6 +15,8 @@
 | `studioctl boot-enabled` | Reports whether the current Studio archive enables Studio's own boot handler. Values are `enabled`, `disabled`, `missing`, or `invalid`. |
 
 Version 1 responses contain `protocol`, `requestId`, `ok`, and `data`. The status kinds are `active`, `missing`, `unknownProtocol`, and `failed`. An active result keeps implementation identity, raw evidence, capabilities, proc nodes, and authorization separate. A malformed or duplicate feature report is an unknown protocol. An unfamiliar version may remain active for inspection but is not audited.
+
+Boot facts use `studio-boot-facts/1`. The current slot is identified from `ro.boot.slot_suffix`. Release, version, cmdline, and bootconfig values are bounded reads from the active Linux runtime and carry `current-runtime` provenance. An inactive Android boot partition is listed as image evidence only; Studio does not infer its runtime values. Missing or malformed fields are omitted rather than guessed. Selecting a source changes only the WebUI draft.
 
 The native status control advertises `archiveImport`, `providerWrite`, `effectVerification`, and `adapter`. Write and effect authorization are true only after a recognized Provider snapshot and confirmed protocol-1 adapter. They do not replace per-item capability, ABI, proc-node, stage, and UID checks.
 

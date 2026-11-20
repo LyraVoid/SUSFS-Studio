@@ -367,6 +367,18 @@ export const zh = {
   controlUname: "伪装 uname",
   controlManual: "手动值",
   controlBootSlots: "启动槽来源",
+  controlBootSourceHint:
+    "来自当前 Linux 运行实例；若已有同类伪装，它不保证仍是原始启动值。选择只会写入草稿，仍需明确确认保存。",
+  controlBootFactsReady:
+    "启动事实来自当前运行实例。选择槽位或字段只更新草稿；是否需要重启由后续 Provider 操作结果决定。",
+  controlBootCurrent: "启动槽 {slot} · 当前",
+  controlBootInactive: "启动槽 {slot} · 非当前启动",
+  controlBootNoValues: "该启动槽没有可用的运行时字段；需要启动此槽后重新读取。",
+  controlBootUseHint: "选择后只更新草稿，不会立即写入设备。",
+  controlCurrentRuntime: "当前运行实例",
+  controlInactiveImage: "非当前启动镜像",
+  controlUseCmdlineSource: "使用 cmdline 来源",
+  controlUseBootconfigSource: "使用 bootconfig 来源",
   controlResetUname: "恢复真实内核信息",
   controlResetUnameHint:
     "将两个字段设为 default 并加入草稿；保存归档不会恢复设备。",
@@ -392,7 +404,7 @@ export const zh = {
   controlUidNoMatches: "没有匹配的归档应用。",
   controlStopManaging: "停止管理",
   controlUidHint:
-    "归档的包名不是已验证的 UID；没有可信应用列表时不能选择或修改。",
+    "应用与 UID 来自设备固定包管理查询；选择只写入草稿，保存前仍需确认。",
   controlEditEntry: "编辑：{entry}",
   controlModuleHint: "最多 16 个；仅限 1–63 个 ASCII 字母、数字或下划线。",
   controlPrefixHint: "最多 8 个；使用有效绝对路径。",
@@ -437,7 +449,10 @@ export const zh = {
   controlCmdline: "伪装 cmdline / bootconfig",
   controlNoAppSource: "没有经验证的应用 UID 列表，仅可查看归档值。",
   controlTrustedApps: "应用与 UID 来自当前设备的固定包管理查询；不记录到日志。",
-  controlNoBootFacts: "没有经验证的启动槽数据，不能从设备填入值。",
+  controlAppsLoading: "正在读取当前设备的应用与 UID。",
+  controlAppsReported: "已报告 {count} 个应用与 UID。",
+  controlNoBootFacts:
+    "当前 Provider 状态没有报告启动事实。刷新设备状态后重试。",
   controlArchiveOnly: "编辑仅改变 Studio 归档；接口报告的能力不代表写入授权。",
   controlNeedsUpgrade: "请先在设置的归档预览中检查并确认升级至 Schema 2。",
   controlModules: "隐藏模块名",
@@ -917,6 +932,20 @@ export const en = {
   controlUname: "Spoof uname",
   controlManual: "Manual values",
   controlBootSlots: "Boot slot source",
+  controlBootSourceHint:
+    "Read from the active Linux instance. If a matching spoof is already active, these values are not guaranteed to be the original boot values. Selecting a value changes only the draft and still requires explicit confirmation.",
+  controlBootFactsReady:
+    "Boot facts come from the active runtime. Selecting a slot or field updates only the draft; the later Provider result determines whether a restart is required.",
+  controlBootCurrent: "Boot slot {slot} · current",
+  controlBootInactive: "Boot slot {slot} · inactive",
+  controlBootNoValues:
+    "This slot has no available runtime fields. Boot it and refresh before using its values.",
+  controlBootUseHint:
+    "Selecting a value updates only the draft and does not write to the device.",
+  controlCurrentRuntime: "Active runtime",
+  controlInactiveImage: "Inactive boot image",
+  controlUseCmdlineSource: "Use cmdline source",
+  controlUseBootconfigSource: "Use bootconfig source",
   controlResetUname: "Restore actual kernel information",
   controlResetUnameHint:
     "Stage both fields as default; saving the archive does not restore the device.",
@@ -944,7 +973,7 @@ export const en = {
   controlUidNoMatches: "No matching archived apps.",
   controlStopManaging: "Stop managing",
   controlUidHint:
-    "Archived package names are not verified UIDs. Selection and editing require a trusted app list.",
+    "Applications and UIDs come from the device's fixed package query. Selection updates only the draft and still requires confirmation.",
   controlEditEntry: "Edit: {entry}",
   controlModuleHint:
     "Up to 16 names, each 1–63 ASCII letters, digits or underscores.",
@@ -997,8 +1026,10 @@ export const en = {
     "No verified application UID list. Only the archived value can be viewed.",
   controlTrustedApps:
     "Applications and UIDs come from the current device's fixed package query and are not logged.",
+  controlAppsLoading: "Reading applications and UIDs from the device.",
+  controlAppsReported: "{count} applications and UIDs reported.",
   controlNoBootFacts:
-    "No verified boot-slot facts. Values cannot be filled from the device.",
+    "The current Provider status did not report boot facts. Refresh the device status and try again.",
   controlArchiveOnly:
     "Edits change the Studio archive only. Reported capabilities are not write authorization.",
   controlNeedsUpgrade:

@@ -88,6 +88,33 @@ export function DialogSwitch({
   );
 }
 
+export function DialogTabs({
+  value,
+  tabs,
+  onChange,
+}: {
+  value: string;
+  tabs: readonly { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className={styles.tabs} role="tablist">
+      {tabs.map((tab) => (
+        <button
+          key={tab.value}
+          className={styles.tab}
+          type="button"
+          role="tab"
+          aria-selected={value === tab.value}
+          onClick={() => onChange(tab.value)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function DialogChoiceGroup({
   label,
   value,

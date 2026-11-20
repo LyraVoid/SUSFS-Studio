@@ -1,11 +1,4 @@
-import {
-  Button,
-  Checkbox,
-  Stack,
-  Tabs,
-  Textarea,
-  TextInput,
-} from "@mantine/core";
+import { Button, Checkbox, Stack, Textarea, TextInput } from "@mantine/core";
 import { useEffect, useState } from "react";
 import {
   type Json,
@@ -21,6 +14,7 @@ import type { Provider } from "../../transport/mock";
 import {
   DialogActions,
   DialogChoiceGroup,
+  DialogTabs,
   M3eDialog,
 } from "../molecules/M3eDialog";
 import { SegmentedSection } from "../molecules/SegmentedSection";
@@ -42,6 +36,105 @@ const tri = {
 const triValue = (value: unknown) =>
   value === true ? "true" : value === false ? "false" : "unset";
 
+function BootSlotSource({
+  dialog,
+  disabled,
+  facts,
+  onSelect,
+  t,
+}: {
+  dialog: "uname" | "cmdline";
+  disabled: boolean;
+  facts: Provider["bootFacts"];
+  onSelect: (value: Json) => void;
+  t: Translate;
+}) {
+  if (!facts) return <p>{t("controlNoBootFacts")}</p>;
+  return (
+    <>
+      <p>{t("controlBootSourceHint")}</p>
+      {facts.slots.map((slot) => {
+        const slotName = slot.id.toUpperCase();
+        const title = t(
+          slot.current ? "controlBootCurrent" : "controlBootInactive",
+          {
+            slot: slotName,
+          },
+        );
+        if (dialog === "uname") {
+          if (!slot.release || !slot.version) {
+            return (
+              <SettingsRow
+                key={slot.id}
+                title={title}
+                detail={t("controlBootNoValues")}
+                dataAvailability="unavailable"
+              />
+            );
+          }
+          const release = slot.release.value;
+          const version = slot.version.value;
+          const confidence = t(
+            slot.release.confidence === "current-runtime"
+              ? "controlCurrentRuntime"
+              : "controlInactiveImage",
+          );
+          return (
+            <SettingsRow
+              key={slot.id}
+              title={title}
+              detail={`${release}\n${version}\n${t("controlBootUseHint")}\n${slot.release.source} · ${confidence}`}
+              disabled={disabled}
+              action={() => onSelect({ release, version })}
+            />
+          );
+        }
+        const values = [
+          ...slot.cmdline.map((value) => ({ value, kind: "cmdline" as const })),
+          ...slot.bootconfig.map((value) => ({
+            value,
+            kind: "bootconfig" as const,
+          })),
+        ];
+        if (values.length === 0) {
+          return (
+            <SettingsRow
+              key={slot.id}
+              title={title}
+              detail={t("controlBootNoValues")}
+              dataAvailability="unavailable"
+            />
+          );
+        }
+        return [
+          <SettingsRow
+            key={`${slot.id}:heading`}
+            title={title}
+            detail={t("controlBootUseHint")}
+          />,
+          ...values.map(({ value, kind }, index) => (
+            <SettingsRow
+              key={`${slot.id}:${kind}:${index}`}
+              title={t(
+                kind === "cmdline"
+                  ? "controlUseCmdlineSource"
+                  : "controlUseBootconfigSource",
+              )}
+              detail={`${value.value}\n${value.source} · ${t(
+                value.confidence === "current-runtime"
+                  ? "controlCurrentRuntime"
+                  : "controlInactiveImage",
+              )}`}
+              disabled={disabled}
+              action={() => onSelect(value.value)}
+            />
+          )),
+        ];
+      })}
+    </>
+  );
+}
+
 export function BasicArchive({
   state,
   workflow,
@@ -62,7 +155,7 @@ export function BasicArchive({
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
   const [availableApps, setAvailableApps] = useState<string[]>();
   const [appsError, setAppsError] = useState(false);
-  const [sourceTab, setSourceTab] = useState<string | null>("manual");
+  const [sourceTab, setSourceTab] = useState<"manual" | "source">("manual");
   const [releaseInput, setReleaseInput] = useState("");
   const [versionInput, setVersionInput] = useState("");
   const [cmdlineInput, setCmdlineInput] = useState("");
@@ -111,8 +204,8 @@ export function BasicArchive({
   )?.filter((name) => name.toLowerCase().includes(query.trim().toLowerCase()));
   useEffect(() => {
     if (
-      dialog !== "apps" ||
       workflow ||
+      provider?.capabilities.priorityUidFilter !== "available" ||
       availableApps !== undefined ||
       !appsSource
     )
@@ -131,7 +224,23 @@ export function BasicArchive({
     return () => {
       current = false;
     };
-  }, [appsSource, availableApps, dialog, workflow]);
+  }, [
+    appsSource,
+    availableApps,
+    provider?.capabilities.priorityUidFilter,
+    workflow,
+  ]);
+  const appSourceDetail = workflow
+    ? t("workflowNotice")
+    : provider?.capabilities.priorityUidFilter === "unavailable"
+      ? t("controlUidUnavailable")
+      : provider?.capabilities.priorityUidFilter !== "available"
+        ? t("controlUidUnknown")
+        : appsError
+          ? t("controlNoAppSource")
+          : availableApps
+            ? t("controlAppsReported", { count: availableApps.length })
+            : t("controlAppsLoading");
   const validUname = validText(releaseInput, 65) && validText(versionInput, 65);
   const validCmdline =
     cmdlineInput === "" || validText(cmdlineInput, 8192, true);
@@ -157,12 +266,7 @@ export function BasicArchive({
         <SettingsRow
           title={t("controlProtectedApps")}
           detail={[
-            !workflow &&
-              (provider?.capabilities.priorityUidFilter === "unavailable"
-                ? t("controlUidUnavailable")
-                : provider?.capabilities.priorityUidFilter !== "available"
-                  ? t("controlUidUnknown")
-                  : t("controlNoAppSource")),
+            appSourceDetail,
             names
               ? names.length
                 ? t("controlUidCount", { count: names.length })
@@ -171,6 +275,10 @@ export function BasicArchive({
           ]
             .filter(Boolean)
             .join("\n")}
+          disabled={
+            !workflow &&
+            provider?.capabilities.priorityUidFilter !== "available"
+          }
           action={() => {
             setSelectedApps(names ?? []);
             setDialog("apps");
@@ -292,94 +400,113 @@ export function BasicArchive({
             </>
           ) : (
             <>
-              <p>{t("controlBootArbitration")}</p>
-              <Tabs value={sourceTab} onChange={setSourceTab}>
-                <Tabs.List>
-                  <Tabs.Tab value="manual">{t("controlManual")}</Tabs.Tab>
-                  <Tabs.Tab value="source">{t("controlBootSlots")}</Tabs.Tab>
-                </Tabs.List>
-                <Tabs.Panel value="manual" pt="sm">
-                  <Stack>
-                    {dialog === "uname" ? (
-                      <>
-                        <TextInput
-                          label={t("controlUnameRelease")}
-                          readOnly={disabled}
-                          value={releaseInput}
-                          onChange={(event) =>
-                            setReleaseInput(event.currentTarget.value)
-                          }
-                        />
-                        <TextInput
-                          label={t("controlUnameVersion")}
-                          readOnly={disabled}
-                          value={versionInput}
-                          onChange={(event) =>
-                            setVersionInput(event.currentTarget.value)
-                          }
-                        />
-                      </>
-                    ) : (
-                      <Textarea
-                        label={t("controlCmdline")}
+              <p>
+                {t(
+                  workflow || !provider?.bootFacts
+                    ? "controlBootArbitration"
+                    : "controlBootFactsReady",
+                )}
+              </p>
+              <DialogTabs
+                value={sourceTab}
+                onChange={(value) =>
+                  setSourceTab(value === "source" ? "source" : "manual")
+                }
+                tabs={[
+                  { value: "manual", label: t("controlManual") },
+                  { value: "source", label: t("controlBootSlots") },
+                ]}
+              />
+              {sourceTab === "manual" ? (
+                <Stack>
+                  {dialog === "uname" ? (
+                    <>
+                      <TextInput
+                        label={t("controlUnameRelease")}
                         readOnly={disabled}
-                        value={cmdlineInput}
+                        value={releaseInput}
                         onChange={(event) =>
-                          setCmdlineInput(event.currentTarget.value)
+                          setReleaseInput(event.currentTarget.value)
                         }
-                        minRows={4}
+                      />
+                      <TextInput
+                        label={t("controlUnameVersion")}
+                        readOnly={disabled}
+                        value={versionInput}
+                        onChange={(event) =>
+                          setVersionInput(event.currentTarget.value)
+                        }
+                      />
+                    </>
+                  ) : (
+                    <Textarea
+                      label={t("controlCmdline")}
+                      readOnly={disabled}
+                      value={cmdlineInput}
+                      onChange={(event) =>
+                        setCmdlineInput(event.currentTarget.value)
+                      }
+                      minRows={4}
+                    />
+                  )}
+                  {!disabled &&
+                    !(dialog === "uname" ? validUname : validCmdline) && (
+                      <output>
+                        {t(
+                          dialog === "uname"
+                            ? "controlUnameInputHint"
+                            : "controlCmdlineInputHint",
+                        )}
+                      </output>
+                    )}
+                </Stack>
+              ) : workflow ? (
+                demoSlots.map((slot) => (
+                  <div key={slot.label}>
+                    <SettingsRow
+                      title={t("workflowSlot", { slot: slot.label })}
+                      detail={dialog === "uname" ? slot.release : slot.cmdline}
+                      disabled={disabled}
+                      action={() => {
+                        if (dialog === "uname") {
+                          setReleaseInput(slot.release);
+                          setVersionInput(slot.version);
+                        } else setCmdlineInput(slot.cmdline);
+                        setSourceTab("manual");
+                      }}
+                    />
+                    {dialog === "cmdline" && (
+                      <SettingsRow
+                        title={t("workflowBootconfig", {
+                          slot: slot.label,
+                        })}
+                        detail={slot.bootconfig}
+                        disabled={disabled}
+                        action={() => {
+                          setCmdlineInput(slot.bootconfig);
+                          setSourceTab("manual");
+                        }}
                       />
                     )}
-                    {!disabled &&
-                      !(dialog === "uname" ? validUname : validCmdline) && (
-                        <output>
-                          {t(
-                            dialog === "uname"
-                              ? "controlUnameInputHint"
-                              : "controlCmdlineInputHint",
-                          )}
-                        </output>
-                      )}
-                  </Stack>
-                </Tabs.Panel>
-                <Tabs.Panel value="source" pt="sm">
-                  {workflow ? (
-                    demoSlots.map((slot) => (
-                      <div key={slot.label}>
-                        <SettingsRow
-                          title={t("workflowSlot", { slot: slot.label })}
-                          detail={
-                            dialog === "uname" ? slot.release : slot.cmdline
-                          }
-                          disabled={disabled}
-                          action={() => {
-                            if (dialog === "uname") {
-                              setReleaseInput(slot.release);
-                              setVersionInput(slot.version);
-                            } else setCmdlineInput(slot.cmdline);
-                            setSourceTab("manual");
-                          }}
-                        />
-                        {dialog === "cmdline" && (
-                          <SettingsRow
-                            title={t("workflowBootconfig", {
-                              slot: slot.label,
-                            })}
-                            detail={slot.bootconfig}
-                            disabled={disabled}
-                            action={() => {
-                              setCmdlineInput(slot.bootconfig);
-                              setSourceTab("manual");
-                            }}
-                          />
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p>{t("controlNoBootFacts")}</p>
-                  )}
-                </Tabs.Panel>
-              </Tabs>
+                  </div>
+                ))
+              ) : (
+                <BootSlotSource
+                  dialog={dialog === "uname" ? "uname" : "cmdline"}
+                  disabled={disabled}
+                  facts={provider?.bootFacts}
+                  t={t}
+                  onSelect={(value) => {
+                    if (dialog === "uname" && object(value)) {
+                      setReleaseInput(String(value.release ?? ""));
+                      setVersionInput(String(value.version ?? ""));
+                    } else if (typeof value === "string") {
+                      setCmdlineInput(value);
+                    }
+                    setSourceTab("manual");
+                  }}
+                />
+              )}
             </>
           )}
           <DialogActions>

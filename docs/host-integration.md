@@ -99,6 +99,8 @@ The full lifecycle package SHA-256 was `149db42e3cb6a2d2539744edd7bcb3336a1121f7
 
 The automatic backup list and read commands were also verified on the same Android device with the packaged debug executable, a private mount namespace, and two harmless archives. The listed digest and returned bytes matched the retained archive; the current archive matched the restore receipt. The installed module and its store were not changed by this check. The current backup picker was tested in Chromium with a test bridge, not in the installed manager; the earlier manager round trip used an exported JSON file.
 
+The Built-In 2.4.0 status probe now includes bounded active-slot boot facts without using the host manager or FinaSU's `ksud` implementation. On PKX110, the probe reported current slot A from `ro.boot.slot_suffix`, uname values from `/proc/sys/kernel/{osrelease,version}`, cmdline from `/proc/cmdline`, and bootconfig from `/proc/bootconfig`. Slot B was listed only as an inactive boot-image source. These fields establish a current-runtime source and its provenance; they do not claim that the inactive image's runtime values were read. A spoofed active runtime can therefore reduce the value's usefulness even though its provenance remains accurate, so the UI labels it `current-runtime` instead of treating it as immutable boot-image truth.
+
 ### Compatibility evidence matrix
 
 | Environment | Evidence | Status |

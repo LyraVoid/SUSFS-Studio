@@ -34,6 +34,32 @@ export type Control = {
   effectVerification: boolean;
   adapter: "confirmed" | "unknown" | "unsupported";
 };
+export type BootField = {
+  value: string;
+  source: string;
+  confidence: "current-runtime" | "inactive-image";
+};
+export type BootFacts = {
+  parser: string;
+  readAt: number;
+  currentSlot: string | null;
+  evidence: {
+    source: string;
+    slot: string | null;
+    status: string;
+    detail?: string;
+  }[];
+  slots: {
+    id: string;
+    current: boolean;
+    source: "current-runtime" | "inactive-image";
+    release?: BootField;
+    version?: BootField;
+    cmdline: BootField[];
+    bootconfig: BootField[];
+    note?: string;
+  }[];
+};
 export type Provider = {
   implementation: "builtin" | "lkm" | "unknown";
   version: string;
@@ -45,6 +71,7 @@ export type Provider = {
   staticKstatFields?: string[];
   redirectUidSchemes?: number[];
   procNodes?: string[];
+  bootFacts?: BootFacts;
 };
 type Result =
   | {
@@ -67,6 +94,58 @@ const demoControl: Control = {
   effectVerification: false,
   adapter: "confirmed",
 };
+const bootFacts = {
+  parser: "studio-boot-facts/1",
+  readAt: 1_795_193_459_000,
+  currentSlot: "a",
+  evidence: [
+    {
+      source: "ro.boot.slot_suffix",
+      slot: "a",
+      status: "ok",
+      detail: "_a",
+    },
+  ],
+  slots: [
+    {
+      id: "a",
+      current: true,
+      source: "current-runtime",
+      release: {
+        value: "6.6.0-demo-a",
+        source: "/proc/sys/kernel/osrelease",
+        confidence: "current-runtime",
+      },
+      version: {
+        value: "Demo kernel A",
+        source: "/proc/sys/kernel/version",
+        confidence: "current-runtime",
+      },
+      cmdline: [
+        {
+          value: "example.slot=a",
+          source: "/proc/cmdline",
+          confidence: "current-runtime",
+        },
+      ],
+      bootconfig: [
+        {
+          value: "example.bootconfig=a",
+          source: "/proc/bootconfig",
+          confidence: "current-runtime",
+        },
+      ],
+    },
+    {
+      id: "b",
+      current: false,
+      source: "inactive-image",
+      cmdline: [],
+      bootconfig: [],
+      note: "The inactive boot image requires booting this slot for runtime values.",
+    },
+  ],
+} satisfies BootFacts;
 const fixtures = {
   lkm23: {
     kind: "active",
@@ -97,6 +176,7 @@ const fixtures = {
         hiddenModules: "available",
         mountPrefixes: "available",
       },
+      bootFacts,
     },
   },
   builtin24: {
@@ -131,6 +211,7 @@ const fixtures = {
         hiddenModules: "unavailable",
         mountPrefixes: "unavailable",
       },
+      bootFacts,
     },
   },
   unknownImplementation: {

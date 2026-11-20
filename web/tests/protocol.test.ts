@@ -79,6 +79,44 @@ describe("status response boundary", () => {
       parseStatusResponse(JSON.stringify({ ...valid, data }), "r1"),
     ).toEqual({ kind: "failed" });
   });
+  it.each([
+    { slots: [] },
+    { parser: "unknown-parser" },
+    {
+      slots: [
+        {
+          ...fixtures.active.data.provider.bootFacts.slots[0],
+          id: "../a",
+        },
+      ],
+    },
+    {
+      slots: [
+        {
+          ...fixtures.active.data.provider.bootFacts.slots[0],
+          release: {
+            value: "x".repeat(65),
+            source: "/proc/sys/kernel/osrelease",
+            confidence: "current-runtime",
+          },
+        },
+      ],
+    },
+  ])("rejects malformed boot facts %#", (metadata) => {
+    const data = {
+      ...valid.data,
+      provider: {
+        ...valid.data.provider,
+        bootFacts: {
+          ...fixtures.active.data.provider.bootFacts,
+          ...metadata,
+        },
+      },
+    };
+    expect(
+      parseStatusResponse(JSON.stringify({ ...valid, data }), "r1"),
+    ).toEqual({ kind: "failed" });
+  });
   it("preserves valid optional device facts without changing a failed status", () => {
     const response = {
       ...fixtures.failed,

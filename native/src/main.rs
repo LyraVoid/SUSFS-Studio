@@ -7,6 +7,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
 mod archive;
+mod boot_facts;
 mod device;
 mod operations;
 mod store;
@@ -130,6 +131,8 @@ struct Provider {
     static_kstat_fields: Vec<&'static str>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     redirect_uid_schemes: Vec<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    boot_facts: Option<boot_facts::BootFacts>,
 }
 
 #[derive(Serialize)]
@@ -181,20 +184,8 @@ struct PackageEntry {
 fn device() -> Option<Device> {
     #[cfg(target_os = "android")]
     {
-        fn property(name: &std::ffi::CStr) -> Option<String> {
-            let mut value = [0_u8; 92];
-            // The Android property API requires a buffer of PROP_VALUE_MAX bytes.
-            let length =
-                unsafe { libc::__system_property_get(name.as_ptr(), value.as_mut_ptr().cast()) };
-            let length = usize::try_from(length).ok()?;
-            if length == 0 || length >= value.len() {
-                return None;
-            }
-            Some(std::str::from_utf8(&value[..length]).ok()?.to_owned())
-        }
-
-        let system = property(c"ro.build.version.release").map(|release| {
-            match property(c"ro.build.version.sdk") {
+        let system = device::property(c"ro.build.version.release").map(|release| {
+            match device::property(c"ro.build.version.sdk") {
                 Some(sdk) => format!("Android {release} (API {sdk})"),
                 None => format!("Android {release}"),
             }
@@ -204,7 +195,7 @@ fn device() -> Option<Device> {
             .map(|text| text.trim().to_owned())
             .filter(|text| !text.is_empty());
         Some(Device {
-            model: property(c"ro.product.model"),
+            model: device::property(c"ro.product.model"),
             system,
             kernel,
         })
@@ -350,6 +341,7 @@ fn classify(version: Reply, features: Reply, variant: Reply) -> Status {
             proc_nodes: Vec::new(),
             static_kstat_fields: Vec::new(),
             redirect_uid_schemes: Vec::new(),
+            boot_facts: None,
         }),
     }
 }
@@ -429,6 +421,7 @@ fn status() -> Status {
                     .capabilities
                     .insert("priorityUidFilter", "unavailable");
             }
+            provider.boot_facts = boot_facts::read();
         }
         status
     }
@@ -921,6 +914,63 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn fixture_boot_facts() -> boot_facts::BootFacts {
+        use boot_facts::{BootEvidence, BootFacts, BootField, BootSlot};
+        BootFacts {
+            parser: "studio-boot-facts/1",
+            read_at: 1_795_193_459_000,
+            current_slot: Some("a".to_owned()),
+            evidence: vec![BootEvidence {
+                source: "ro.boot.slot_suffix".to_owned(),
+                slot: Some("a".to_owned()),
+                status: "ok",
+                detail: Some("_a".to_owned()),
+            }],
+            slots: vec![
+                BootSlot {
+                    id: "a".to_owned(),
+                    current: true,
+                    source: "current-runtime",
+                    release: Some(BootField {
+                        value: "6.6.118-demo".to_owned(),
+                        source: "/proc/sys/kernel/osrelease",
+                        confidence: "current-runtime",
+                    }),
+                    version: Some(BootField {
+                        value: "Demo kernel".to_owned(),
+                        source: "/proc/sys/kernel/version",
+                        confidence: "current-runtime",
+                    }),
+                    cmdline: vec![BootField {
+                        value: "androidboot.slot_suffix=_a".to_owned(),
+                        source: "/proc/cmdline",
+                        confidence: "current-runtime",
+                    }],
+                    bootconfig: vec![BootField {
+                        value: "androidboot.slot_suffix = \"_a\"".to_owned(),
+                        source: "/proc/bootconfig",
+                        confidence: "current-runtime",
+                    }],
+                    note: None,
+                },
+                BootSlot {
+                    id: "b".to_owned(),
+                    current: false,
+                    source: "inactive-image",
+                    release: None,
+                    version: None,
+                    cmdline: Vec::new(),
+                    bootconfig: Vec::new(),
+                    note: Some(
+                        "The inactive boot image requires booting this slot for runtime values."
+                            .to_owned(),
+                    ),
+                },
+            ],
+        }
+    }
+
     fn reply(text: &str) -> Reply {
         Reply {
             error: 0,
@@ -944,6 +994,7 @@ mod tests {
         );
         if let Status::Active { provider } = &mut active {
             provider.proc_nodes = vec!["susfs_path".to_owned(), "susfs_enable_log".to_owned()];
+            provider.boot_facts = Some(fixture_boot_facts());
         }
         for (name, status) in [
             ("active", active),

@@ -19,7 +19,59 @@
           "SUSFS_LKM_MODULES"
         ],
         "capabilities": { "paths": "available", "logging": "available" },
-        "procNodes": ["susfs_path", "susfs_enable_log"]
+        "procNodes": ["susfs_path", "susfs_enable_log"],
+        "bootFacts": {
+          "parser": "studio-boot-facts/1",
+          "readAt": 1795193459000,
+          "currentSlot": "a",
+          "evidence": [
+            {
+              "source": "ro.boot.slot_suffix",
+              "slot": "a",
+              "status": "ok",
+              "detail": "_a"
+            }
+          ],
+          "slots": [
+            {
+              "id": "a",
+              "current": true,
+              "source": "current-runtime",
+              "release": {
+                "value": "6.6.118-demo",
+                "source": "/proc/sys/kernel/osrelease",
+                "confidence": "current-runtime"
+              },
+              "version": {
+                "value": "Demo kernel",
+                "source": "/proc/sys/kernel/version",
+                "confidence": "current-runtime"
+              },
+              "cmdline": [
+                {
+                  "value": "androidboot.slot_suffix=_a",
+                  "source": "/proc/cmdline",
+                  "confidence": "current-runtime"
+                }
+              ],
+              "bootconfig": [
+                {
+                  "value": "androidboot.slot_suffix = \"_a\"",
+                  "source": "/proc/bootconfig",
+                  "confidence": "current-runtime"
+                }
+              ]
+            },
+            {
+              "id": "b",
+              "current": false,
+              "source": "inactive-image",
+              "cmdline": [],
+              "bootconfig": [],
+              "note": "The inactive boot image requires booting this slot for runtime values."
+            }
+          ]
+        }
       },
       "control": {
         "archiveImport": true,

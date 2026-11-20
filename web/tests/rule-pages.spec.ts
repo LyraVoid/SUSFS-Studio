@@ -156,6 +156,31 @@ test("manual basic settings and stopping UID management remain archive drafts un
   const dialog = page.getByRole("dialog");
   await page.getByRole("button", { name: "伪装 uname", exact: true }).click();
   const release = dialog.getByLabel("uname release");
+  await expect(
+    dialog.getByText(
+      "启动事实来自当前运行实例。选择槽位或字段只更新草稿；是否需要重启由后续 Provider 操作结果决定。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  const sourceTab = dialog.getByRole("tab", { name: "启动槽来源" });
+  await sourceTab.click();
+  await expect(sourceTab).toHaveAttribute("aria-selected", "true");
+  expect(
+    await sourceTab.evaluate(
+      (element) => getComputedStyle(element, "::after").height,
+    ),
+  ).toBe("3px");
+  const currentSlot = dialog.getByRole("button", {
+    name: "启动槽 A · 当前",
+    exact: true,
+  });
+  await expect(currentSlot).toBeVisible();
+  await expect(
+    dialog.getByText("启动槽 B · 非当前启动", { exact: true }),
+  ).toBeVisible();
+  await currentSlot.click();
+  await expect(release).toHaveValue("6.6.118-demo");
+  await expect(dialog.getByLabel("uname version")).toHaveValue("Demo kernel");
   await release.fill("字".repeat(22));
   await expect(dialog.getByRole("button", { name: "更新草稿" })).toBeDisabled();
   await release.fill("example-new");
@@ -163,6 +188,11 @@ test("manual basic settings and stopping UID management remain archive drafts un
   await page
     .getByRole("button", { name: "伪装 cmdline / bootconfig", exact: true })
     .click();
+  await dialog.getByRole("tab", { name: "启动槽来源" }).click();
+  await dialog.getByRole("button", { name: "使用 cmdline 来源" }).click();
+  await expect(dialog.getByLabel("伪装 cmdline / bootconfig")).toHaveValue(
+    "androidboot.slot_suffix=_a",
+  );
   await dialog.getByLabel("伪装 cmdline / bootconfig").fill("   ");
   await expect(dialog.getByRole("button", { name: "更新草稿" })).toBeDisabled();
   await dialog.getByLabel("伪装 cmdline / bootconfig").fill("example=value");
@@ -191,7 +221,7 @@ test("manual basic settings and stopping UID management remain archive drafts un
   await expect
     .poll(() => JSON.parse(session.text() ?? "{}"))
     .toMatchObject({
-      uname: { release: "example-new", version: "example", extra: true },
+      uname: { release: "example-new", version: "Demo kernel", extra: true },
       cmdline: "",
       settings: {},
     });
@@ -199,6 +229,45 @@ test("manual basic settings and stopping UID management remain archive drafts un
     "priorityUidFilter",
   );
   await expect(page.getByRole("button", { name: "应用到设备" })).toBeDisabled();
+});
+
+test("boot source fails closed when the Provider omits boot facts", async ({
+  context,
+  page,
+}) => {
+  await host(context, original, true, { bootFacts: undefined });
+  await page.goto("/#/rules/basic");
+  await page.getByRole("button", { name: "伪装 uname", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("tab", { name: "启动槽来源" }).click();
+  await expect(
+    dialog.getByText(
+      "当前 Provider 状态没有报告启动事实。刷新设备状态后重试。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /使用启动槽/ })).toHaveCount(
+    0,
+  );
+});
+
+test("a reported UID source preloads applications before opening the picker", async ({
+  context,
+  page,
+}) => {
+  await host(context, original, true, {
+    capabilities: { priorityUidFilter: "available" },
+  });
+  await page.goto("/#/rules/basic");
+  const apps = page.getByRole("button", {
+    name: "受保护的应用",
+    exact: true,
+  });
+  await expect(apps).toContainText("已报告 2 个应用与 UID。");
+  await apps.click();
+  await expect(
+    page.getByRole("dialog").getByText("org.example.reader", { exact: true }),
+  ).toBeVisible();
 });
 
 test("imports only after confirmation and edits Schema 2 settings and extensions", async ({
@@ -233,12 +302,8 @@ test("imports only after confirmation and edits Schema 2 settings and extensions
   const apps = page.getByRole("button", { name: "受保护的应用" });
   await expect(apps).toContainText("设备未报告此能力");
   await expect(apps).toContainText("不管理");
-  await apps.click();
-  await expect(
-    dialog.getByText("没有经验证的应用 UID 列表，仅可查看归档值。"),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(apps).toBeFocused();
+  await expect(apps).toBeDisabled();
+  await expect(dialog).toHaveCount(0);
   const logging = page.getByRole("button", { name: "日志记录" });
   await expect(logging).toContainText("启用");
   await logging.click();
@@ -336,7 +401,7 @@ async function host(
     "ruleCall",
     async (_, command: string, upload: string) => {
       const match =
-        /^\/system\/bin\/timeout (?:5|10|15) \/data\/adb\/modules\/susfs_studio\/bin\/studioctl (read|stage|save|import|plan)(?: ([0-9a-f]{32}))?$/.exec(
+        /^\/system\/bin\/timeout (?:5|10|15) \/data\/adb\/modules\/susfs_studio\/bin\/studioctl (read|stage|save|import|plan|apps)(?: ([0-9a-f]{32}))?$/.exec(
           command,
         );
       const action = match?.[1];
@@ -367,6 +432,15 @@ async function host(
                 receiptStatus: receipt ? "available" : "missing",
               },
         );
+      }
+      if (action === "apps") {
+        return reply({
+          status: "available",
+          packages: [
+            { name: "org.example.reader", uid: 10101 },
+            { name: "org.example.notes", uid: 10102 },
+          ],
+        });
       }
       if (action === "stage") {
         baseline = text;

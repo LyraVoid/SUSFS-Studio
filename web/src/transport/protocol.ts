@@ -1,4 +1,6 @@
 import {
+  type BootFacts,
+  type BootField,
   capabilityKeys,
   type Device,
   type Provider,
@@ -9,6 +11,133 @@ const maxResponseBytes = 512 * 1024;
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function bootField(value: unknown, limit: number): BootField | false {
+  if (
+    !record(value) ||
+    typeof value.value !== "string" ||
+    !value.value ||
+    new TextEncoder().encode(value.value).length > limit ||
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: runtime sources allow line breaks only.
+    /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value.value) ||
+    typeof value.source !== "string" ||
+    !value.source ||
+    value.source.length > 128 ||
+    (value.confidence !== "current-runtime" &&
+      value.confidence !== "inactive-image")
+  )
+    return false;
+  return {
+    value: value.value,
+    source: value.source,
+    confidence: value.confidence,
+  };
+}
+
+function bootFacts(value: unknown): BootFacts | false {
+  if (
+    !record(value) ||
+    typeof value.parser !== "string" ||
+    !/^studio-boot-facts\/1$/u.test(value.parser) ||
+    typeof value.readAt !== "number" ||
+    !Number.isSafeInteger(value.readAt) ||
+    (value.readAt as number) < 0 ||
+    (value.readAt as number) > 8.64e12 ||
+    (value.currentSlot !== null &&
+      (typeof value.currentSlot !== "string" ||
+        !/^[a-z0-9]{1,32}$/u.test(value.currentSlot))) ||
+    !Array.isArray(value.evidence) ||
+    value.evidence.length > 32 ||
+    !Array.isArray(value.slots) ||
+    value.slots.length === 0 ||
+    value.slots.length > 8
+  )
+    return false;
+  const evidence: BootFacts["evidence"] = [];
+  for (const item of value.evidence) {
+    if (
+      !record(item) ||
+      typeof item.source !== "string" ||
+      !item.source ||
+      item.source.length > 128 ||
+      (item.slot !== null &&
+        (typeof item.slot !== "string" ||
+          !/^[a-z0-9]{1,32}$/u.test(item.slot))) ||
+      typeof item.status !== "string" ||
+      !/^[a-z0-9-]{1,64}$/u.test(item.status) ||
+      (item.detail !== undefined &&
+        (typeof item.detail !== "string" ||
+          item.detail.length > 256 ||
+          item.detail.includes("\0")))
+    )
+      return false;
+    evidence.push({
+      source: item.source,
+      slot: item.slot,
+      status: item.status,
+      ...(item.detail !== undefined && { detail: item.detail }),
+    });
+  }
+  const ids = new Set<string>();
+  let current = 0;
+  const slots: BootFacts["slots"] = [];
+  for (const item of value.slots) {
+    if (
+      !record(item) ||
+      typeof item.id !== "string" ||
+      !/^[a-z0-9]{1,32}$/u.test(item.id) ||
+      ids.has(item.id) ||
+      typeof item.current !== "boolean" ||
+      (item.source !== "current-runtime" && item.source !== "inactive-image") ||
+      !Array.isArray(item.cmdline) ||
+      item.cmdline.length > 8 ||
+      !Array.isArray(item.bootconfig) ||
+      item.bootconfig.length > 8 ||
+      (item.note !== undefined &&
+        (typeof item.note !== "string" ||
+          item.note.length > 256 ||
+          item.note.includes("\0")))
+    )
+      return false;
+    ids.add(item.id);
+    if (item.current) current += 1;
+    const release =
+      item.release === undefined ? undefined : bootField(item.release, 64);
+    const version =
+      item.version === undefined ? undefined : bootField(item.version, 64);
+    if (release === false || version === false) return false;
+    const cmdline: BootField[] = [];
+    for (const field of item.cmdline) {
+      const parsed = bootField(field, 8 * 1024);
+      if (parsed === false) return false;
+      cmdline.push(parsed);
+    }
+    const bootconfig: BootField[] = [];
+    for (const field of item.bootconfig) {
+      const parsed = bootField(field, 16 * 1024);
+      if (parsed === false) return false;
+      bootconfig.push(parsed);
+    }
+    slots.push({
+      id: item.id,
+      current: item.current,
+      source: item.source,
+      ...(release !== undefined && { release }),
+      ...(version !== undefined && { version }),
+      cmdline,
+      bootconfig,
+      ...(item.note !== undefined && { note: item.note }),
+    });
+  }
+  if (current !== 1) return false;
+  return {
+    parser: value.parser,
+    readAt: value.readAt as number,
+    currentSlot: value.currentSlot as string | null,
+    evidence,
+    slots,
+  };
 }
 
 export function parseStatusResponse(text: string, requestId: string): Status {
@@ -117,6 +246,7 @@ export function parseStatusResponse(text: string, requestId: string): Status {
     staticKstatFields,
     redirectUidSchemes,
     procNodes,
+    bootFacts: rawBootFacts,
   } = provider;
   if (
     (variant !== undefined &&
@@ -162,6 +292,9 @@ export function parseStatusResponse(text: string, requestId: string): Status {
         new Set(procNodes).size !== procNodes.length))
   )
     return { kind: "failed", ...factsWithControl };
+  const parsedBootFacts =
+    rawBootFacts === undefined ? undefined : bootFacts(rawBootFacts);
+  if (parsedBootFacts === false) return { kind: "failed", ...factsWithControl };
   return {
     kind: "active",
     ...factsWithControl,
@@ -176,6 +309,7 @@ export function parseStatusResponse(text: string, requestId: string): Status {
       ...(staticKstatFields !== undefined && { staticKstatFields }),
       ...(redirectUidSchemes !== undefined && { redirectUidSchemes }),
       ...(procNodes !== undefined && { procNodes }),
+      ...(parsedBootFacts !== undefined && { bootFacts: parsedBootFacts }),
     },
   };
 }
