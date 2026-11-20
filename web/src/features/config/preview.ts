@@ -168,7 +168,7 @@ function validList(
   });
 }
 
-function validText(value: unknown, limit: number, multiline = false) {
+export function validText(value: unknown, limit: number, multiline = false) {
   return (
     typeof value === "string" &&
     /[^\p{White_Space}]/u.test(value) &&

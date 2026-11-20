@@ -18,6 +18,60 @@ async function openOverview(page: Page) {
     .click();
 }
 
+test("manual basic settings and stopping UID management remain archive drafts until confirmed", async ({
+  context,
+  page,
+}) => {
+  const initial = JSON.stringify({
+    format: "susfs-studio",
+    schema: 2,
+    settings: { priorityUidFilter: [] },
+    uname: { release: "example", version: "example", extra: true },
+    rules: { paths: [], maps: [], kstats: [], redirects: [] },
+  });
+  const session = await host(context, initial);
+  await page.goto("/#/rules/basic");
+  const dialog = page.getByRole("dialog");
+  await page.getByRole("button", { name: "uname 替代值", exact: true }).click();
+  const release = dialog.getByLabel("uname release");
+  await release.fill("字".repeat(22));
+  await expect(dialog.getByRole("button", { name: "更新草稿" })).toBeDisabled();
+  await release.fill("example-new");
+  await dialog.getByRole("button", { name: "更新草稿" }).click();
+  await page.getByRole("button", { name: "内核命令行", exact: true }).click();
+  await dialog.getByLabel("内核命令行").fill("   ");
+  await expect(dialog.getByRole("button", { name: "更新草稿" })).toBeDisabled();
+  await dialog.getByLabel("内核命令行").fill("example=value");
+  await dialog.getByRole("button", { name: "更新草稿" }).click();
+  await expect(
+    page.getByRole("button", { name: "内核命令行", exact: true }),
+  ).toContainText("example=value");
+  await page.getByRole("button", { name: "将重置加入草稿" }).last().click();
+  await page.getByRole("button", { name: "停止管理", exact: true }).click();
+  await dialog.getByRole("button", { name: "停止管理", exact: true }).click();
+  expect(session.text()).toBe(initial);
+  await openOverview(page);
+  await page.getByRole("button", { name: "检查并确认保存" }).click();
+  for (const field of [
+    "/uname/release",
+    "/cmdline",
+    "/settings/priorityUidFilter",
+  ])
+    await expect(dialog).toContainText(field);
+  await dialog.getByRole("button", { name: "确认保存", exact: true }).click();
+  await expect
+    .poll(() => JSON.parse(session.text() ?? "{}"))
+    .toMatchObject({
+      uname: { release: "example-new", version: "example", extra: true },
+      cmdline: "",
+      settings: {},
+    });
+  expect(JSON.parse(session.text() ?? "{}").settings).not.toHaveProperty(
+    "priorityUidFilter",
+  );
+  await expect(page.getByRole("button", { name: "应用到设备" })).toBeDisabled();
+});
+
 test("imports only after confirmation and edits Schema 2 settings and extensions", async ({
   context,
   page,

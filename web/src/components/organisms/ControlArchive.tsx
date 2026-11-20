@@ -7,7 +7,12 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useState } from "react";
-import { type Json, object, settingsKeys } from "../../features/config/preview";
+import {
+  type Json,
+  object,
+  settingsKeys,
+  validText,
+} from "../../features/config/preview";
 import type { useRuleArchive } from "../../features/config/useRuleArchive";
 import type { Message, Translate } from "../../i18n/messages";
 import {
@@ -36,9 +41,12 @@ const triValue = (value: unknown) =>
 
 export function BasicArchive({ state, t }: { state: State; t: Translate }) {
   const [dialog, setDialog] = useState<
-    (typeof settingsKeys)[number] | "apps" | "uname" | "cmdline"
+    (typeof settingsKeys)[number] | "apps" | "stopUid" | "uname" | "cmdline"
   >();
   const [query, setQuery] = useState("");
+  const [releaseInput, setReleaseInput] = useState("");
+  const [versionInput, setVersionInput] = useState("");
+  const [cmdlineInput, setCmdlineInput] = useState("");
   const archive =
     state.current?.formatStatus === "valid" ? state.current : undefined;
   const value = archive?.schema === "2" ? archive.value : undefined;
@@ -49,6 +57,13 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
   const names = Array.isArray(settings.priorityUidFilter)
     ? (settings.priorityUidFilter as string[])
     : undefined;
+  const editUname = () => {
+    setReleaseInput(typeof uname?.release === "string" ? uname.release : "");
+    setVersionInput(typeof uname?.version === "string" ? uname.version : "");
+    setDialog("uname");
+  };
+  const updateBootDraft = (field: "uname" | "cmdline", after: Json) =>
+    state.edit({ section: "root", key: field, before: value?.[field], after });
   const close = () => {
     setDialog(undefined);
     setQuery("");
@@ -60,14 +75,19 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
       : undefined;
   const title = key
     ? switchLabels[key]
-    : dialog === "apps"
-      ? "controlAppList"
-      : dialog === "uname"
-        ? "controlUname"
-        : "controlCmdline";
+    : dialog === "stopUid"
+      ? "controlStopManaging"
+      : dialog === "apps"
+        ? "controlAppList"
+        : dialog === "uname"
+          ? "controlUname"
+          : "controlCmdline";
   const filtered = names?.filter((name) =>
     name.toLowerCase().includes(query.trim().toLowerCase()),
   );
+  const validUname = validText(releaseInput, 65) && validText(versionInput, 65);
+  const validCmdline =
+    cmdlineInput === "" || validText(cmdlineInput, 8192, true);
   return (
     <section className={styles.category} aria-label={t("controlBasic")}>
       <p className={styles.notice}>{t("controlArchiveOnly")}</p>
@@ -101,8 +121,9 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
         {names && (
           <SettingsRow
             title={t("controlStopManaging")}
-            detail={t("controlNoAppSource")}
-            disabled
+            detail={t("controlUidStopDraftHint")}
+            action={() => setDialog("stopUid")}
+            disabled={disabled}
           />
         )}
         <SettingsRow title={t("controlUidHint")} />
@@ -113,12 +134,19 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
           detail={
             uname ? `${uname.release}\n${uname.version}` : t("controlUnmanaged")
           }
-          action={() => setDialog("uname")}
+          action={editUname}
         />
         <SettingsRow
-          title={t("controlRestoreSystem")}
-          detail={t("controlResetBlocked")}
-          disabled
+          title={t("controlArchiveReset")}
+          detail={t("controlArchiveResetHint")}
+          action={() =>
+            updateBootDraft("uname", {
+              ...uname,
+              release: "default",
+              version: "default",
+            })
+          }
+          disabled={disabled}
         />
       </SegmentedSection>
       <SegmentedSection title={t("controlCmdline")}>
@@ -129,12 +157,16 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
               ? t("controlUnmanaged")
               : cmdline || t("controlCmdlineReset")
           }
-          action={() => setDialog("cmdline")}
+          action={() => {
+            setCmdlineInput(cmdline ?? "");
+            setDialog("cmdline");
+          }}
         />
         <SettingsRow
-          title={t("controlRestoreSystem")}
-          detail={t("controlResetBlocked")}
-          disabled
+          title={t("controlArchiveReset")}
+          detail={t("controlArchiveResetHint")}
+          action={() => updateBootDraft("cmdline", "")}
+          disabled={disabled}
         />
       </SegmentedSection>
       <M3eDialog opened={dialog !== undefined} onClose={close} title={t(title)}>
@@ -160,6 +192,8 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
                   close();
               }}
             />
+          ) : dialog === "stopUid" ? (
+            <p>{t("controlUidStopDraftHint")}</p>
           ) : dialog === "apps" ? (
             <>
               <TextInput
@@ -191,31 +225,42 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
                       <>
                         <TextInput
                           label={t("controlUnameRelease")}
-                          readOnly
-                          value={
-                            typeof uname?.release === "string"
-                              ? uname.release
-                              : ""
+                          readOnly={disabled}
+                          value={releaseInput}
+                          onChange={(event) =>
+                            setReleaseInput(event.currentTarget.value)
                           }
                         />
                         <TextInput
                           label={t("controlUnameVersion")}
-                          readOnly
-                          value={
-                            typeof uname?.version === "string"
-                              ? uname.version
-                              : ""
+                          readOnly={disabled}
+                          value={versionInput}
+                          onChange={(event) =>
+                            setVersionInput(event.currentTarget.value)
                           }
                         />
                       </>
                     ) : (
                       <Textarea
                         label={t("controlCmdline")}
-                        readOnly
-                        value={cmdline ?? ""}
+                        readOnly={disabled}
+                        value={cmdlineInput}
+                        onChange={(event) =>
+                          setCmdlineInput(event.currentTarget.value)
+                        }
                         minRows={4}
                       />
                     )}
+                    {!disabled &&
+                      !(dialog === "uname" ? validUname : validCmdline) && (
+                        <output>
+                          {t(
+                            dialog === "uname"
+                              ? "controlUnameInputHint"
+                              : "controlCmdlineInputHint",
+                          )}
+                        </output>
+                      )}
                   </Stack>
                 </Tabs.Panel>
                 <Tabs.Panel value="source" pt="sm">
@@ -228,6 +273,47 @@ export function BasicArchive({ state, t }: { state: State; t: Translate }) {
             <Button variant="subtle" onClick={close}>
               {t("close")}
             </Button>
+            {(dialog === "uname" ||
+              dialog === "cmdline" ||
+              dialog === "stopUid") && (
+              <Button
+                variant="subtle"
+                disabled={
+                  disabled ||
+                  (dialog === "uname"
+                    ? !validUname
+                    : dialog === "cmdline"
+                      ? !validCmdline
+                      : !names)
+                }
+                onClick={() => {
+                  const changed =
+                    dialog === "stopUid"
+                      ? state.edit({
+                          section: "settings",
+                          key: "priorityUidFilter",
+                          before: names,
+                        })
+                      : updateBootDraft(
+                          dialog,
+                          dialog === "uname"
+                            ? {
+                                ...uname,
+                                release: releaseInput,
+                                version: versionInput,
+                              }
+                            : cmdlineInput,
+                        );
+                  if (changed) close();
+                }}
+              >
+                {t(
+                  dialog === "stopUid"
+                    ? "controlStopManaging"
+                    : "controlUpdateDraft",
+                )}
+              </Button>
+            )}
           </DialogActions>
         </Stack>
       </M3eDialog>

@@ -260,9 +260,14 @@ export const zh = {
   controlUname: "uname 替代值",
   controlManual: "手动值",
   controlBootSlots: "启动槽来源",
-  controlRestoreSystem: "恢复系统值",
-  controlResetBlocked:
-    "恢复当前系统值需要已授权的设备操作；删除归档值不会恢复设备。",
+  controlArchiveReset: "将重置加入草稿",
+  controlArchiveResetHint: "只在归档草稿中记录显式重置，不会恢复设备上的值。",
+  controlUidStopDraftHint: "从归档草稿移除筛选配置，不会清空设备上的规则。",
+  controlUnameInputHint:
+    "两个字段都必须是非空单行文本，各最多 64 个 UTF-8 字节。",
+  controlCmdlineInputHint:
+    "命令行必须小于 8192 个 UTF-8 字节，不能只包含空白。留空表示显式重置。",
+  controlUpdateDraft: "更新草稿",
   controlBootArbitration:
     "无法核实启动槽与当前生效值，也无法判断是否需重启；不会安排写入。",
   controlCmdlineReset: "已归档显式重置",
@@ -317,7 +322,7 @@ export const zh = {
   controlUnameVersion: "uname version",
   controlCmdline: "内核命令行",
   controlNoAppSource: "没有经验证的应用 UID 列表，仅可查看归档值。",
-  controlNoBootFacts: "没有经验证的启动槽数据，仅可查看归档值。",
+  controlNoBootFacts: "没有经验证的启动槽数据，不能从设备填入值。",
   controlArchiveOnly: "编辑仅改变 Studio 归档；接口报告的能力不代表写入授权。",
   controlNeedsUpgrade: "请先在设置的归档预览中检查并确认升级至 Schema 2。",
   controlModules: "隐藏模块名",
@@ -664,9 +669,16 @@ export const en = {
   controlUname: "uname replacement",
   controlManual: "Manual values",
   controlBootSlots: "Boot slot source",
-  controlRestoreSystem: "Restore system value",
-  controlResetBlocked:
-    "Restoring the system value requires an authorized device operation. Removing an archive value does not restore the device.",
+  controlArchiveReset: "Stage an explicit reset",
+  controlArchiveResetHint:
+    "Record a reset only in the archive draft. This does not restore the device value.",
+  controlUidStopDraftHint:
+    "Remove the filter from the archive draft without clearing any device rules.",
+  controlUnameInputHint:
+    "Both values must be nonblank single-line text, at most 64 UTF-8 bytes each.",
+  controlCmdlineInputHint:
+    "Use fewer than 8,192 UTF-8 bytes and avoid whitespace-only text. An empty value records an explicit reset.",
+  controlUpdateDraft: "Update draft",
   controlBootArbitration:
     "Studio cannot confirm the boot slot, active value, or whether a restart is needed. No write will be scheduled.",
   controlCmdlineReset: "An explicit reset is archived",
@@ -729,7 +741,7 @@ export const en = {
   controlNoAppSource:
     "No verified application UID list. Only the archived value can be viewed.",
   controlNoBootFacts:
-    "No verified boot-slot facts. Only the archived value can be viewed.",
+    "No verified boot-slot facts. Values cannot be filled from the device.",
   controlArchiveOnly:
     "Edits change the Studio archive only. Reported capabilities are not write authorization.",
   controlNeedsUpgrade:

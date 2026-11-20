@@ -21,7 +21,7 @@ export type SettingsEdit = (
       section: "settings" | "lkm";
       key: string;
     }
-  | { section: "root"; key: "automatic" }
+  | { section: "root"; key: "automatic" | "uname" | "cmdline" }
 ) & {
   before?: Json;
   after?: Json;
