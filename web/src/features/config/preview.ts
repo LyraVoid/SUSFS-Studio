@@ -6,17 +6,34 @@ const ruleLimit = 128;
 const depthLimit = 64;
 const changeLimit = 500;
 const encoder = new TextEncoder();
-type Json =
+export type Json =
   | null
   | boolean
   | string
   | LosslessNumber
   | Json[]
   | { [key: string]: Json };
-type JsonObject = { [key: string]: Json };
+export type JsonObject = { [key: string]: Json };
 type FormatStatus = "valid" | "invalid" | "unknown";
+type ArchiveInspection = {
+  readonly text: string;
+  readonly bytes: Uint8Array;
+  readonly schema?: string;
+  readonly keys: string[];
+  readonly value: JsonObject;
+  readonly ambiguous: boolean;
+  readonly formatStatus: FormatStatus;
+  readonly ruleCount?: number;
+  readonly unknownFields: string[];
+  readonly unrepresentable: boolean;
+};
+type ArchivePreview =
+  | (ArchiveInspection & { error?: never })
+  | (Partial<Record<keyof ArchiveInspection, never>> & {
+      error: "archiveTooLarge" | "archiveInvalid";
+    });
 
-const ruleGroups = ["paths", "maps", "kstats", "redirects"] as const;
+export const ruleGroups = ["paths", "maps", "kstats", "redirects"] as const;
 const ruleKeys = {
   paths: new Set(["id", "path", "looping"]),
   maps: new Set(["id", "path"]),
@@ -38,7 +55,7 @@ const staticKinds: ReadonlyMap<string, readonly [string, bigint]> = new Map([
   ["ctimeNanoseconds", ["nanoseconds", 999999999n]],
 ] as const);
 
-function object(value: unknown): value is JsonObject {
+export function object(value: unknown): value is JsonObject {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -61,7 +78,7 @@ function id(value: unknown) {
   );
 }
 
-function path(value: unknown) {
+export function path(value: unknown) {
   return (
     typeof value === "string" &&
     value.startsWith("/") &&
@@ -72,6 +89,13 @@ function path(value: unknown) {
     !value.includes("//") &&
     !value.split("/").some((part) => part === "." || part === "..")
   );
+}
+
+export const staticFields = Array.from(staticKinds.keys());
+
+export function validStaticField(key: string, value: string) {
+  const spec = staticKinds.get(key);
+  return Boolean(spec && timedNumber(value, spec));
 }
 
 function timedNumber(value: unknown, spec: readonly [string, bigint]) {
@@ -155,7 +179,7 @@ function inspectVersionOne(value: JsonObject): {
   };
 }
 
-export async function previewArchive(file: Blob) {
+export async function previewArchive(file: Blob): Promise<ArchivePreview> {
   if (file.size > archiveLimit) return { error: "archiveTooLarge" } as const;
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
@@ -167,6 +191,18 @@ export async function previewArchive(file: Blob) {
     )
       return { error: "archiveInvalid" } as const;
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return inspectArchive(text);
+  } catch {
+    return { error: "archiveInvalid" } as const;
+  }
+}
+
+export function inspectArchive(text: string): ArchivePreview {
+  const bytes = encoder.encode(text);
+  try {
+    if (bytes.length > archiveLimit)
+      return { error: "archiveTooLarge" } as const;
+    if (text.startsWith("\uFEFF")) return { error: "archiveInvalid" } as const;
     const scan = scanArchive(text);
     if (scan.tooDeep) return { error: "archiveInvalid" } as const;
     let ambiguous = scan.duplicate;
@@ -204,6 +240,7 @@ export async function previewArchive(file: Blob) {
       keys,
       value,
       ambiguous,
+      unrepresentable: scan.unrepresentable,
       formatStatus,
       ruleCount,
       unknownFields: Array.from(new Set(unknownFields)),

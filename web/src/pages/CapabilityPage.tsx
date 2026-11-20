@@ -1,26 +1,46 @@
 import type { RuleRoute } from "../app/routes";
 import { Capabilities } from "../components/organisms/Capabilities";
 import styles from "../components/organisms/Panels.module.css";
+import { RuleArchive } from "../components/organisms/RuleArchive";
+import type { RuleGroup } from "../features/config/ruleEdits";
+import type { useRuleArchive } from "../features/config/useRuleArchive";
 import type { Message, Translate } from "../i18n/messages";
 import type { Capability, Status } from "../transport/mock";
 import pageStyles from "./CapabilityPage.module.css";
 import page from "./PageHeader.module.css";
 
-const rules: Record<RuleRoute, { label: Message; fields: Capability[] }> = {
-  "/rules/paths": { label: "paths", fields: ["paths"] },
-  "/rules/disguise": { label: "disguise", fields: ["map", "kstat"] },
-  "/rules/redirect": { label: "redirect", fields: ["redirect"] },
+const rules: Record<
+  RuleRoute,
+  { label: Message; fields: Capability[]; groups: RuleGroup[] }
+> = {
+  "/rules/paths": { label: "paths", fields: ["paths"], groups: ["paths"] },
+  "/rules/disguise": {
+    label: "disguise",
+    fields: ["map", "kstat"],
+    groups: ["maps", "kstats"],
+  },
+  "/rules/redirect": {
+    label: "redirect",
+    fields: ["redirect"],
+    groups: ["redirects"],
+  },
 };
 
 export function CapabilityPage({
   route,
   status,
   demo,
+  stale,
+  archive,
+  connected,
   t,
 }: {
   route: RuleRoute | "/extensions";
   status: Status;
   demo: boolean;
+  stale: boolean;
+  archive: ReturnType<typeof useRuleArchive>;
+  connected: boolean;
   t: Translate;
 }) {
   const rule = route === "/extensions" ? undefined : rules[route];
@@ -43,11 +63,22 @@ export function CapabilityPage({
           ))}
         </nav>
       )}
+      {rule && (
+        <RuleArchive
+          key={route}
+          groups={rule.groups}
+          state={archive}
+          demo={demo}
+          connected={connected}
+          t={t}
+        />
+      )}
       <section className={styles.panel}>
         <h2>{t("compatibility")}</h2>
         <Capabilities
           status={status}
           demo={demo}
+          stale={stale}
           fields={rule?.fields ?? ["extensions"]}
           t={t}
         />
@@ -58,14 +89,9 @@ export function CapabilityPage({
           <p className={styles.muted}>{t("stage")}</p>
         )}
       </section>
-      <section className={styles.panel}>
-        <h2>
-          {t(rule ? (demo ? "rulesEmpty" : "rulesUnobserved") : "diagnostics")}
-        </h2>
-        {rule && demo && <p>{t("ruleCount", { count: 0 })}</p>}
-        <p className={styles.muted}>{t(rule ? "ruleNote" : "extensionNote")}</p>
-        {rule && <p>{t("ruleReadOnly")}</p>}
-      </section>
+      <p className={styles.muted}>
+        {t(rule ? "ruleReadOnly" : "extensionNote")}
+      </p>
     </>
   );
 }

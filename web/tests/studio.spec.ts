@@ -168,11 +168,15 @@ test("six pages, diagnostic dialog and capability labels", async ({ page }) => {
   await expect(status).toBeFocused();
   const menu = page.getByRole("navigation", { name: "主导航" });
   await menu.getByRole("link", { name: "规则" }).click();
-  await expect(page.getByRole("heading", { name: "路径" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "路径", level: 1 }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "伪装" }).click();
   await expect(page.getByRole("heading", { name: "伪装" })).toBeVisible();
   await page.getByRole("link", { name: "重定向" }).click();
-  await expect(page.getByRole("heading", { name: "重定向" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "重定向", level: 1 }),
+  ).toBeVisible();
   await page.goBack();
   await expect(page.getByRole("heading", { name: "伪装" })).toBeVisible();
   await menu.getByRole("link", { name: "扩展" }).click();

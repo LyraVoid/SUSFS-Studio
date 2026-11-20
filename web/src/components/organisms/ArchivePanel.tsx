@@ -8,6 +8,11 @@ import {
   Stack,
 } from "@mantine/core";
 import { useRef, useState } from "react";
+import {
+  archiveErrorMessage,
+  hasArchiveWriter,
+  writeArchive,
+} from "../../features/config/archiveSave";
 import { compareArchives, previewArchive } from "../../features/config/preview";
 import type { Message, Translate } from "../../i18n/messages";
 import {
@@ -15,7 +20,6 @@ import {
   type ArchiveBridge,
   ArchiveCommandError,
   type ArchiveReceipt,
-  type PreparedArchive,
   type SavedArchive,
 } from "../../transport/archiveBridge";
 import { Icon } from "../atoms/Icon";
@@ -24,36 +28,13 @@ import styles from "./Panels.module.css";
 
 type Preview = Awaited<ReturnType<typeof previewArchive>>;
 
-function errorMessage(error: unknown): Message {
-  if (!(error instanceof ArchiveCommandError)) return "archiveCommandFailed";
-  return (
-    (
-      {
-        BUSY: "archiveBusy",
-        REVISION_CONFLICT: "archiveConflict",
-        RESULT_UNKNOWN: "archiveResultUnknown",
-        STORE_CORRUPT: "archiveStoreCorrupt",
-        STORE_UNTRUSTED: "archiveStoreUntrusted",
-        DRAFT_MISSING: "archiveDraftMissing",
-        STAGE_OPEN_FAILED: "archiveWriteFailed",
-        STAGE_WRITE_FAILED: "archiveWriteFailed",
-        STAGE_CLOSE_FAILED: "archiveWriteFailed",
-        STAGE_UNAVAILABLE: "archiveWriteFailed",
-        BAD_RESPONSE: "archiveCommandFailed",
-        BAD_REQUEST: "archiveCommandFailed",
-        TIMEOUT: "archiveTimeout",
-      } as Record<string, Message>
-    )[error.code] ?? "archiveCommandFailed"
-  );
-}
-
 function parseSaved(archive?: SavedArchive) {
   return archive?.text === undefined
     ? Promise.resolve(undefined)
     : previewArchive(new Blob([archive.text]));
 }
 
-function Difference({
+export function ArchiveDifference({
   base,
   candidate,
   t,
@@ -174,7 +155,7 @@ export function ArchivePanel({
         setResult(parsed);
       }
     } catch (error) {
-      if (id === request.current) setOperationError(errorMessage(error));
+      if (id === request.current) setOperationError(archiveErrorMessage(error));
     }
   };
 
@@ -197,7 +178,8 @@ export function ArchivePanel({
       setConfirming(false);
       setNeedsVerification(false);
     } catch (error) {
-      if (id === savedRequest.current) setOperationError(errorMessage(error));
+      if (id === savedRequest.current)
+        setOperationError(archiveErrorMessage(error));
     } finally {
       if (id === savedRequest.current) setLoadingSaved(false);
     }
@@ -246,7 +228,8 @@ export function ArchivePanel({
       }
       download(current.text, current.revision);
     } catch (error) {
-      if (id === savedRequest.current) setOperationError(errorMessage(error));
+      if (id === savedRequest.current)
+        setOperationError(archiveErrorMessage(error));
     }
   };
 
@@ -260,6 +243,7 @@ export function ArchivePanel({
       !archive.save ||
       !result ||
       !saved ||
+      (saved.kind === "saved" && savedResult?.formatStatus !== "valid") ||
       result.error ||
       result.formatStatus !== "valid"
     )
@@ -269,23 +253,15 @@ export function ArchivePanel({
     setSaving(true);
     setOperationError(undefined);
     setReceipt(undefined);
-    let prepared: PreparedArchive | undefined;
     try {
-      prepared = await archive.prepare();
-      if (prepared.revision !== saved?.revision)
-        throw new ArchiveCommandError("REVISION_CONFLICT", true);
-      await archive.write(prepared.uploadPath, result.bytes);
-      const next = restoring
-        ? await archive.restore?.(prepared.token)
-        : await archive.save(prepared.token);
-      if (!next) throw new ArchiveCommandError("RESULT_UNKNOWN");
+      const next = await writeArchive(archive, saved, result.bytes, restoring);
       setReceipt(next);
       setConfirming(false);
       setNeedsVerification(false);
       await refreshSaved();
       if (restoring) void refreshBackups();
     } catch (error) {
-      const message = errorMessage(error);
+      const message = archiveErrorMessage(error);
       setOperationError(message);
       if (
         error instanceof ArchiveCommandError &&
@@ -303,10 +279,10 @@ export function ArchivePanel({
     }
   };
 
-  const hasWriter =
-    Boolean(archive?.writable) &&
-    Boolean(archive?.prepare && archive.write && archive.save);
-  const canSave = Boolean(saved) && hasWriter;
+  const hasWriter = hasArchiveWriter(archive);
+  const canSave =
+    hasWriter &&
+    (saved?.kind === "empty" || savedResult?.formatStatus === "valid");
   const valid = result && !result.error && result.formatStatus === "valid";
 
   return (
@@ -504,7 +480,11 @@ export function ArchivePanel({
                   </section>
                   <section aria-label={t("archiveDeviceDiff")}>
                     <strong>{t("archiveDeviceDiff")}</strong>
-                    <Difference base={savedResult} candidate={result} t={t} />
+                    <ArchiveDifference
+                      base={savedResult}
+                      candidate={result}
+                      t={t}
+                    />
                   </section>
                   <FileInput
                     size="md"
@@ -530,7 +510,11 @@ export function ArchivePanel({
                       {comparison.ambiguous && (
                         <p role="alert">{t("archiveAmbiguous")}</p>
                       )}
-                      <Difference base={result} candidate={comparison} t={t} />
+                      <ArchiveDifference
+                        base={result}
+                        candidate={comparison}
+                        t={t}
+                      />
                       <p>
                         <strong>
                           {t("archiveCandidate")} · {t("archiveSchema")}:
@@ -625,7 +609,11 @@ export function ArchivePanel({
                     {t("archiveRuleCount", { count: result.ruleCount ?? 0 })}
                   </p>
                   <p>{t("archiveConfirmDiff")}</p>
-                  <Difference base={savedResult} candidate={result} t={t} />
+                  <ArchiveDifference
+                    base={savedResult}
+                    candidate={result}
+                    t={t}
+                  />
                 </section>
               )}
               <Alert color="blue">{t("archiveSaveEffect")}</Alert>

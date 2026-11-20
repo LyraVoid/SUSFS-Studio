@@ -1,0 +1,24 @@
+.group {
+  display: grid;
+  gap: var(--s8);
+  min-width: 0;
+}
+.group h2 {
+  font-size: 1rem;
+  padding-inline: var(--s4);
+}
+.group button span {
+  white-space: pre-line;
+}
+.control {
+  min-height: var(--hit);
+  max-width: 100%;
+  justify-self: start;
+}
+.source {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--surface-container);
+  padding: var(--s12);
+  border-radius: var(--r10);
+}

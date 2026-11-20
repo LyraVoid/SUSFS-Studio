@@ -225,7 +225,7 @@ impl Store {
         Ok(staging)
     }
 
-    fn read_archive_unlocked(&self) -> io::Result<Option<Vec<u8>>> {
+    fn read_archive_bytes(&self) -> io::Result<Option<Vec<u8>>> {
         let file = match open_name(
             &self.dir,
             "archive.json",
@@ -237,14 +237,18 @@ impl Store {
             Err(error) => return Err(error),
         };
         trusted(&file, false)?;
-        let bytes = read_limited(&file, MAX_ARCHIVE as u64)?;
-        if !valid_archive(&bytes) {
+        read_limited(&file, MAX_ARCHIVE as u64).map(Some)
+    }
+
+    fn read_archive_unlocked(&self) -> io::Result<Option<Vec<u8>>> {
+        let bytes = self.read_archive_bytes()?;
+        if bytes.as_ref().is_some_and(|bytes| !valid_archive(bytes)) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "saved archive is invalid",
             ));
         }
-        Ok(Some(bytes))
+        Ok(bytes)
     }
 
     fn read_receipt_unlocked(&self, archive: &[u8]) -> Option<Receipt> {
@@ -267,10 +271,14 @@ impl Store {
 
     pub fn read(&self) -> io::Result<Option<Stored>> {
         let _lock = self.lock()?;
-        let Some(bytes) = self.read_archive_unlocked()? else {
+        let Some(bytes) = self.read_archive_bytes()? else {
             return Ok(None);
         };
-        let receipt = self.read_receipt_unlocked(&bytes);
+        let receipt = if valid_archive(&bytes) {
+            self.read_receipt_unlocked(&bytes)
+        } else {
+            None
+        };
         Ok(Some(Stored {
             revision: revision(&bytes),
             bytes,
@@ -1382,6 +1390,10 @@ mod tests {
         let corrupt = b"{broken";
         fs::write(dir.join("archive.json"), corrupt).unwrap();
         fs::set_permissions(dir.join("archive.json"), fs::Permissions::from_mode(0o600)).unwrap();
+        let stored = store.read().unwrap().unwrap();
+        assert_eq!(stored.bytes, corrupt);
+        assert!(stored.receipt.is_none());
+        assert!(store.prepare().is_err());
         assert!(store.save(None, fixture()).is_err());
         assert_eq!(fs::read(dir.join("archive.json")).unwrap(), corrupt);
         fs::remove_file(dir.join("archive.json")).unwrap();

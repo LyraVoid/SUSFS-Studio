@@ -3,6 +3,7 @@ import "../theme/tokens.css";
 import { MantineProvider } from "@mantine/core";
 import { StrictMode, useEffect, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
+import { useRuleArchive } from "../features/config/useRuleArchive";
 import { useStatus } from "../features/status/useStatus";
 import { type Locale, translator } from "../i18n/messages";
 import { Shell } from "../layouts/Shell";
@@ -39,6 +40,8 @@ function App() {
     useSyncExternalStore(subscribe, () => window.location.hash),
   );
   const { status, stale } = useStatus(selection, request, source);
+  const archive = source.kind === "host" ? source.archive : undefined;
+  const rules = useRuleArchive(archive, route?.startsWith("/rules/") ?? false);
   const t = translator(locale);
   useEffect(() => {
     document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
@@ -71,11 +74,19 @@ function App() {
           locale={locale}
           setLocale={setLocale}
           status={status}
-          archive={source.kind === "host" ? source.archive : undefined}
+          archive={archive}
           t={t}
         />
       ) : route ? (
-        <CapabilityPage route={route} status={status} demo={demo} t={t} />
+        <CapabilityPage
+          route={route}
+          status={status}
+          demo={demo}
+          stale={stale}
+          archive={rules}
+          connected={Boolean(archive)}
+          t={t}
+        />
       ) : (
         <>
           <h1>{t("unknownPage")}</h1>
