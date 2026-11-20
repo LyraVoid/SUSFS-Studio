@@ -276,35 +276,6 @@ impl Store {
         Ok(())
     }
 
-    fn cleanup_temps(&self) -> io::Result<()> {
-        let path = PathBuf::from(format!("/proc/self/fd/{}", self.dir.as_raw_fd()));
-        let mut changed = false;
-        for entry in fs::read_dir(path)? {
-            let entry = entry?;
-            let name = entry.file_name();
-            let Some(name) = name.to_str() else {
-                continue;
-            };
-            let valid_name = [".archive.json.", ".receipt.json."].iter().any(|prefix| {
-                name.strip_prefix(prefix)
-                    .and_then(|name| name.strip_suffix(".tmp"))
-                    .is_some_and(valid_token)
-            });
-            if !valid_name || !entry.file_type()?.is_file() {
-                continue;
-            }
-            let name = CString::new(name).map_err(|_| io::ErrorKind::InvalidInput)?;
-            if unsafe { libc::unlinkat(self.dir.as_raw_fd(), name.as_ptr(), 0) } != 0 {
-                return Err(io::Error::last_os_error());
-            }
-            changed = true;
-        }
-        if changed {
-            self.dir.sync_all()?;
-        }
-        Ok(())
-    }
-
     fn write_stage_file(dir: &File, name: &str, bytes: &[u8]) -> io::Result<File> {
         let mut file = open_name(
             dir,
@@ -320,7 +291,6 @@ impl Store {
 
     pub fn prepare(&self) -> io::Result<Prepared> {
         let _lock = self.lock()?;
-        self.cleanup_temps()?;
         let archive = self.read_archive_unlocked()?;
         let staging = self.staging()?;
         self.cleanup_stage(&staging)?;
@@ -672,7 +642,7 @@ mod tests {
     }
 
     #[test]
-    fn prepare_cleans_interrupted_atomic_temp_files() {
+    fn prepare_preserves_unrelated_atomic_temp_files() {
         let (dir, store) = test_store("startup-cleanup");
         let token = random_token().unwrap();
         for target in ["archive.json", "receipt.json"] {
@@ -681,13 +651,12 @@ mod tests {
             fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         }
         store.prepare().unwrap();
-        assert!(fs::read_dir(&dir).unwrap().all(|entry| {
-            !entry
-                .unwrap()
-                .file_name()
-                .to_string_lossy()
-                .ends_with(".tmp")
-        }));
+        for target in ["archive.json", "receipt.json"] {
+            assert_eq!(
+                fs::read(dir.join(format!(".{target}.{token}.tmp"))).unwrap(),
+                fixture()
+            );
+        }
         drop(store);
         cleanup(dir);
     }

@@ -342,6 +342,11 @@ test("archive save, receipt refresh and export form one confirmed loop", async (
   await dialog.getByRole("button", { name: "检查并确认保存" }).click();
   await expect(dialog).toContainText("确认保存到设备");
   await expect(dialog).toContainText("device-loop.json");
+  await dialog.getByRole("button", { name: "刷新设备归档" }).click();
+  await expect(
+    dialog.getByRole("button", { name: "检查并确认保存" }),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: "检查并确认保存" }).click();
   await dialog.getByRole("button", { name: "确认保存" }).click();
   await expect(dialog.getByRole("status")).toContainText("保存完成");
   await expect(dialog).toContainText("已保存 Studio 归档");

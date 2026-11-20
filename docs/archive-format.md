@@ -143,4 +143,6 @@ The revision is the lowercase SHA-256 digest of the exact saved bytes. The recei
 
 If the process stops after the archive rename but before the receipt is durable, the archive remains readable and the missing receipt is reported separately. Recovery starts by reading and validating the archive; it does not silently replay a save.
 
+Interrupted atomic temporary files are not replayed or automatically removed on a subsequent stage. A matching name alone does not establish ownership by the current transaction. Such files can consume space until an administrator identifies and removes them.
+
 Export rereads `archive.json` and returns the exact UTF-8 text. Unknown fields and number tokens are therefore preserved. Restore is outside the current save/export scope.

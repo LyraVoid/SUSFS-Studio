@@ -135,7 +135,7 @@ export function ArchivePanel({
       if (id !== savedRequest.current) return;
       setSaved(next);
       setSavedResult(parsed);
-      if (needsVerification) setConfirming(false);
+      setConfirming(false);
       setNeedsVerification(false);
     } catch (error) {
       if (id === savedRequest.current) setOperationError(errorMessage(error));
@@ -170,19 +170,18 @@ export function ArchivePanel({
   };
 
   const exportSaved = async () => {
+    const id = savedRequest.current;
     setOperationError(undefined);
     try {
       const current = await archive?.read();
+      if (id !== savedRequest.current) return;
       if (!current || current.kind === "empty" || current.text === undefined) {
         setOperationError("archiveNoSaved");
-        setSaved(current);
         return;
       }
       download(current.text, current.revision);
-      setSaved(current);
-      setSavedResult(await previewArchive(new Blob([current.text])));
     } catch (error) {
-      setOperationError(errorMessage(error));
+      if (id === savedRequest.current) setOperationError(errorMessage(error));
     }
   };
 
