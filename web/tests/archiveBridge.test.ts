@@ -206,6 +206,60 @@ it("uses only a staged token for restore", async () => {
   });
 });
 
+it("does not reuse a timed-out mutation token or trust its late callback", async () => {
+  vi.useFakeTimers();
+  try {
+    const host: Record<string, unknown> = {};
+    let late = (_code: number, _output: string) => {};
+    const bridge = createArchiveBridge(host as unknown as Window, {
+      exec(command, _options, callback) {
+        const respond = host[callback] as (
+          code: number,
+          output: string,
+        ) => void;
+        if (command.endsWith(" stage"))
+          respond(0, response("stage", { token, uploadPath }));
+        else
+          late = (code, output) => {
+            (host[callback] as typeof respond)(code, output);
+          };
+      },
+      io: () => ({
+        version: () => 1,
+        FileOutputStream: () => ({
+          open: () => "stream",
+          write: () => true,
+          close: () => true,
+        }),
+      }),
+    });
+    await bridge.prepare?.();
+    const outcome = expect(bridge.save?.(token)).rejects.toMatchObject({
+      code: "RESULT_UNKNOWN",
+    });
+    await vi.advanceTimersByTimeAsync(17000);
+    await outcome;
+    late(0, response("save", { revision, bytes: 3, savedAt: "1" }));
+    await expect(bridge.save?.(token)).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(Object.keys(host)).toEqual([]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("never sends a malformed backup identifier to the host", async () => {
+  const exec = vi.fn();
+  const bridge = createArchiveBridge({} as Window, { exec });
+  for (const id of ["../archive.json", token.toUpperCase(), `${token} `]) {
+    await expect(bridge.backup(id)).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+  }
+  expect(exec).not.toHaveBeenCalled();
+});
+
 it("streams archive bytes in bounded chunks", async () => {
   const host: Record<string, unknown> = {};
   const chunks: string[] = [];
