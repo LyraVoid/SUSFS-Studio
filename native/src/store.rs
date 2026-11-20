@@ -549,9 +549,25 @@ impl Store {
             return Err(io::Error::from(io::ErrorKind::InvalidInput).into());
         }
         let _lock = self.lock()?;
+        #[cfg(test)]
+        if let Ok(path) = std::env::var("STUDIO_RACE_HOLD") {
+            let path = Path::new(&path);
+            fs::write(path.join("locked"), b"locked")?;
+            let deadline = std::time::Instant::now() + Duration::from_secs(15);
+            while !path.join("release").exists() {
+                if std::time::Instant::now() >= deadline {
+                    return Err(
+                        io::Error::new(io::ErrorKind::TimedOut, "race release timeout").into(),
+                    );
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }
         let current = self.read_archive_unlocked()?;
         let staging = self.staging()?;
         let (expected, input) = self.read_stage(&staging, token)?;
+        #[cfg(test)]
+        checkpoint("stage-validated")?;
         if current.as_deref() != expected.as_deref() {
             let _ = self.remove_stage(&staging, token);
             return Err(io::Error::new(io::ErrorKind::AlreadyExists, "revision conflict").into());
@@ -906,34 +922,43 @@ mod tests {
                 .spawn()
                 .unwrap()
         };
-        let a = writer(&first.token, "race");
-        let b = writer(&second.token, "race");
-        let outcomes = [a, b].map(|child| {
-            let output = child.wait_with_output().unwrap();
-            let log = String::from_utf8(output.stdout).unwrap();
-            assert!(output.status.success(), "{log}");
-            log.lines()
-                .find_map(|line| line.strip_prefix("writer: "))
-                .unwrap()
-                .to_owned()
-        });
-        let winner = outcomes
-            .iter()
-            .position(|result| result == "saved")
+        let a = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "store::tests::staged_writer_child",
+                "--nocapture",
+            ])
+            .env("STUDIO_TEST_STORE", &dir)
+            .env("STUDIO_TEST_TOKEN", &first.token)
+            .env("STUDIO_TEST_RESULT", "saved")
+            .env("STUDIO_RACE_HOLD", &dir)
+            .stdout(std::process::Stdio::piped())
+            .spawn()
             .unwrap();
-        assert!(matches!(outcomes[1 - winner].as_str(), "conflict" | "busy"));
-        if outcomes[1 - winner] == "busy" {
-            let token = [&first.token, &second.token][1 - winner];
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        while !dir.join("locked").exists() {
             assert!(
-                writer(token, "conflict")
-                    .wait_with_output()
-                    .unwrap()
-                    .status
-                    .success()
+                std::time::Instant::now() < deadline,
+                "writer did not acquire lock"
             );
+            std::thread::sleep(Duration::from_millis(5));
         }
+        let b = writer(&second.token, "busy").wait_with_output().unwrap();
+        assert!(b.status.success(), "{}", String::from_utf8_lossy(&b.stdout));
+        assert!(String::from_utf8_lossy(&b.stdout).contains("writer: busy"));
+        fs::write(dir.join("release"), b"release").unwrap();
+        let a = a.wait_with_output().unwrap();
+        assert!(a.status.success(), "{}", String::from_utf8_lossy(&a.stdout));
+        assert!(String::from_utf8_lossy(&a.stdout).contains("writer: saved"));
+        assert!(
+            writer(&second.token, "conflict")
+                .wait_with_output()
+                .unwrap()
+                .status
+                .success()
+        );
         let stored = store.read().unwrap().unwrap();
-        let expected: &[u8] = [newer.as_slice(), other.as_slice()][winner];
+        let expected: &[u8] = newer;
         assert_eq!(stored.bytes, expected);
         assert_eq!(stored.receipt.unwrap().revision, revision(expected));
         assert!(!Path::new(&first.upload_path).exists());
@@ -977,7 +1002,8 @@ mod tests {
         panic!("interruption not reached");
     }
 
-    const RESTORE_POINTS: [&str; 10] = [
+    const RESTORE_POINTS: [&str; 11] = [
+        "stage-validated",
         "backup-write",
         "backup-published",
         "backup-synced",
@@ -1086,18 +1112,18 @@ mod tests {
                     set_fault(None);
                     assert_eq!(
                         matches!(failure, SaveError::ResultUnknown(_)),
-                        index >= 6,
+                        index >= 7,
                         "{point}"
                     );
                 }
                 let current = store.read().unwrap().unwrap();
-                let expected = if index >= 6 { fixture() } else { old };
+                let expected = if index >= 7 { fixture() } else { old };
                 assert_eq!(current.bytes, expected, "{point}");
                 assert_eq!(current.revision, revision(expected), "{point}");
-                if index < 6 {
+                if index < 7 {
                     assert_eq!(current.receipt, Some(original), "{point}");
                 } else {
-                    assert_eq!(current.receipt.is_some(), index == 9, "{point}");
+                    assert_eq!(current.receipt.is_some(), index == 10, "{point}");
                 }
                 let entries: Vec<_> = fs::read_dir(&dir)
                     .unwrap()
@@ -1107,14 +1133,21 @@ mod tests {
                     .iter()
                     .filter(|entry| entry.file_name().to_string_lossy().starts_with("backup-"))
                     .collect();
-                assert_eq!(backups.len(), usize::from(index > 0), "{point}");
+                assert_eq!(backups.len(), usize::from(index > 1), "{point}");
+                let listed = store.backups().unwrap();
+                assert_eq!(listed.len(), backups.len(), "{point}");
                 for backup in backups {
                     assert_eq!(fs::read(backup.path()).unwrap(), old, "{point}");
                     assert_eq!(backup.metadata().unwrap().nlink(), 1, "{point}");
+                    assert_eq!(
+                        listed[0].revision.as_deref(),
+                        Some(revision(old).as_str()),
+                        "{point}"
+                    );
                 }
                 assert_eq!(
                     fs::read_dir(dir.join(".staging")).unwrap().count(),
-                    if index < 3 { 2 } else { 0 },
+                    if index < 4 { 2 } else { 0 },
                     "{point}"
                 );
                 store.save(Some(expected), fixture()).unwrap();
