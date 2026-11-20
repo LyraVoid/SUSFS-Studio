@@ -1,7 +1,13 @@
+import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import fixtures from "../../contracts/diagnostic-v1.json" with { type: "json" };
 import { translator } from "../src/i18n/messages";
+
+const studioVersion = /^version=(.+)$/m.exec(
+  readFileSync(new URL("../../module/module.prop", import.meta.url), "utf8"),
+)?.[1];
+if (!studioVersion) throw new Error("module.prop is missing version");
 
 const choose = async (page: Page, label: string, option: string) => {
   await page.getByRole("button", { name: label, exact: true }).click();
@@ -442,7 +448,7 @@ test("three-item main navigation and six SUSFS tabs", async ({ page }) => {
   ]);
   await expect(
     page.getByRole("button", { name: "SUSFS Studio 版本" }),
-  ).toContainText("0.1.0-beta.1");
+  ).toContainText(studioVersion);
   await expect(page.locator("main [data-availability]")).toHaveCount(0);
   const status = page.getByRole("button", { name: /状态/ });
   await status.click();
