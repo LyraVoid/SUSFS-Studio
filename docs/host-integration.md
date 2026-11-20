@@ -62,8 +62,13 @@ The automatic backup list and read commands were also verified on the same Andro
 | Environment | Evidence | Status |
 | --- | --- | --- |
 | PKX110, Android 17 API 37, host `v3.3.1-50-g64833c00` (32730), WebView `157.0.8103.50`, kernel `6.6.118-android15-8-g9bc34d5b0c79-abogki537459655-4k`, GKI-LKM provider `v2.3.0` | Host load, archive save/export and the restore round trip below. | Verified only for the stated operations; navigation isolation remains unverified. |
-| Other host versions and managers | No device evidence. | Unverified. |
-| Built-in GKI provider or SUSFS 2.4 | No device evidence. | Unverified. |
+| Same PKX110, alternate manager build `0f3f42ba` (115404) | Package present. No WebUI or bridge check in this manager. | Installed only; unverified. |
+| Same PKX110, alternate manager build `31.1` (31100) | Package present. No WebUI or bridge check in this manager. | Installed only; unverified. |
+| Built-in GKI provider, SUSFS 2.3 | Reference source inspected; no running test target in this round. | Unverified. |
+| Built-in GKI provider, SUSFS 2.4 | A local arm64 reference build exists; see [rule operation boundary](rule-operation-boundary.md#arm64-source-and-artifact-comparison). The device reported a locked bootloader and green verified boot. The image was not booted or flashed. | Artifact only; unverified. |
+| LKM provider, SUSFS 2.4 | No verified matching runtime target. | Unverified. |
+
+Package presence is not evidence that a manager currently owns root, can open the module WebUI, or implements the required bridges. The alternate managers were not substituted for the active host. A built-in provider requires a separate bootable environment or a verified boot and recovery path; it cannot be inferred from the running kernel's GKI release string.
 
 The bundled CSP restricts connections and frames; the static browser test confirms frame blocking. The smoke host rejects external and unknown top-level navigation, but that behavior is not evidence for the installed manager. The installed manager's general-purpose root command and file bridges are not constrained by Studio's fixed calls. External-link navigation, unknown local paths, frame bridge exposure, and file selection must be separately tested on each actual host; no general isolation claim follows from the smoke host.
 
