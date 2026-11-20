@@ -1,6 +1,7 @@
 import { Modal } from "@mantine/core";
 import { useReducedMotion } from "@mantine/hooks";
 import { type ReactNode, useId } from "react";
+import { ExpressiveSwitch } from "../atoms/ExpressiveSwitch";
 import styles from "./M3eDialog.module.css";
 
 export function M3eDialog({
@@ -59,6 +60,30 @@ export function DialogActions({
       data-testid="dialog-actions"
     >
       {children}
+    </div>
+  );
+}
+
+export function DialogSwitch({
+  label,
+  checked,
+  disabled = false,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className={styles.toggle}>
+      <span>{label}</span>
+      <ExpressiveSwitch
+        label={label}
+        checked={checked}
+        disabled={disabled}
+        onChange={onChange}
+      />
     </div>
   );
 }

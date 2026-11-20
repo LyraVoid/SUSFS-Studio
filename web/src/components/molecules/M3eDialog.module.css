@@ -102,6 +102,16 @@
 .content [class*="mantine-InputWrapper-error"] {
   color: var(--on-error-container);
 }
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s16);
+  min-height: 4rem;
+  padding: var(--s8) var(--s12) var(--s8) var(--s20);
+  border-radius: var(--r16);
+  background: var(--surface-container-highest);
+}
 .choices {
   display: grid;
   gap: 2px;

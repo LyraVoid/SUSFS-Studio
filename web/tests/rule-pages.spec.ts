@@ -525,6 +525,19 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
   const dialog = page.getByRole("dialog");
   const name = (value: string) =>
     dialog.getByRole("button", { name: value, exact: true });
+  await page.getByRole("button", { name: "批量添加规则" }).click();
+  const batchLooping = dialog.getByRole("switch", { name: "循环路径" });
+  await expect(batchLooping).not.toBeChecked();
+  await expect(batchLooping.locator("+ span")).toHaveCSS("width", "52px");
+  await expect(batchLooping.locator("+ span")).toHaveCSS("height", "32px");
+  await expect(batchLooping.locator("+ span > span")).toHaveCSS(
+    "width",
+    "24px",
+  );
+  await expect(batchLooping).toHaveCSS("width", "1px");
+  await batchLooping.locator("+ span").click();
+  await expect(batchLooping).toBeChecked();
+  await name("取消").click();
   for (const [route, title, old, next, added] of [
     ["paths", "路径规则", "/example", "/changed-path", "/new-path"],
     [
@@ -560,8 +573,13 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
     await name("取消").click();
     await group.getByRole("button", { name: old, exact: true }).click();
     await dialog.getByLabel("源路径").fill(next);
-    if (route === "paths")
-      await dialog.getByRole("switch", { name: "循环路径" }).check();
+    if (route === "paths") {
+      const looping = dialog.getByRole("switch", { name: "循环路径" });
+      await looping.locator("+ span").click();
+      await expect(looping).toBeChecked();
+      await expect(looping.locator("+ span")).toHaveCSS("width", "52px");
+      await expect(looping.locator("+ span > span")).toHaveCSS("width", "24px");
+    }
     if (title === "kstat 规则") {
       await expect(dialog.getByLabel("inode 编号")).toHaveValue(
         "18446744073709551615",
@@ -572,10 +590,14 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
     }
     await name("仅保存").click();
     await group.getByRole("button", { name: "添加规则", exact: true }).click();
-    if (title === "kstat 规则")
-      await expect(
-        dialog.getByRole("switch", { name: "完整克隆" }),
-      ).not.toBeChecked();
+    if (title === "kstat 规则") {
+      const clone = dialog.getByRole("switch", { name: "完整克隆" });
+      await expect(clone).not.toBeChecked();
+      await clone.locator("+ span").click();
+      await expect(clone).toBeChecked();
+      await clone.locator("+ span").click();
+      await expect(clone).not.toBeChecked();
+    }
     await dialog.getByLabel("源路径").fill(next);
     if (route === "redirect") {
       await expect(
@@ -604,6 +626,13 @@ test("all four rule pages edit, validate, remove and cancel before one confirmed
   }
   expect(store.text()).toBe(original);
   await openOverview(page);
+  const automatic = page.getByRole("switch", {
+    name: "归档中的自动应用偏好（不会注册启动任务）",
+  });
+  await expect(automatic).not.toBeChecked();
+  await expect(automatic.locator("+ span")).toHaveCSS("width", "52px");
+  await expect(automatic.locator("+ span")).toHaveCSS("height", "32px");
+  await expect(automatic.locator("+ span > span")).toHaveCSS("width", "24px");
   await page.getByRole("button", { name: "检查并确认保存" }).click();
   await expect(dialog).toContainText(digest(original));
   await expect(dialog).toContainText("/rules/kstats/0/static/inode");

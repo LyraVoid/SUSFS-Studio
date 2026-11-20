@@ -1,4 +1,4 @@
-import { Button, SimpleGrid, Stack, Switch, TextInput } from "@mantine/core";
+import { Button, SimpleGrid, Stack, TextInput } from "@mantine/core";
 import { useState } from "react";
 import {
   object,
@@ -18,7 +18,7 @@ import {
   type Translate,
 } from "../../i18n/messages";
 import type { Provider } from "../../transport/mock";
-import { DialogActions, DialogChoiceGroup } from "./M3eDialog";
+import { DialogActions, DialogChoiceGroup, DialogSwitch } from "./M3eDialog";
 
 export const modeLabels = {
   normal: "ruleNormal",
@@ -107,13 +107,11 @@ export function RuleForm({
           }
         />
         {group === "paths" && (
-          <Switch
+          <DialogSwitch
             label={t("ruleLooping")}
             checked={fields.looping === "true"}
             disabled={readOnly}
-            onChange={(event) =>
-              change("looping", String(event.currentTarget.checked))
-            }
+            onChange={(checked) => change("looping", String(checked))}
           />
         )}
         {redirect && (
@@ -153,15 +151,12 @@ export function RuleForm({
           </>
         )}
         {group === "kstats" && !isStatic && (
-          <Switch
+          <DialogSwitch
             label={t("ruleClone")}
             checked={field("mode") === "fullClone"}
             disabled={readOnly}
-            onChange={(event) =>
-              change(
-                "mode",
-                event.currentTarget.checked ? "fullClone" : "normal",
-              )
+            onChange={(checked) =>
+              change("mode", checked ? "fullClone" : "normal")
             }
           />
         )}

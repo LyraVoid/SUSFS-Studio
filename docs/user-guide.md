@@ -87,7 +87,7 @@ The checked Built-In GKI 2.4.0 runtime supports regular and looping paths, Map, 
 
 When **Automatic application** is enabled, Studio's own boot scripts run the pre-mount, late-pre-mount, post-mount, and late-load phases. If the archive disables automatic work, Studio exits before applying a provider. Studio first checks the live Provider and never loads a KO over an active Built-In or LKM result. A known-KO fallback is opt-in through the module's `load-lkm` marker. This path does not call the host manager's or FinaSU's task and does not require a host interface for `ksud susfs`.
 
-In standalone browser mode, preview works locally. Device save and export require a host. If a host has command execution but no verified file stream, save remains disabled with the reason shown in Rules → Overview. Automatic collection is also disabled.
+In standalone browser mode, preview works locally. Device save and export require a host. If a host has command execution but no verified file stream, save remains disabled with the reason shown in Rules → Overview.
 
 ## Change appearance
 

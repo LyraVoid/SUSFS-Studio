@@ -1,4 +1,4 @@
-import { Button, Switch } from "@mantine/core";
+import { Button } from "@mantine/core";
 import { useState } from "react";
 import type { useRuleArchive } from "../../features/config/useRuleArchive";
 import type { Translate } from "../../i18n/messages";
@@ -6,6 +6,7 @@ import type { ArchiveBridge } from "../../transport/archiveBridge";
 import type { HostChannel } from "../../transport/host";
 import { capabilityKeys, type Status } from "../../transport/mock";
 import type { OperationPlanStatus } from "../../transport/operations";
+import { ExpressiveSwitch } from "../atoms/ExpressiveSwitch";
 import {
   DialogActions,
   DialogChoiceGroup,
@@ -185,16 +186,16 @@ export function RulesOverview({
                 : t("controlUnmanaged")
           }
           trailing={
-            <Switch
-              aria-label={t("controlAutomatic")}
+            <ExpressiveSwitch
+              label={t("controlAutomatic")}
               checked={automatic === true}
               disabled={autoDisabled}
-              onChange={(event) =>
+              onChange={(checked) =>
                 archive.edit({
                   section: "root",
                   key: "automatic",
                   before: automatic,
-                  after: event.currentTarget.checked,
+                  after: checked,
                 })
               }
             />

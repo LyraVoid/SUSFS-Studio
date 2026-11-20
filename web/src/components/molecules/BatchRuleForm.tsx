@@ -1,4 +1,4 @@
-import { Button, Stack, Switch, Textarea } from "@mantine/core";
+import { Button, Stack, Textarea } from "@mantine/core";
 import { useState } from "react";
 import { path } from "../../features/config/preview";
 import {
@@ -8,7 +8,7 @@ import {
 } from "../../features/config/ruleEdits";
 import { redirectSchemeLabels, type Translate } from "../../i18n/messages";
 import type { Provider } from "../../transport/mock";
-import { DialogActions, DialogChoiceGroup } from "./M3eDialog";
+import { DialogActions, DialogChoiceGroup, DialogSwitch } from "./M3eDialog";
 
 export function BatchRuleForm({
   group,
@@ -83,10 +83,10 @@ export function BatchRuleForm({
           }
         />
         {group === "paths" && (
-          <Switch
+          <DialogSwitch
             label={t("ruleLooping")}
             checked={looping}
-            onChange={(event) => setLooping(event.currentTarget.checked)}
+            onChange={setLooping}
           />
         )}
         {redirect && (

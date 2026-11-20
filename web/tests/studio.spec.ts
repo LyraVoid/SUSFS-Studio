@@ -531,15 +531,7 @@ test("touch feedback, keyboard focus and safe diagnostic dialog", async ({
     .getByRole("link", { name: "设置" })
     .tap();
   const select = page.getByRole("button", { name: "主题", exact: true });
-  const automatic = page.getByRole("switch", { name: "自动采集" });
-  await expect(automatic).toBeDisabled();
-  await expect(automatic).not.toBeChecked();
-  await expect(
-    page.getByText("等待 Android 宿主和启动阶段验证。", { exact: true }),
-  ).toBeVisible();
-  await expect(automatic.locator("+ span")).toHaveCSS("width", "52px");
-  await expect(automatic.locator("+ span")).toHaveCSS("height", "32px");
-  await expect(automatic.locator("+ span > span")).toHaveCSS("width", "24px");
+  await expect(page.getByRole("switch")).toHaveCount(0);
   await select.tap();
   const menu = page.getByRole("menu", { name: "主题" });
   await expect(menu).toBeVisible();
