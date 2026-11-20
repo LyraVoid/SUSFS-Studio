@@ -31,6 +31,7 @@ export function M3eDialog({
       transitionProps={{ transition: "pop", duration: reduceMotion ? 0 : 160 }}
       classNames={{
         root: styles.root,
+        inner: styles.inner,
         content: styles.dialog,
         header: styles.header,
         body: styles.body,

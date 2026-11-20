@@ -15,16 +15,17 @@ export function DeviceFactsGroup({
       <h2 className={styles.title} id="device-title">
         {t("device")}
       </h2>
-      <dl className={styles.rows}>
+      <div className={styles.rows}>
         {(["model", "system", "kernel"] as const).map((field) => (
           <FactRow
             key={field}
             icon={field}
             label={t(field)}
             detail={device?.[field] ?? t("absent")}
+            interactive
           />
         ))}
-      </dl>
+      </div>
     </section>
   );
 }

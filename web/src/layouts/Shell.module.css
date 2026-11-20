@@ -93,11 +93,13 @@
   fill: var(--nav-pill);
   stroke: var(--nav-pill);
 }
-.nav a:hover .pill {
-  background: color-mix(in srgb, var(--nav-bg), var(--nav-muted) 8%);
-}
-.nav a[aria-current]:hover .pill {
-  background: color-mix(in srgb, var(--nav-pill), var(--nav-active) 8%);
+@media (hover: hover) {
+  .nav a:hover .pill {
+    background: color-mix(in srgb, var(--nav-bg), var(--nav-muted) 8%);
+  }
+  .nav a[aria-current]:hover .pill {
+    background: color-mix(in srgb, var(--nav-pill), var(--nav-active) 8%);
+  }
 }
 .skip {
   position: fixed;

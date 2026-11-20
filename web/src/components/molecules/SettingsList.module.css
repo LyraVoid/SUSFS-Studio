@@ -56,8 +56,10 @@
     border-radius var(--fast),
     transform var(--fast);
 }
-.action:enabled:hover {
-  background: var(--surface-container-high);
+@media (hover: hover) {
+  .action:enabled:hover {
+    background: var(--surface-container-high);
+  }
 }
 .action:enabled:active {
   background: color-mix(

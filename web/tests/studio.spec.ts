@@ -49,6 +49,10 @@ test("a late host response cannot overwrite a newer refresh", async ({
     { hello: fixtures.hello, active: fixtures.active, failed: fixtures.failed },
   );
   await page.goto("/");
+  await expect(page.getByRole("button", { name: /状态/ })).toHaveCSS(
+    "border-radius",
+    "16px",
+  );
   await expect(page.getByRole("status")).toContainText("v2.3.0");
   await page.getByRole("button", { name: /状态/ }).click();
   const refresh = page
@@ -210,6 +214,71 @@ test("three-item main navigation and six SUSFS tabs", async ({ page }) => {
   ).toBeDisabled();
   await menu.getByRole("link", { name: "设置" }).click();
   await expect(page.getByRole("heading", { name: "设置" })).toBeVisible();
+});
+
+test("touch feedback, keyboard focus and safe diagnostic dialog", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 360, height: 600 },
+    hasTouch: true,
+    reducedMotion: "reduce",
+  });
+  const page = await context.newPage();
+  await page.goto("/");
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty("--safe-area-inset-top", "40px");
+    document.documentElement.style.setProperty(
+      "--safe-area-inset-bottom",
+      "24px",
+    );
+  });
+  for (const label of ["型号", "系统", "内核"]) {
+    const button = page.getByRole("button", { name: new RegExp(label) });
+    await expect(button).toBeVisible();
+    await button.tap();
+    await expect(button).toHaveCSS(
+      "background-color",
+      await materialColor(page, "surface-bright"),
+    );
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  }
+  await page.getByRole("button", { name: /状态/ }).tap();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  const bounds = await dialog.boundingBox();
+  if (!bounds) throw new Error("Missing dialog bounds");
+  expect(bounds.y).toBeGreaterThanOrEqual(56);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(560);
+  expect(bounds.height).toBeLessThanOrEqual(480);
+  const body = dialog.locator('[class*="_body_"]');
+  expect(
+    await body.evaluate(
+      (element) => element.scrollHeight > element.clientHeight,
+    ),
+  ).toBe(true);
+  await body.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect(dialog.getByText("挂载路径前缀")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("navigation", { name: "主导航" })
+    .getByRole("link", { name: "设置" })
+    .tap();
+  const select = page.getByRole("combobox", { name: "主题" });
+  await select.tap();
+  const choice = select.locator("..");
+  await expect(choice).toHaveCSS("outline-style", "none");
+  await expect(choice.locator('[data-testid="settings-row"]')).toHaveCSS(
+    "background-color",
+    await materialColor(page, "surface-bright"),
+  );
+  await select.blur();
+  await page.keyboard.press("Tab");
+  await select.focus();
+  await expect(choice).toHaveCSS("outline-style", "solid");
+  await context.close();
 });
 
 test("Rules tabs keep the selected category visible", async ({ page }) => {

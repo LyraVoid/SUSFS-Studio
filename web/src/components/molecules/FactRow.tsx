@@ -6,22 +6,24 @@ export function FactRow({
   label,
   detail,
   onClick,
+  interactive = false,
 }: {
   icon: IconName;
   label: string;
   detail: string;
   onClick?: () => void;
+  interactive?: boolean;
 }) {
   const iconSlot = (
     <span className={styles.icon}>
       <Icon name={icon} />
     </span>
   );
-  if (onClick)
+  if (onClick || interactive)
     return (
       <button
         type="button"
-        className={`${styles.row} ${styles.action}`}
+        className={`${styles.row} ${styles.action} ${interactive ? styles.connected : styles.standalone}`}
         onClick={onClick}
       >
         {iconSlot}

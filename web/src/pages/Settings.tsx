@@ -57,6 +57,15 @@ function ChoiceRow<T extends Message>({
       />
       <select
         aria-labelledby={id}
+        onPointerDown={(event) => {
+          event.currentTarget.dataset.pointerFocus = "true";
+        }}
+        onKeyDown={(event) => {
+          delete event.currentTarget.dataset.pointerFocus;
+        }}
+        onBlur={(event) => {
+          delete event.currentTarget.dataset.pointerFocus;
+        }}
         value={value}
         onChange={(event) => {
           const next = options.find(

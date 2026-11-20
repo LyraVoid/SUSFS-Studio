@@ -1,7 +1,18 @@
 .root {
   --modal-x-offset: var(--s16);
-  --modal-y-offset: var(--s16);
+  --dialog-top: calc(var(--safe-top) + var(--s16));
+  --dialog-bottom: calc(var(--safe-bottom) + var(--s16));
+  --dialog-max-height: max(
+    0px,
+    min(80dvh, calc(100dvh - var(--dialog-top) - var(--dialog-bottom)))
+  );
   --modal-size: min(35rem, calc(100vw - 2rem));
+}
+.inner.inner {
+  padding-top: var(--dialog-top);
+  padding-bottom: var(--dialog-bottom);
+  padding-left: calc(var(--safe-left) + var(--s16));
+  padding-right: calc(var(--safe-right) + var(--s16));
 }
 .overlay {
   background: color-mix(in srgb, var(--scrim) 62%, transparent);
@@ -9,8 +20,10 @@
 .dialog.dialog {
   flex: 0 0 var(--modal-size);
   width: var(--modal-size);
-  max-width: 35rem;
-  max-height: calc(100dvh - 2rem);
+  max-width: 100%;
+  max-height: var(--dialog-max-height);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 0;
   border-radius: var(--r28);
@@ -31,7 +44,7 @@
   font-weight: 500;
 }
 .body.body {
-  max-height: calc(100dvh - 7rem);
+  min-height: 0;
   padding: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
