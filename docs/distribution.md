@@ -33,7 +33,8 @@ Two forms are published:
    ```
 
 The ZIP does not include a SUSFS kernel patch, a SUSFS kernel module, or a host
-manager.
+manager. Release assets are signed with Sigstore keyless signing; see
+[releases](releases.md#release-signatures) for verification.
 
 ## Corresponding source
 

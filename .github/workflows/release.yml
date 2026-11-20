@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 concurrency:
   group: release-${{ inputs.version }}
@@ -72,6 +73,10 @@ jobs:
           components: rustfmt, clippy
           targets: aarch64-linux-android
 
+      - uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v3.1.4
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: native
@@ -121,6 +126,26 @@ jobs:
           (cd release && sha256sum "$ASSET" update.json > SHA256SUMS)
           git diff --check
 
+      - name: Sign release assets
+        run: |
+          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/heads/main"
+          cosign sign-blob --yes \
+            --bundle "release/${ASSET}.bundle" \
+            "release/${ASSET}"
+          cosign sign-blob --yes \
+            --bundle release/SHA256SUMS.bundle \
+            release/SHA256SUMS
+          cosign verify-blob \
+            --bundle "release/${ASSET}.bundle" \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "release/${ASSET}"
+          cosign verify-blob \
+            --bundle release/SHA256SUMS.bundle \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            release/SHA256SUMS
+
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -128,8 +153,10 @@ jobs:
           args=(
             "$TAG"
             "release/$ASSET"
+            "release/${ASSET}.bundle"
             "release/update.json"
             "release/SHA256SUMS"
+            "release/SHA256SUMS.bundle"
             --target "$GITHUB_SHA"
             --title "SUSFS Studio $TAG"
             --generate-notes

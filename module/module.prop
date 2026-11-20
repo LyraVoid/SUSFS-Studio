@@ -1,7 +1,7 @@
 id=susfs_studio
 name=SUSFS Studio
-version=0.1.0-beta.1
-versionCode=1001
+version=1.0.0
+versionCode=10000
 author=LyraVoid and matsuzaka-yuki
 description=Independent SUSFS diagnostics and configuration manager for KSU
 updateJson=https://raw.githubusercontent.com/LyraVoid/SUSFS-Studio/main/update.json

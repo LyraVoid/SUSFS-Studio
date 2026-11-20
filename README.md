@@ -8,7 +8,7 @@ English · [简体中文](README.zh-CN.md)
 
 SUSFS Studio is an independent WebUI for Android devices with SUSFS. It shows device capabilities, manages configuration archives, and lets you review supported operations and their results without modifying the host manager.
 
-[Download Beta v0.1.0-beta.1](https://github.com/LyraVoid/SUSFS-Studio/releases/tag/v0.1.0-beta.1) · [User guide](docs/user-guide.md) · [Compatibility](docs/host-integration.md#compatibility-evidence-matrix)
+[Download v1.0.0](https://github.com/LyraVoid/SUSFS-Studio/releases/tag/v1.0.0) · [User guide](docs/user-guide.md) · [Compatibility](docs/host-integration.md#compatibility-evidence-matrix)
 
 ## Features
 
@@ -22,9 +22,11 @@ SUSFS Studio is an independent WebUI for Android devices with SUSFS. It shows de
 
 - An Android arm64 device with SUSFS already available in the kernel or through a loaded module. Studio does not install SUSFS itself.
 - A compatible root manager capable of opening module WebUI. Diagnostic commands and archive file transfer depend on the host interfaces available on that device.
-- Download the module ZIP from the [Beta release](https://github.com/LyraVoid/SUSFS-Studio/releases/tag/v0.1.0-beta.1), install it through the manager, and follow the manager's instructions to activate it. Open **SUSFS Studio** from the module list.
+- Download the module ZIP from the [v1.0.0 release](https://github.com/LyraVoid/SUSFS-Studio/releases/tag/v1.0.0), install it through the manager, and follow the manager's instructions to activate it. Open **SUSFS Studio** from the module list.
 
 Back up existing configuration and confirm that the module can be disabled before testing device operations. Availability depends on the provider, version, capability, and boot stage; unavailable operations remain gated. Saving an archive is separate from applying a plan, and restoring an archive does not itself restore kernel runtime state.
+
+Release ZIPs and `SHA256SUMS` are signed with Sigstore keyless signing. See [release signatures](docs/releases.md#release-signatures) for verification commands.
 
 ### Optional SUSFS providers
 

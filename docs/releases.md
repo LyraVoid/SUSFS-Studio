@@ -25,8 +25,8 @@ change, and push it to `main`. The asset name is:
 susfs-studio-<version>-arm64.zip
 ```
 
-For example, version `0.1.0-beta.1` uses tag `v0.1.0-beta.1` and asset
-`susfs-studio-0.1.0-beta.1-arm64.zip`.
+For example, version `1.0.0` uses tag `v1.0.0` and asset
+`susfs-studio-1.0.0-arm64.zip`.
 
 ## Release workflow
 
@@ -43,6 +43,28 @@ Run **Release module** from `main` and provide the version and version code from
 The module ZIP includes `LICENSE`, `THIRD_PARTY_NOTICES.md`, and the applicable
 licence texts. See [distribution notes](distribution.md) for the corresponding
 source and redistribution terms.
+
+## Release signatures
+
+Release assets are signed with Sigstore keyless signing. The workflow requests a
+short-lived OIDC identity from GitHub Actions and records the signature in the
+Sigstore transparency log, so no long-lived private key is stored in the
+repository. The release includes a `.bundle` file for the module ZIP and for
+`SHA256SUMS`.
+
+Verify a downloaded asset with cosign 3.x:
+
+```bash
+cosign verify-blob \
+  --bundle susfs-studio-1.0.0-arm64.zip.bundle \
+  --certificate-identity https://github.com/LyraVoid/SUSFS-Studio/.github/workflows/release.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  susfs-studio-1.0.0-arm64.zip
+```
+
+Use the same identity and issuer with `SHA256SUMS.bundle` to verify the checksum
+file. A signature proves which workflow built the asset; it does not by itself
+prove that the module works on a particular device.
 
 Set `prerelease=true` for beta, development, or release-candidate tags. The
 checked-in `update.json` still points to that exact tag, so a module installed

@@ -8,7 +8,7 @@
 
 SUSFS Studio 是面向已提供 SUSFS 的 Android 设备的独立 WebUI。它无需修改宿主管理器，即可查看设备能力、管理配置归档，并审阅受支持的操作及其结果。
 
-[下载 Beta v0.1.0-beta.1](https://github.com/LyraVoid/SUSFS-Studio/releases/tag/v0.1.0-beta.1) · [使用指南](docs/user-guide.md) · [兼容性记录](docs/host-integration.md#compatibility-evidence-matrix)
+[下载 v1.0.0](https://github.com/LyraVoid/SUSFS-Studio/releases/tag/v1.0.0) · [使用指南](docs/user-guide.md) · [兼容性记录](docs/host-integration.md#compatibility-evidence-matrix)
 
 ## 功能
 
@@ -22,9 +22,11 @@ SUSFS Studio 是面向已提供 SUSFS 的 Android 设备的独立 WebUI。它无
 
 - Android arm64 设备，且内核已内建 SUSFS，或设备已加载提供 SUSFS 的模块。Studio 本身不安装 SUSFS。
 - 能打开模块 WebUI 的兼容 Root 管理器。诊断命令和归档文件传输依赖设备上宿主提供的接口。
-- 从 [Beta 发布页](https://github.com/LyraVoid/SUSFS-Studio/releases/tag/v0.1.0-beta.1)下载模块 ZIP，通过管理器安装，并按管理器提示使其生效；随后在模块列表中打开 **SUSFS Studio**。
+- 从 [v1.0.0 发布页](https://github.com/LyraVoid/SUSFS-Studio/releases/tag/v1.0.0)下载模块 ZIP，通过管理器安装，并按管理器提示使其生效；随后在模块列表中打开 **SUSFS Studio**。
 
 测试设备操作前，请备份现有配置并确认可以停用模块。操作可用性取决于 Provider、版本、能力和启动阶段；条件不足时入口会受限。保存归档与应用操作计划是两个独立动作，恢复归档本身不会恢复内核运行状态。
+
+发布 ZIP 和 `SHA256SUMS` 使用 Sigstore 无密钥签名，校验命令见[发布签名](docs/releases.md#release-signatures)。
 
 ### 可选的 SUSFS 使用方案
 
